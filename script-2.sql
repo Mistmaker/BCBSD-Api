@@ -6,6 +6,8 @@ CREATE SCHEMA IF NOT EXISTS resources AUTHORIZATION postgres;
 CREATE SCHEMA IF NOT EXISTS operaciones AUTHORIZATION postgres;
 CREATE SCHEMA IF NOT EXISTS tthh AUTHORIZATION postgres;
 CREATE SCHEMA IF NOT EXISTS logistica AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS archivo AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS historial AUTHORIZATION postgres;
 
 -- FIN CREACION DE SCHEMAS
 -- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -174,7 +176,8 @@ CREATE TABLE IF NOT EXISTS admin.tb_usuarios (
     usuario_webmail_user text COLLATE pg_catalog."default",
     usuario_webmail_pass text COLLATE pg_catalog."default",
     usuario_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
-    usuario_fingreso timestamp without time zone DEFAULT CURRENT_TIMESTAMP(0)
+    usuario_fingreso timestamp without time zone DEFAULT CURRENT_TIMESTAMP(0),
+    usuario_tipo text COLLATE pg_catalog."default" DEFAULT 'USUARIO' :: text -- USUARIO, ADMINISTRADOR, SUPERADMINISTRADOR
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 
 DROP TABLE IF EXISTS admin.tb_usuario_rol CASCADE;
@@ -196,44 +199,13 @@ DROP TABLE IF EXISTS operaciones.tb_estaciones CASCADE;
 CREATE TABLE IF NOT EXISTS operaciones.tb_estaciones (
     estacion_id SERIAL NOT NULL PRIMARY KEY,
     estacion_nombre text COLLATE pg_catalog."default" NOT NULL,
+    estacion_tipo text COLLATE pg_catalog."default" DEFAULT 'ESTACION' NOT NULL,
     estacion_ubicacion_x text COLLATE pg_catalog."default",
     estacion_ubicacion_y text COLLATE pg_catalog."default",
     estacion_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 
-DROP TABLE IF EXISTS administrativo.tb_vehiculos CASCADE;
-CREATE TABLE IF NOT EXISTS administrativo.tb_vehiculos (
-    vehiculo_id SERIAL NOT NULL PRIMARY KEY,
-    fk_usuario_id integer REFERENCES admin.tb_usuarios(usuario_id) NOT NULL,
-    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id) NOT NULL,
-    fk_marca_id integer REFERENCES administrativo.tb_vehiculos_marcas(marca_id) NOT NULL,
-    vehiculo_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
-    vehiculo_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
-    vehiculo_direccion text COLLATE pg_catalog."default",
-    vehiculo_placa text COLLATE pg_catalog."default" NOT NULL UNIQUE,
-    vehiculo_toneladas numeric(4, 2),
-    vehiculo_tipo text COLLATE pg_catalog."default" NOT NULL,
-    vehiculo_color1 text COLLATE pg_catalog."default",
-    vehiculo_marca text COLLATE pg_catalog."default",
-    vehiculo_fingreso timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
-    custodio_id integer,
-    vehiculo_modelo text COLLATE pg_catalog."default",
-    vehiculo_chasis text COLLATE pg_catalog."default",
-    vehiculo_motor text COLLATE pg_catalog."default",
-    vehiculo_combustible text COLLATE pg_catalog."default" NOT NULL,
-    vehiculo_avaluo numeric(10, 2),
-    vehiculo_anio integer,
-    vehiculo_pais text COLLATE pg_catalog."default",
-    vehiculo_corroceria text COLLATE pg_catalog."default",
-    vehiculo_pasajeros integer,
-    vehiculo_cilindraje numeric(6, 2),
-    vehiculo_color2 text COLLATE pg_catalog."default",
-    vehiculo_proposito text COLLATE pg_catalog."default" DEFAULT 'PARTICULAR' :: text,
-    vehiculo_anio_matricula integer,
-    vehiculo_ramv text COLLATE pg_catalog."default",
-    vehiculo_sigla text COLLATE pg_catalog."default",
-    vehiculo_area text COLLATE pg_catalog."default"
-) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
 
 DROP TABLE IF EXISTS tthh.tb_personal CASCADE;
 CREATE TABLE IF NOT EXISTS tthh.tb_personal (
@@ -332,6 +304,41 @@ CREATE TABLE IF NOT EXISTS tthh.tb_conductores (
     conductor_pdf text COLLATE pg_catalog."default"
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 
+DROP TABLE IF EXISTS administrativo.tb_vehiculos CASCADE;
+CREATE TABLE IF NOT EXISTS administrativo.tb_vehiculos (
+    vehiculo_id SERIAL NOT NULL PRIMARY KEY,
+    fk_usuario_id integer REFERENCES admin.tb_usuarios(usuario_id) NOT NULL,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id) DEFAULT NULL,
+    fk_direccion_id integer REFERENCES tthh.tb_direcciones(direccion_id) DEFAULT NULL,
+    fk_marca_id integer REFERENCES administrativo.tb_vehiculos_marcas(marca_id) NOT NULL,
+    vehiculo_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    vehiculo_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    vehiculo_direccion text COLLATE pg_catalog."default",
+    vehiculo_placa text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    vehiculo_toneladas numeric(4, 2),
+    vehiculo_tipo text COLLATE pg_catalog."default" NOT NULL,
+    vehiculo_color1 text COLLATE pg_catalog."default",
+    vehiculo_marca text COLLATE pg_catalog."default",
+    vehiculo_fingreso timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    custodio_id integer,
+    vehiculo_modelo text COLLATE pg_catalog."default",
+    vehiculo_chasis text COLLATE pg_catalog."default",
+    vehiculo_motor text COLLATE pg_catalog."default",
+    vehiculo_combustible text COLLATE pg_catalog."default" NOT NULL,
+    vehiculo_avaluo numeric(10, 2),
+    vehiculo_anio integer,
+    vehiculo_pais text COLLATE pg_catalog."default",
+    vehiculo_corroceria text COLLATE pg_catalog."default",
+    vehiculo_pasajeros integer,
+    vehiculo_cilindraje numeric(6, 2),
+    vehiculo_color2 text COLLATE pg_catalog."default",
+    vehiculo_proposito text COLLATE pg_catalog."default" DEFAULT 'PARTICULAR' :: text,
+    vehiculo_anio_matricula integer,
+    vehiculo_ramv text COLLATE pg_catalog."default",
+    vehiculo_sigla text COLLATE pg_catalog."default",
+    vehiculo_area text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
 DROP TABLE IF EXISTS operaciones.tb_distributivo CASCADE;
 CREATE TABLE IF NOT EXISTS operaciones.tb_distributivo (
     distributivo_id SERIAL NOT NULL PRIMARY KEY,
@@ -377,6 +384,206 @@ CREATE TABLE IF NOT EXISTS operaciones.tb_tropas (
     tropa_detalle text COLLATE pg_catalog."default"
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 
+-- PARTES DE EMERGENCIA
+
+-- CLASIFICACION
+DROP TABLE IF EXISTS operaciones.tb_parte_clasificacion CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_clasificacion (
+    parte_clasificacion_id SERIAL NOT NULL PRIMARY KEY,
+    parte_clasificacion_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_clasificacion_descripcion text COLLATE pg_catalog."default" NOT NULL
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- SUBCLASIFICACION
+DROP TABLE IF EXISTS operaciones.tb_parte_subclasificacion CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_subclasificacion (
+    parte_subclasificacion_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_clasificacion_id integer NOT NULL REFERENCES operaciones.tb_parte_clasificacion(parte_clasificacion_id),
+    -- parte_subclasificacion_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_subclasificacion_descripcion text COLLATE pg_catalog."default" NOT NULL
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- USOS Y TIPOS
+DROP TABLE IF EXISTS operaciones.tb_parte_uso CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_uso (
+    parte_uso_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_subclasificacion_id integer NOT NULL REFERENCES operaciones.tb_parte_subclasificacion(parte_subclasificacion_id),
+    parte_uso_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_uso_descripcion text COLLATE pg_catalog."default" NOT NULL
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- CAUSAS
+DROP TABLE IF EXISTS operaciones.tb_parte_causa CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_causa (
+    parte_causa_id SERIAL NOT NULL PRIMARY KEY,
+    parte_causa_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_causa_descripcion text COLLATE pg_catalog."default" NOT NULL
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- POSIBLE CAUSA
+DROP TABLE IF EXISTS operaciones.tb_parte_posible_causa CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_posible_causa (
+    parte_posible_causa_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_causa_id integer NOT NULL REFERENCES operaciones.tb_parte_causa(parte_causa_id),
+    parte_posible_causa_descripcion text COLLATE pg_catalog."default" NOT NULL
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- EQUIPOS Y HERRAMIENTAS
+DROP TABLE IF EXISTS operaciones.tb_parte_equipo CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_equipo (
+    parte_equipo_id SERIAL NOT NULL PRIMARY KEY,
+    parte_equipo_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_equipo_descripcion text COLLATE pg_catalog."default" NOT NULL
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- MATERIALES
+DROP TABLE IF EXISTS operaciones.tb_parte_material CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_material (
+    parte_material_id SERIAL NOT NULL PRIMARY KEY,
+    parte_material_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_material_descripcion text COLLATE pg_catalog."default" NOT NULL
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- INSUMOS
+DROP TABLE IF EXISTS operaciones.tb_parte_insumo CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_insumo (
+    parte_insumo_id SERIAL NOT NULL PRIMARY KEY,
+    parte_insumo_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_insumo_descripcion text COLLATE pg_catalog."default" NOT NULL
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+
+-- PARTES DE EMERGENCIA DEL PERSONAL OPERATIVO - CABECERA
+DROP TABLE IF EXISTS operaciones.tb_parte CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte (
+    parte_id SERIAL NOT NULL PRIMARY KEY,
+    parte_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    parte_estado text COLLATE pg_catalog."default" DEFAULT 'REGISTRADO'::text,
+    parte_tipo text COLLATE pg_catalog."default", -- dos unicas opciones: AUXILIO o INCENDIO 
+    parte_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_serie integer NOT NULL,
+    parte_tipo_dia text COLLATE pg_catalog."default" DEFAULT 'LABORABLE'::text,
+    fk_usuario_id integer NOT NULL REFERENCES admin.tb_usuarios(usuario_id),
+    fk_personal_id integer NOT NULL REFERENCES tthh.tb_personal(personal_id),
+    fk_parroquia_id integer NOT NULL REFERENCES resources.parishes(parish_id),
+    parte_forma_aviso text COLLATE pg_catalog."default" NOT NULL,
+    parte_fecha_aviso date NOT NULL,
+    parte_hora_aviso time without time zone NOT NULL,
+    parte_fecha_transferencia date NOT NULL,
+    parte_hora_transferencia time without time zone NOT NULL,
+    parte_fecha_salida date NOT NULL,
+    parte_hora_salida time without time zone NOT NULL,
+    parte_fecha_arribo date NOT NULL,
+    parte_hora_arribo time without time zone NOT NULL,
+    parte_fecha_retorno date NOT NULL,
+    parte_hora_retorno time without time zone NOT NULL,
+    parte_zona text COLLATE pg_catalog."default",
+    parte_calle_principal text COLLATE pg_catalog."default" NOT NULL,
+    parte_calle_secundaria text COLLATE pg_catalog."default",
+    parte_direccion_numero text COLLATE pg_catalog."default",
+    parte_sector text COLLATE pg_catalog."default",
+    parte_referencia text COLLATE pg_catalog."default",
+    parte_informacion_alertante text COLLATE pg_catalog."default" NOT NULL,
+    parte_observaciones text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- PARTES DE EMERGENCIA DEL PERSONAL OPERATIVO - PERSONAL ASIGNADO
+DROP TABLE IF EXISTS operaciones.tb_parte_personal CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_personal (
+    parte_personal_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_parte(parte_id),
+    fk_personal_id integer NOT NULL REFERENCES tthh.tb_personal(personal_id),
+    parte_personal_funcion text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- PARTES DE EMERGENCIA DEL PERSONAL OPERATIVO - UNIDADES ASIGNADAS
+DROP TABLE IF EXISTS operaciones.tb_parte_unidades CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_unidades (
+    parte_unidad_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_parte(parte_id),
+    fk_vehiculo_id integer NOT NULL REFERENCES administrativo.tb_vehiculos(vehiculo_id),
+    parte_unidad_funcion text COLLATE pg_catalog."default",
+    parte_unidad_kilometraje_salida numeric(10,0) NOT NULL,
+    parte_unidad_kilometraje_ingreso numeric(10,0),
+    parte_unidad_despacho timestamp without time zone NOT NULL,
+    parte_unidad_salida timestamp without time zone,
+    parte_unidad_arribo timestamp without time zone,
+    parte_unidad_fin_operaciones timestamp without time zone
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- PARTES DE EMERGENCIA DEL PERSONAL OPERATIVO - PERSONAS ASISTIDAS
+DROP TABLE IF EXISTS operaciones.tb_parte_asistidos CASCADE;
+
+-- FIN PARTES DE EMERGENCIA DEL PERSONAL OPERATIVO 
+
+-- INICIO PARTES FORMATO ACTUAL
+
+DROP TABLE IF EXISTS operaciones.tb_partes CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes (
+    parte_id SERIAL NOT NULL PRIMARY KEY,
+    parte_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    parte_estado text COLLATE pg_catalog."default" DEFAULT 'REGISTRADO'::text,
+    parte_numero integer NOT NULL,
+    parte_tipo text COLLATE pg_catalog."default" NOT NULL, -- INCENDIO o AUXILIO
+    fk_estacion_id integer NOT NULL REFERENCES operaciones.tb_estaciones(estacion_id),
+    fk_usuario_id integer NOT NULL REFERENCES admin.tb_usuarios(usuario_id),
+    fk_personal_id integer NOT NULL REFERENCES tthh.tb_personal(personal_id),
+    fk_parroquia_id integer NOT NULL REFERENCES resources.parishes(parish_id),
+    parte_fecha date NOT NULL,
+    parte_forma_aviso text COLLATE pg_catalog."default" NOT NULL,
+    parte_codigo_salida text COLLATE pg_catalog."default" NOT NULL,
+    parte_tipo_dia text COLLATE pg_catalog."default" DEFAULT 'LABORABLE'::text,
+    parte_grupo_asiste text COLLATE pg_catalog."default" NOT NULL,
+    -- parte_fecha_aviso date NOT NULL,
+    -- parte_fecha_salida date NOT NULL,
+    -- parte_fecha_arribo date NOT NULL,
+    -- parte_fecha_finalizacion date NOT NULL,
+    -- parte_fecha_retorno date NOT NULL,
+    parte_hora_aviso time without time zone NOT NULL,
+    parte_hora_salida time without time zone NOT NULL,
+    parte_hora_arribo time without time zone NOT NULL,
+    parte_hora_finalizacion time without time zone NOT NULL,
+    parte_hora_retorno time without time zone NOT NULL,
+    parte_apoyo_requerido text COLLATE pg_catalog."default", -- S o N
+    parte_apoyo text COLLATE pg_catalog."default", -- Policia - Fuerzas Armadas - Cruz Roja - Otros
+    parte_apoyo_otros text COLLATE pg_catalog."default",
+    parte_provincia integer NOT NULL REFERENCES resources.states(state_id),
+    parte_canton integer NOT NULL REFERENCES resources.towns(town_id),
+    parte_parroquia integer NOT NULL REFERENCES resources.parishes(parish_id),
+    parte_direccion text COLLATE pg_catalog."default" NOT NULL,
+    parte_telefono text COLLATE pg_catalog."default",
+    parte_sector text COLLATE pg_catalog."default",
+    parte_tipo_sector text COLLATE pg_catalog."default", -- URBANO o RURAL
+    parte_referencia text COLLATE pg_catalog."default",
+    --SOLO PARA INCENDIO - DATOS DEL AFECTADO
+    parte_tipo_afectado text COLLATE pg_catalog."default", -- PROPIO o ARRENDADO
+    parte_afectado_propietario text COLLATE pg_catalog."default",
+    parte_afectado_arrendatario text COLLATE pg_catalog."default",
+    parte_afectado_otros text COLLATE pg_catalog."default",
+    -- AREA DESTRUIDA
+    parte_area_destruida_m2 decimal(16,4) NOT NULL DEFAULT 0,
+    parte_especies_predominantes text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NINGUNA'::text,
+    parte_total_superficie_quemada text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NINGUNA'::text,
+    parte_lugar_posible_inicio text COLLATE pg_catalog."default",
+
+    --FIN SOLO PARA INCENDIO
+
+    --SOLO PARA RESCATE 
+    parte_personas_institucion text COLLATE pg_catalog."default" DEFAULT 'NINGUNA'::text,
+    parte_nombre_representante text COLLATE pg_catalog."default" DEFAULT 'NINGUNA'::text,
+    parte_propietario_afectado text COLLATE pg_catalog."default" DEFAULT 'NINGUNO'::text,
+    parte_datos_adicionales text COLLATE pg_catalog."default" DEFAULT 'NINGUNO'::text,
+    --FIN SOLO PARA RESCATE
+
+    parte_danios_materiales text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NINGUNA'::text,
+    parte_descripcion_operaciones text COLLATE pg_catalog."default" NOT NULL,
+    parte_longitud text COLLATE pg_catalog."default" NOT NULL,
+    parte_latitud text COLLATE pg_catalog."default" NOT NULL
+
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- FIN PARTES FORMATO ACTUAL
+
 DROP TABLE IF EXISTS logistica.tb_ordenesmovilizacion CASCADE;
 CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmovilizacion (
     orden_id SERIAL NOT NULL PRIMARY KEY,
@@ -402,6 +609,77 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmovilizacion (
     orden_observaciones text COLLATE pg_catalog."default"
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 
+-- Crear el esquema "archivo"
+
+
+-- Crear la tabla para las direcciones
+DROP TABLE IF EXISTS archivo.direcciones CASCADE;
+CREATE TABLE archivo.direcciones (
+    direccion_id SERIAL PRIMARY KEY,
+    direccion_sigla VARCHAR(10) NOT NULL,
+    direccion_nombre_direccion TEXT NOT NULL
+);
+
+-- Crear la tabla para los tipos de documentos
+DROP TABLE IF EXISTS archivo.tipo_documentos CASCADE;
+CREATE TABLE archivo.tipo_documentos (
+    tipodocumento_id SERIAL PRIMARY KEY,
+    tipodocumento_tipo VARCHAR(50) NOT NULL
+);
+
+-- Crear la tabla principal para gestionar el archivo
+DROP TABLE IF EXISTS archivo.documentos CASCADE;
+CREATE TABLE archivo.documentos (
+    documento_id SERIAL PRIMARY KEY,
+    documento_direccion_origen_id INT REFERENCES archivo.direcciones(direccion_id),
+    documento_direccion_destino_id INT REFERENCES archivo.direcciones(direccion_id),
+    documento_tipo_documento_id INT REFERENCES archivo.tipo_documentos(tipodocumento_id),
+    documento_numero_documento TEXT NOT NULL UNIQUE,
+    documento_numero_folio INT NOT NULL,
+    documento_fecha_documento DATE NOT NULL,
+    documento_remitente TEXT NOT NULL,
+    documento_destinatario TEXT NOT NULL,
+    documento_asunto TEXT NOT NULL,
+    documento_archivo_escaneado TEXT NOT NULL,
+    documento_ubicacion_fisica TEXT NOT NULL,
+    documento_anio INT NOT NULL
+);
+
+-- Crear la tabla para registrar la salida de los archivos físicos
+DROP TABLE IF EXISTS archivo.actas_entrega CASCADE;
+CREATE TABLE archivo.actas_entrega (
+    acta_entrega_id SERIAL PRIMARY KEY,
+    acta_entrega_documento_id INT REFERENCES archivo.documentos(documento_id),
+    acta_entrega_fecha_entrega DATE NOT NULL,
+    acta_entrega_receptor TEXT NOT NULL,
+    acta_entrega_descripcion TEXT
+);
+
+-- Crear la tabla para registrar el retorno de los archivos físicos
+DROP TABLE IF EXISTS archivo.registro_retorno CASCADE;
+CREATE TABLE archivo.registro_retorno (
+    retorno_id SERIAL PRIMARY KEY,
+    retorno_acta_entrega_id INT REFERENCES archivo.actas_entrega(acta_entrega_id),
+    retorno_fecha_retorno DATE NOT NULL,
+    retorno_receptor TEXT NOT NULL,
+    retorno_descripcion TEXT
+);
+
+-- Población inicial de las tablas de direcciones y tipos de documentos
+
+-- Ejemplo de direcciones
+INSERT INTO archivo.direcciones (direccion_sigla, direccion_nombre_direccion) VALUES 
+('JB', 'Jefatura de Bomberos'),
+('DA', 'Dirección Administrativa'),
+('DJ', 'Dirección Jurídica'),
+('DPCE', 'Dirección Planificación y Control Estratégico');
+
+-- Ejemplo de tipos de documentos
+INSERT INTO archivo.tipo_documentos (tipodocumento_tipo) VALUES 
+('Memorando'),
+('Informe'),
+('Oficio');
+
 -- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 -- SCRIPTS INICIALES
 -- INSERT INTO
@@ -424,48 +702,55 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmovilizacion (
 -- VALUES
 --     (1, 1, 1, 'admin', '$2y$10$C64q4N9kT3MqHUyzmqjpIe2x8/GGYSgIK2ZjDmthuP2NasZqazLxO');
 
-INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('ROOT');
-INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('DIRECCIÓN ADMINISTRATIVA');
-INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('SUBJEFATURA');
-INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('SCI');
-INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('OPERACIONES');
+INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('ROOT'); --1
+INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('Dir. Administrativa'); --2
+INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('Subjefatura'); --3
+INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('SCI'); --4
+INSERT INTO admin.tb_modulos (modulo_nombre) VALUES ('Operaciones'); --5
 
 --DIRECCIÓN ADMINISTRATIVA
-INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (2, 'UNIDADES');
-INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (2, 'ORDENES DE MOVILIZACIÓN');
+INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (2, 'Unidades'); --1
+INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (2, 'Ordenes de movilización'); --2
 
 --SUBJEFATURA
-INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (3, 'PARÁMETROS');
-INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (3, 'INTERVENCIONES');
+INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (3, 'Parámetros'); --3
+INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (3, 'Intervenciones'); --4
+INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (3, 'Voluntarios'); --5
 
 --OPERACIONES
-INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (5, 'DISTRIBUTIVO');
-INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (5, 'PARTES DE SERVICIO');
+INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (5, 'Distributivo'); --6
+INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) VALUES (5, 'Partes de servicio'); --7
 
 --DIRECCIÓN ADMINISTRATIVA
-INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Visualizar listado de vehiculos', 'Administrar vehiculos',1,'/admin/vehiculos');
-INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Visualizar listado de ordenes', 'Administrar ordenes de movilizacion',2,'/admin/ordenes-movilizacion');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Vehiculos', 'Administrar vehiculos',1,'/admin/vehiculos');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Ordenes de Movilizacion', 'Administrar ordenes de movilizacion',2,'/admin/ordenes-movilizacion');
 INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Ingresar nuevo vehiculo', 'Poder registrar nuevas unidades',1,null);
 
 --SUBJEFATURA
 INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Estadisticas', 'Estadisticas operaticas',3,'/sbj/dashboard');
 INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Intervenciones', 'Administración de intervenciones de emergencias',4,'/sbj/intervenciones');
 INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Ausencias', 'Registros de ausencias del presonal',3,'/sbj/ausencias');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Voluntarios', 'Registros de voluntarios',5,'/sbj/ubv-voluntarios');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('UBV Actividades', 'Registros de actividades de personal voluntario',5,'/sbj/ubv-actividades');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('UBV Eventos', 'Registros de eventos de personal voluntario',5,'/sbj/ubv-eventos');
 
 --OPERACIONES
-INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Visualizar listado de distributivos', 'Administrar distributivos de personal',5,'/ops/distributivos');
-INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Visualizar listado de partes de servicio', 'Administrar partes de servicio',6,'/ops/partes-servicio');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Distributivo', 'Administrar distributivos de personal',6,'/ops/distributivos');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Partes de servicio', 'Administrar partes de servicio',7,'/ops/partes-servicio');
 
 
 
-INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-1');
-INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-2');
-INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-3');
-INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-4');
-INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-5');
-INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-6');
-INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-7');
-INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-8');
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('X-1','ESTACION'); --1
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('X-2','ESTACION'); --2
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('X-3','ESTACION'); --3
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('X-4','ESTACION'); --4
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('X-5','ESTACION'); --5
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('X-6','ESTACION'); --6
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('X-7','ESTACION'); --7
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('X-8','ESTACION'); --8
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('Grupo de Canes','GRUPO'); --9
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('Grupo de Drones','GRUPO'); --10
+INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) VALUES ('Escuela EFEESB','DIRECCION'); --11
 
 INSERT INTO administrativo.tb_vehiculos_marcas (marca_nombre) VALUES ('S/M');
 
@@ -516,7 +801,7 @@ SELECT
     perfil_descripcion,
     perfil_estado
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         perfil_id,
@@ -555,7 +840,7 @@ SELECT
     cie_no_afeccion,
     cie_observacion
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT
         cie_id,
@@ -624,7 +909,7 @@ SELECT
     usuario_registro,
     usuario_fingreso
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         usuario_id,
@@ -730,7 +1015,7 @@ SELECT
     vehiculo_ramv,
     vehiculo_sigla
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         vehiculo_id,
@@ -815,7 +1100,7 @@ SELECT
     country_gentilicio,
     country_iso3
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         country_id,
@@ -851,7 +1136,7 @@ SELECT
     state_name,
     fk_country_id
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         state_id,
@@ -882,7 +1167,7 @@ SELECT
     town_name,
     fk_state_id
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         town_id,
@@ -913,7 +1198,7 @@ SELECT
     parish_name,
     fk_town_id
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         parish_id,
@@ -1036,7 +1321,7 @@ SELECT
     persona_enfermedad_cronica,
     persona_enfermedad_cronica_describa
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         persona_id,
@@ -1179,7 +1464,7 @@ SELECT
     personal_baselegal,
     personal_regimen_laboral
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         ppersonal_id,
@@ -1245,7 +1530,7 @@ SELECT
     direccion_baselegal,
     direccion_tipo
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         direccion_id,
@@ -1311,7 +1596,7 @@ SELECT
     puesto_partida,
     fk_grupo_id
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         puesto_id,
@@ -1369,7 +1654,7 @@ SELECT
     fk_estacion_id,
     peloton_nombre
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         peloton_id,
@@ -1411,7 +1696,7 @@ SELECT
     licencia_categoria,
     licencia_descripcion
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         licencia_id,
@@ -1459,7 +1744,7 @@ SELECT
     conductor_licencia_validez,
     conductor_pdf
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         conductor_id,
@@ -1524,7 +1809,7 @@ SELECT
     biometrico_id,
     fk_jornada_id
 FROM dblink(
-    'dbname=db_cbsd_old user=postgres password=root host=localhost',
+    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
     $$
     SELECT 
         personal_id,

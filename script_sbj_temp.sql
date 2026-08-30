@@ -150,6 +150,149 @@ CREATE TABLE IF NOT EXISTS subjefatura.tb_aph_hojaruta_medicamentos (
     -- aph_hojaruta_medicamento_frecuencia text COLLATE pg_catalog."default"
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 
+-- TABLAS BOMBEROS VOLUNTARIOS
+
+DROP TABLE IF EXISTS subjefatura.tb_voluntarios CASCADE;
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios (
+    voluntario_id SERIAL NOT NULL PRIMARY KEY,
+    voluntario_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    voluntario_tipo_doc text COLLATE pg_catalog."default" NOT NULL DEFAULT 'CEDULA' :: text,
+    voluntario_doc_identidad text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_pass text COLLATE pg_catalog."default" NULL,
+    voluntario_nombres text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_apellidos text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_sexo text COLLATE pg_catalog."default",
+    voluntario_promocion text COLLATE pg_catalog."default",
+    voluntario_imagen text COLLATE pg_catalog."default" DEFAULT 'default.png' :: text,
+    voluntario_direccion text COLLATE pg_catalog."default",
+    voluntario_telefono text COLLATE pg_catalog."default",
+    voluntario_correo text COLLATE pg_catalog."default",
+    voluntario_fingreso timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    fk_usuario_id integer,
+    voluntario_fnacimiento date,
+    voluntario_nacionalidad text COLLATE pg_catalog."default" DEFAULT 'ECUATORIANA' :: text,
+    voluntario_celular text COLLATE pg_catalog."default",
+    voluntario_estadocivil text COLLATE pg_catalog."default",
+    voluntario_tiposangre text COLLATE pg_catalog."default",
+    fk_parroquia_id integer DEFAULT 230151,
+    voluntario_principal text COLLATE pg_catalog."default",
+    voluntario_secundaria text COLLATE pg_catalog."default",
+    voluntario_no_casa text COLLATE pg_catalog."default",
+    voluntario_referencia text COLLATE pg_catalog."default",
+    voluntario_barrio_ciudadela text COLLATE pg_catalog."default",
+    voluntario_barrio_sector text COLLATE pg_catalog."default",
+    voluntario_titulo text COLLATE pg_catalog."default",
+    voluntario_anexo_cedula text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_cemergencia_nombre text COLLATE pg_catalog."default",
+    voluntario_cemergencia_parentesco text COLLATE pg_catalog."default",
+    voluntario_cemergencia_direccion text COLLATE pg_catalog."default",
+    voluntario_cemergencia_telefono text COLLATE pg_catalog."default",
+    voluntario_discapacidad_tiene text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_discapacidad_tipo text COLLATE pg_catalog."default",
+    voluntario_discapacidad_porcentaje text COLLATE pg_catalog."default",
+    voluntario_discapacidad_conadis text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_discapacidad_conadis_numero text COLLATE pg_catalog."default",
+    voluntario_enfermedad_cronica text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_enfermedad_cronica_describa text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- TABLA PARA HISTORIAL
+DROP TABLE IF EXISTS historial.tb_voluntarios CASCADE;
+CREATE TABLE IF NOT EXISTS historial.tb_voluntarios (
+    voluntario_id SERIAL REFERENCES subjefatura.tb_voluntarios (voluntario_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    voluntario_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    voluntario_tipo_doc text COLLATE pg_catalog."default" NOT NULL DEFAULT 'CEDULA' :: text,
+    voluntario_doc_identidad text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_pass text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_nombres text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_apellidos text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_sexo text COLLATE pg_catalog."default",
+    voluntario_promocion text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_imagen text COLLATE pg_catalog."default" DEFAULT 'default.png' :: text,
+    voluntario_direccion text COLLATE pg_catalog."default",
+    voluntario_telefono text COLLATE pg_catalog."default",
+    voluntario_correo text COLLATE pg_catalog."default",
+    voluntario_fingreso timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    fk_usuario_id integer,
+    voluntario_fnacimiento date,
+    voluntario_nacionalidad text COLLATE pg_catalog."default" DEFAULT 'ECUATORIANA' :: text,
+    voluntario_celular text COLLATE pg_catalog."default",
+    voluntario_estadocivil text COLLATE pg_catalog."default",
+    voluntario_tiposangre text COLLATE pg_catalog."default",
+    fk_parroquia_id integer DEFAULT 230151,
+    voluntario_principal text COLLATE pg_catalog."default",
+    voluntario_secundaria text COLLATE pg_catalog."default",
+    voluntario_no_casa text COLLATE pg_catalog."default",
+    voluntario_referencia text COLLATE pg_catalog."default",
+    voluntario_barrio_ciudadela text COLLATE pg_catalog."default",
+    voluntario_barrio_sector text COLLATE pg_catalog."default",
+    voluntario_titulo text COLLATE pg_catalog."default",
+    voluntario_anexo_cedula text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_cemergencia_nombre text COLLATE pg_catalog."default",
+    voluntario_cemergencia_parentesco text COLLATE pg_catalog."default",
+    voluntario_cemergencia_direccion text COLLATE pg_catalog."default",
+    voluntario_cemergencia_telefono text COLLATE pg_catalog."default",
+    voluntario_discapacidad_tiene text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_discapacidad_tipo text COLLATE pg_catalog."default",
+    voluntario_discapacidad_porcentaje text COLLATE pg_catalog."default",
+    voluntario_discapacidad_conadis text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_discapacidad_conadis_numero text COLLATE pg_catalog."default",
+    voluntario_enfermedad_cronica text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_enfermedad_cronica_describa text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+DROP TABLE IF EXISTS subjefatura.tb_voluntarios_eventos CASCADE;
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios_eventos (
+    evento_id SERIAL NOT NULL PRIMARY KEY,
+    evento_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    evento_estado text COLLATE pg_catalog."default" DEFAULT 'GENERADO'::text,
+    evento_fecha_inicio date NOT NULL,
+    evento_hora_inicio text COLLATE pg_catalog."default",
+    evento_fecha_finalizacion date NOT NULL,
+    evento_hora_finalizacion text COLLATE pg_catalog."default",
+    evento_motivo text COLLATE pg_catalog."default" NOT NULL,
+    evento_lugar text COLLATE pg_catalog."default" NOT NULL,
+    evento_latitud text COLLATE pg_catalog."default",
+    evento_longitud text COLLATE pg_catalog."default",
+    evento_descripcion text COLLATE pg_catalog."default" NOT NULL
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+DROP TABLE IF EXISTS subjefatura.tb_voluntarios_eventos_participantes CASCADE;
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios_eventos_participantes (
+    evento_participante_id SERIAL NOT NULL PRIMARY KEY,
+    fk_evento_id integer NOT NULL REFERENCES subjefatura.tb_voluntarios_eventos (evento_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_voluntario_id integer NOT NULL REFERENCES subjefatura.tb_voluntarios (voluntario_id) ON DELETE RESTRICT ON UPDATE RESTRICT
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+DROP TABLE IF EXISTS subjefatura.tb_voluntarios_actividades CASCADE;
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios_actividades (
+    actividad_id SERIAL NOT NULL PRIMARY KEY,
+    actividad_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    actividad_estado text COLLATE pg_catalog."default" DEFAULT 'INICIADA'::text,
+    fk_voluntario_id integer NOT NULL REFERENCES subjefatura.tb_voluntarios (voluntario_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    actividad_actividad text COLLATE pg_catalog."default" NOT NULL,
+    actividad_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    actividad_fecha_inicio timestamp without time zone NOT NULL,
+    actividad_fecha_finalizacion timestamp without time zone,
+    actividad_evidencia text COLLATE pg_catalog."default",
+    fk_ppersonal_id integer
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+DROP TABLE IF EXISTS subjefatura.tb_voluntarios_asignacion CASCADE;
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios_asignacion (
+    asignacion_id SERIAL NOT NULL PRIMARY KEY,
+    asignacion_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    asignacion_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    fk_voluntario_id integer NOT NULL REFERENCES subjefatura.tb_voluntarios (voluntario_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_estacion_id integer NOT NULL REFERENCES operaciones.tb_estaciones (estacion_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_unidad_id integer,
+    asignacion_fecha_inicio date NOT NULL,
+    asignacion_fecha_fin date
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- FIN TABLAS BOMBEROS VOLUNTARIOS
+
+
 --REGISTROS INICIALES
 INSERT INTO subjefatura.tb_aph_hojaruta_tipoemergencia(aph_hojaruta_tipoemergencia_descripcion) VALUES ('TRASLADO DE PACIENTE');
 INSERT INTO subjefatura.tb_aph_hojaruta_tipoemergencia(aph_hojaruta_tipoemergencia_descripcion) VALUES ('ATROPELLAMIENTO');

@@ -54,13 +54,14 @@ if ($usuarioDb && $usuarioDb['usuario_pass'] == md5($password)) {
         'iat' => time(),
         'exp' => time() + 3600,
         'sub' => $usuarioDb['usuario_id'],
-        'nombre' => $usuarioDb['usuario_login']
+        'nombre' => $usuarioDb['usuario_login'],
+        'modulo' => 'administrativo'
     ];
 
     $jwt = JWT::encode($payload, $key, $alg);
 
     $db = new Database();
-    $db->query("SELECT fk_usuario_id,rol_id,modulo_nombre,submodulo_nombre,rol_path FROM admin.tb_usuario_rol ur
+    $db->query("SELECT fk_usuario_id,rol_id,modulo_nombre,submodulo_nombre,rol_nombre,rol_path FROM admin.tb_usuario_rol ur
                 INNER JOIN admin.tb_roles r on r.rol_id = ur.fk_rol_id
                 INNER JOIN admin.tb_submodulos s on s.submodulo_id = r.fk_submodulo_id
                 INNER JOIN admin.tb_modulos m on m.modulo_id = s.fk_modulo_id WHERE rol_path IS NOT NULL AND fk_usuario_id = :fk_usuario_id");
@@ -74,6 +75,7 @@ if ($usuarioDb && $usuarioDb['usuario_pass'] == md5($password)) {
     $rolesUsuario = $db->resultset();
     $db->closeConnection();
 
+    $grouped = array();
     // Reestructuración
     foreach ($menusUsuario as $item) {
         $modulo = $item['modulo_nombre'];
@@ -88,7 +90,7 @@ if ($usuarioDb && $usuarioDb['usuario_pass'] == md5($password)) {
         }
 
         $grouped[$modulo]['children'][] = [
-            'name' => $item['submodulo_nombre'],
+            'name' => $item['rol_nombre'],
             'url'  => $item['rol_path'],
             'icon' => 'nav-icon-bullet'
         ];

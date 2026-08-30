@@ -59,14 +59,14 @@ try {
 			custodio_id, vehiculo_modelo, vehiculo_chasis, vehiculo_motor, 
 			vehiculo_combustible, vehiculo_avaluo, vehiculo_anio, vehiculo_pais, vehiculo_corroceria, 
 			vehiculo_pasajeros, vehiculo_cilindraje, vehiculo_color2, vehiculo_proposito, 
-			vehiculo_anio_matricula, vehiculo_ramv, vehiculo_sigla
+			vehiculo_anio_matricula, vehiculo_ramv, vehiculo_sigla,vehiculo_area
 		) VALUES (
 			:fk_usuario_id, :fk_estacion_id, :fk_marca_id, 
 			:vehiculo_placa, :vehiculo_toneladas, :vehiculo_tipo, :vehiculo_color1, :vehiculo_marca, 
 			:custodio_id, :vehiculo_modelo, :vehiculo_chasis, :vehiculo_motor, 
 			:vehiculo_combustible, :vehiculo_avaluo, :vehiculo_anio, :vehiculo_pais, :vehiculo_corroceria, 
 			:vehiculo_pasajeros, :vehiculo_cilindraje, :vehiculo_color2, :vehiculo_proposito, 
-			:vehiculo_anio_matricula, :vehiculo_ramv, :vehiculo_sigla
+			:vehiculo_anio_matricula, :vehiculo_ramv, :vehiculo_sigla,:vehiculo_area
 		) RETURNING vehiculo_id ');
 
 		$request->fk_usuario_id = 1;
@@ -99,6 +99,7 @@ try {
 		$database->bind(':vehiculo_anio_matricula', prop($request, 'vehiculo_anio_matricula'));
 		$database->bind(':vehiculo_ramv', prop($request, 'vehiculo_ramv'));
 		$database->bind(':vehiculo_sigla', prop($request, 'vehiculo_sigla'));
+		$database->bind(':vehiculo_area', prop($request, 'vehiculo_area'));
 
 		$inserted = $database->single(); // ejecuta y devuelve resultado
 		if (!$inserted) {
@@ -113,6 +114,7 @@ try {
 		$database->query('UPDATE administrativo.tb_vehiculos SET 
 						fk_usuario_id = :fk_usuario_id,
 						fk_estacion_id = :fk_estacion_id,
+						fk_direccion_id = :fk_direccion_id,
 						fk_marca_id = :fk_marca_id,
 						vehiculo_estado = :vehiculo_estado,
 						vehiculo_direccion = :vehiculo_direccion,
@@ -137,13 +139,20 @@ try {
 						vehiculo_proposito = :vehiculo_proposito,
 						vehiculo_anio_matricula = :vehiculo_anio_matricula,
 						vehiculo_ramv = :vehiculo_ramv,
-						vehiculo_sigla = :vehiculo_sigla
+						vehiculo_sigla = :vehiculo_sigla,
+						vehiculo_area = :vehiculo_area
 					WHERE vehiculo_id = :vehiculo_id');
 
+		if ($request->vehiculo_area == "ADMINISTRATIVO" ) {
+			$request->fk_estacion_id = null;
+		} else {
+			$request->fk_direccion_id= null;
+		}
 
 		$database->bind(':vehiculo_id', prop($request, 'vehiculo_id'));
 		$database->bind(':fk_usuario_id', prop($request, 'fk_usuario_id'));
 		$database->bind(':fk_estacion_id', prop($request, 'fk_estacion_id'));
+		$database->bind(':fk_direccion_id', prop($request, 'fk_direccion_id'));
 		$database->bind(':fk_marca_id', prop($request, 'fk_marca_id'));
 		$database->bind(':vehiculo_estado', prop($request, 'vehiculo_estado'));
 		$database->bind(':vehiculo_direccion', prop($request, 'vehiculo_direccion'));
@@ -169,6 +178,7 @@ try {
 		$database->bind(':vehiculo_anio_matricula', prop($request, 'vehiculo_anio_matricula'));
 		$database->bind(':vehiculo_ramv', prop($request, 'vehiculo_ramv'));
 		$database->bind(':vehiculo_sigla', prop($request, 'vehiculo_sigla'));
+		$database->bind(':vehiculo_area', prop($request, 'vehiculo_area'));
 
 		$success = $database->execute();
 

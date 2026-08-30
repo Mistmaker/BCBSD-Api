@@ -72,12 +72,22 @@ try {
     inner join tthh.tb_personal_puestos pp ON pp.fk_personal_id = p.personal_id inner join tthh.tb_puestos pu on pu.puesto_id = pp.fk_puesto_id
     inner join resources.tb_personas pe on pe.persona_id = fk_persona_id WHERE ppersonal_estado ='EN FUNCIONES' and puesto_id=4 order by persona_apellidos, persona_nombres";
     
-    $sqlCustodio = "SELECT custodio_id FROM administrativo.tb_vehiculos where vehiculo_id = :vehiculo_id";
+    $sqlCustodio = "SELECT custodio_id,d.direccion_codigo,e.estacion_nombre
+    FROM administrativo.tb_vehiculos v
+    left join tthh.tb_direcciones d on d.direccion_id = v.fk_direccion_id
+    left join operaciones.tb_estaciones e on e.estacion_id = v.fk_estacion_id
+    where v.vehiculo_id = :vehiculo_id";
 
     $database->query($sqlCustodio);
     $database->bind('vehiculo_id', prop($request, 'fk_unidad_id'));
     $dataDirAdmin = $database->single();
     $request->director_administrativo = $dataDirAdmin["custodio_id"]; // TODO: reemplazar por custodio del vehiculo
+    $origen = '';
+    if (isset($dataDirAdmin["direccion_codigo"])) {
+        $origen = $dataDirAdmin["direccion_codigo"];
+    } else if (isset($dataDirAdmin["estacion_nombre"])) {
+        $origen = $dataDirAdmin["estacion_nombre"];
+    }
 
     if (!isset($request->orden_id)) {
 
@@ -103,7 +113,7 @@ try {
         }
 
         // Obtener serie y codigo
-        $datosCodigo = nextCodeProject('');
+        $datosCodigo = nextCodeProject($origen);
         // print_r($datosCodigo);
         $request->orden_codigo = $datosCodigo["code"];
         $request->orden_codigo_serie = $datosCodigo["orden_codigo_serie"];
@@ -226,7 +236,7 @@ function getFecha($formato = 'Y-m-d')
 /*
 * GENERADOR DE CÓDIGO DE PROYECTOS
 */
-function nextCodeProject($entity)
+function nextCodeProject($origen)
 {
     // DEFINIR PREFIJO DE SERIE
     $pref = "BCBSD";
@@ -238,7 +248,7 @@ function nextCodeProject($entity)
     $project = 'MOV';
     // CONSULTAR ÚLTIMO ID DE CÓDIGO GENERADO DEL AÑO
     $database = new Database();
-    $database->query("SELECT MAX(orden_codigo_serie) as id FROM logistica.tb_ordenesmovilizacion WHERE (date_part('year',orden_registro)=date_part('year',CURRENT_DATE))");
+    $database->query("SELECT MAX(orden_codigo_serie) as id FROM logistica.tb_ordenesmovilizacion WHERE (date_part('year',orden_registro)=date_part('year',CURRENT_DATE)) AND orden_codigo like '{$pref}{$year}{$project}{$origen}%'");
     $row = $database->single();
     $database->closeConnection();
     $id = ($row['id'] == null ? 0 : $row['id']) + 1;
@@ -250,7 +260,7 @@ function nextCodeProject($entity)
     // $id = ($row['id'] == null ? 0 : $row['id']) + 1;
     // CONSULTAR ULTIMA SERIE
     $database = new Database();
-    $database->query("SELECT MAX(orden_serie) as serie FROM logistica.tb_ordenesmovilizacion WHERE (date_part('year',orden_registro)=date_part('year',CURRENT_DATE)) AND orden_estado <> 'ORDEN ANULADA' ");
+    $database->query("SELECT MAX(orden_serie) as serie FROM logistica.tb_ordenesmovilizacion WHERE (date_part('year',orden_registro)=date_part('year',CURRENT_DATE)) AND orden_codigo like '{$pref}{$year}{$project}{$origen}%' and orden_estado <> 'ORDEN ANULADA' ");
     $row_serie = $database->single();
     $database->closeConnection();
     $n_serie = ($row_serie['serie'] == null ? 0 : $row_serie['serie']) + 1;
@@ -266,7 +276,7 @@ function nextCodeProject($entity)
 
     // REGISTRAR CÓDIGO DE PROYECTOS
     // RETORNAR CÓDIGO DE PROYECTO GENERADO
-    return array('orden_codigo_serie' => $id, 'code' => "{$pref}{$year}{$project}{$serie}", 'serie' => $n_serie);
+    return array('orden_codigo_serie' => $id, 'code' => "{$pref}{$year}{$project}{$origen}{$serie}", 'serie' => $n_serie);
 }
 /*
 * OBTENER SIGUIENTE ID DE ENTIDAD

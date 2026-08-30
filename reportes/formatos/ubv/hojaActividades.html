@@ -1,0 +1,87 @@
+<!-- <table>
+    <col style="width:100%;padding:0px {{margin_right}}mm 0px {{margin_left}}mm;" />
+    <tr>
+        <td> -->
+<!-- HEADER DE REPORTE -->
+<table>
+    <tbody>
+        <tr>
+            <td style="font-size:11px;width:65%;vertical-align:middle;border-left:2px #0d4378 solid;padding-left:15px;" class="text-left title-single-mini">
+                {{report_info_entity}}
+            </td>
+            <td style="width:35%;vertical-align:bottom;text-align:right;">
+                <img src="../../recursos/img-reports/header.png" style="width:200px;height:68px">
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="title-single text-center text-bold" style="margin-top:0px;">{{informe}}</div>
+
+<table class="table text-uppercase">
+    <col style="width:10%;font-weight:bold;">
+    <col style="width:40%;">
+    <col style="width:10%;font-weight:bold;">
+    <col style="width:40%;">
+    <tr>
+        <td>Personal: </td>
+        <td>{{voluntario_nombre_completo}}<br><small>Bombero Voluntario</small></td>
+        <td>Periodo:</td>
+        <td>{{fromDate}} a {{toDate}}</td>
+    </tr>
+</table>
+<br>
+<!-- CUERPO DE REPORTE -->
+<table class="table table-bordered">
+    <col style="width:5%;text-align:center;">
+    <col style="width:8%;">
+    <col style="width:8%;">
+    <col style="width:16%;">
+    <col style="width:55%">
+    <col style="width:8%">
+    <thead>
+        <tr style="background:#0d4378;color:white;">
+            <th style="color:white;">NO.</th>
+            <th style="color:white;">DESDE</th>
+            <th style="color:white;">HASTA</th>
+            <th style="color:white;">ACTIVIDAD</th>
+            <th style="color:white;">DESCRIPCION</th>
+            <th style="color:white;">F. REGISTRO</th>
+        </tr>
+    </thead>
+    <tbody>{{tbody}}</tbody>
+</table>
+<br>
+
+<table class="table">
+    <col style="width:10%;text-align:center;">
+    <col style="width:35%;text-align:center;">
+    <col style="width:10%;text-align:center;">
+    <col style="width:35%;text-align:center;">
+    <col style="width:10%;text-align:center;">
+    <tr>
+        <td></td>
+        <td style="height:75px;vertical-align:bottom;">{{voluntario_nombre_completo}}<br><small><b>Bombero Voluntario</b><br>RESPONSABLE DEL REGISTRO</small></td>
+        <td></td>
+        <td style="height:75px;vertical-align:bottom;">{{jf_nombre}}<br><small><b>{{jf_definicion}}</b><br>VISTO BUENO</small></td>
+        <td></td>
+    </tr>
+</table>
+
+<!-- </td>
+    </tr>
+</table> -->
+<div style="position:absolute;bottom:0px;left:0px;width:100%;">
+
+    <div class="section_footer_left"><img src="../../recursos/img-reports/page_footer_l.png"></div>
+    <!-- <div class="section_footer_center"><img src="../../recursos/img-reports/page_footer_m.png"></div> -->
+    <div class="section_footer_right"><img src="../../recursos/img-reports/page_footer_r.png"></div>
+    <div class="section_footer_info">
+        <small>Pag. [[page_cu]]/[[page_nb]]</small> <br>
+        <small>{{sistema_direccion}}<br>PBX: {{sistema_telefono}}<br>{{sistema_correo}}</small> <br>
+    </div>
+    <!-- <div class="section_footer_social td-socials">
+        <small><img src="http://servicios.cbsd.gob.ec/app/src/img/reports/chrome.jpg">{{sistema_sitioweb}}<br><img src="http://servicios.cbsd.gob.ec/app/src/img/reports/facebook.jpg">{{SYSTEM_FACEBOOK_URI}}<br><img src="http://servicios.cbsd.gob.ec/app/src/img/reports/twitter.jpg">{{SYSTEM_TWITTER_URI}}</small>
+    </div> -->
+
+</div>

@@ -18,12 +18,27 @@ try {
 
     if (!isset($_GET['id'])) {
         $database = new Database();
-        $database->query("SELECT v.*,concat( persona_apellidos,' ',persona_nombres, ' - ', puesto_nombre ) as custodio_nombre  FROM administrativo.tb_vehiculos v
+        $database->query("SELECT v.*, d.direccion_nombre,e.estacion_nombre ,concat( persona_apellidos,' ',persona_nombres, ' - ', puesto_nombre ) as custodio_nombre  FROM administrativo.tb_vehiculos v
         inner join tthh.tb_personal_puestos pp ON pp.ppersonal_id = v.custodio_id 
         inner join tthh.tb_puestos pu on pu.puesto_id = pp.fk_puesto_id
         inner join tthh.tb_personal p on  p.personal_id = pp.fk_personal_id 
         inner join resources.tb_personas pe on pe.persona_id = p.fk_persona_id 
-        ORDER BY vehiculo_id");
+        left join tthh.tb_direcciones d on d.direccion_id = v.fk_direccion_id
+        left join operaciones.tb_estaciones e on e.estacion_id = v.fk_estacion_id
+        ORDER BY vehiculo_sigla");
+        $rows = $database->resultset();
+        $database->closeConnection();
+    } else if ($_GET['id'] == 'asignados') {
+        $database = new Database();
+        $database->query("SELECT v.*, d.direccion_nombre,e.estacion_nombre ,concat( persona_apellidos,' ',persona_nombres, ' - ', puesto_nombre ) as custodio_nombre  FROM administrativo.tb_vehiculos v
+        inner join tthh.tb_personal_puestos pp ON pp.ppersonal_id = v.custodio_id 
+        inner join tthh.tb_puestos pu on pu.puesto_id = pp.fk_puesto_id
+        inner join tthh.tb_personal p on  p.personal_id = pp.fk_personal_id 
+        inner join resources.tb_personas pe on pe.persona_id = p.fk_persona_id 
+        left join tthh.tb_direcciones d on d.direccion_id = v.fk_direccion_id
+        left join operaciones.tb_estaciones e on e.estacion_id = v.fk_estacion_id
+        WHERE v.vehiculo_area is not null and (d.direccion_nombre is not null or e.estacion_nombre is not null)
+        ORDER BY vehiculo_sigla");
         $rows = $database->resultset();
         $database->closeConnection();
     } else {
@@ -38,6 +53,6 @@ try {
     echo json_encode($rows);
 } catch (Throwable $th) {
     // throw $th;
-    $respuesta = json_encode(array('err' => false, 'mensaje' => $th), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $respuesta = json_encode(array('err' => true, 'mensaje' => $th), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     echo $respuesta;
 }

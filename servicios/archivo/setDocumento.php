@@ -43,108 +43,99 @@ try {
 
     if (!isset($request->distributivo_id)) {
 
-        $database->query('INSERT INTO operaciones.tb_distributivo (
-                fk_usuario_id,
-                distributivo_codigo,
-                distributivo_periodo_inicio
-            ) VALUES (
-                :fk_usuario_id,
-                :distributivo_codigo,
-                :distributivo_periodo_inicio
-            ) RETURNING distributivo_id
-        ');
+        $database->query('INSERT INTO archivo.documentos (
+            documento_direccion_origen_id,
+            documento_direccion_destino_id,
+            documento_tipo_documento_id,
+            documento_numero_documento,
+            documento_numero_folio,
+            documento_fecha_documento,
+            documento_remitente,
+            documento_destinatario,
+            documento_asunto,
+            documento_archivo_escaneado,
+            documento_ubicacion_fisica,
+            documento_anio
+        ) VALUES (
+            :documento_direccion_origen_id,
+            :documento_direccion_destino_id,
+            :documento_tipo_documento_id,
+            :documento_numero_documento,
+            :documento_numero_folio,
+            :documento_fecha_documento,
+            :documento_remitente,
+            :documento_destinatario,
+            :documento_asunto,
+            :documento_archivo_escaneado,
+            :documento_ubicacion_fisica,
+            :documento_anio
+        ) RETURNING documento_id');
 
-        $database->bind(':fk_usuario_id', prop($request, 'fk_usuario_id'));
-        $database->bind(':distributivo_codigo', prop($request, 'distributivo_codigo'));
-        $database->bind(':distributivo_periodo_inicio', prop($request, 'distributivo_periodo_inicio'));
+        $request->documento_archivo_escaneado = 'tmp.agregar';
+        $request->documento_anio = date('Y', strtotime($request->documento_fecha_documento));
+
+        $database->bind(':documento_direccion_origen_id', prop($request, 'documento_direccion_origen_id'));
+        $database->bind(':documento_direccion_destino_id', prop($request, 'documento_direccion_destino_id'));
+        $database->bind(':documento_tipo_documento_id', prop($request, 'documento_tipo_documento_id'));
+        $database->bind(':documento_numero_documento', prop($request, 'documento_numero_documento'));
+        $database->bind(':documento_numero_folio', prop($request, 'documento_numero_folio'));
+        $database->bind(':documento_fecha_documento', prop($request, 'documento_fecha_documento'));
+        $database->bind(':documento_remitente', prop($request, 'documento_remitente'));
+        $database->bind(':documento_destinatario', prop($request, 'documento_destinatario'));
+        $database->bind(':documento_asunto', prop($request, 'documento_asunto'));
+        $database->bind(':documento_archivo_escaneado', prop($request, 'documento_archivo_escaneado'));
+        $database->bind(':documento_ubicacion_fisica', prop($request, 'documento_ubicacion_fisica'));
+        $database->bind(':documento_anio', prop($request, 'documento_anio'));
         $inserted = $database->single(); // ejecuta y devuelve resultado
         if (!$inserted) {
             jsonResponse(['error' => 'Error al insertar', 'msg' => $database->getErrors()[2]], 500);
         }
 
-
-        // Obtener todos los pelotones activos
-        $database->query("SELECT peloton_id FROM operaciones.tb_pelotones WHERE peloton_estado = 'ACTIVO'");
-        $pelotonesActivos = $database->resultset();
-
-        // Insertar vínculos en tb_distributivo_peloton
-        foreach ($pelotonesActivos as $peloton) {
-            $database->query("INSERT INTO operaciones.tb_distributivo_peloton (
-                    fk_peloton_id, fk_distributivo_id
-                ) VALUES (
-                    :fk_peloton_id, :fk_distributivo_id
-                )");
-
-            $database->bind(':fk_peloton_id', $peloton['peloton_id']);
-            $database->bind(':fk_distributivo_id', $inserted['distributivo_id']);
-            $database->execute();
-        }
-
         $database->endTransaction();
         $database->closeConnection();
-        jsonResponse(['msg' => 'Registro creado con exito, ahora debe asignar al personal a cada estacion y grupo', 'id' => $inserted['distributivo_id']], 201);
+        jsonResponse(['msg' => 'Registro creado con exito', 'id' => $inserted['documento_id']], 201);
     } else {
 
-        $database->query('UPDATE operaciones.tb_distributivo SET
-                fk_usuario_id = :fk_usuario_id,
-                distributivo_codigo = :distributivo_codigo,
-                distributivo_periodo_inicio = :distributivo_periodo_inicio,
-                distributivo_periodo_cierre = :distributivo_periodo_cierre,
-                distributivo_jornadas = :distributivo_jornadas,
-                distributivo_ingreso_guardia = :distributivo_ingreso_guardia,
-                distributivo_salida_guardia = :distributivo_salida_guardia,
-                distributivo_estado = :distributivo_estado
-            WHERE distributivo_id = :distributivo_id
-        ');
+        $database->query('UPDATE archivo.documentos SET
+            documento_direccion_origen_id = :documento_direccion_origen_id,
+            documento_direccion_destino_id = :documento_direccion_destino_id,
+            documento_tipo_documento_id = :documento_tipo_documento_id,
+            documento_numero_documento = :documento_numero_documento,
+            documento_numero_folio = :documento_numero_folio,
+            documento_fecha_documento = :documento_fecha_documento,
+            documento_remitente = :documento_remitente,
+            documento_destinatario = :documento_destinatario,
+            documento_asunto = :documento_asunto,
+            documento_archivo_escaneado = :documento_archivo_escaneado,
+            documento_ubicacion_fisica = :documento_ubicacion_fisica,
+            documento_anio = :documento_anio
+        WHERE documento_id = :documento_id');
 
-        $database->bind(':fk_usuario_id', prop($request, 'fk_usuario_id'));
-        $database->bind(':distributivo_codigo', prop($request, 'distributivo_codigo'));
-        $database->bind(':distributivo_periodo_inicio', prop($request, 'distributivo_periodo_inicio'));
-        $database->bind(':distributivo_periodo_cierre', prop($request, 'distributivo_periodo_cierre'));
-        $database->bind(':distributivo_jornadas', prop($request, 'distributivo_jornadas'));
-        $database->bind(':distributivo_ingreso_guardia', prop($request, 'distributivo_ingreso_guardia'));
-        $database->bind(':distributivo_salida_guardia', prop($request, 'distributivo_salida_guardia'));
-        $database->bind(':distributivo_estado', prop($request, 'distributivo_estado'));
-        $database->bind(':distributivo_id', prop($request, 'distributivo_id'));
+        $request->documento_archivo_escaneado = 'tmp.agregar';
+        $request->documento_anio = date('Y', strtotime($request->documento_fecha_documento));
+
+        $database->bind(':documento_id', prop($request, 'documento_id'));
+        $database->bind(':documento_direccion_origen_id', prop($request, 'documento_direccion_origen_id'));
+        $database->bind(':documento_direccion_destino_id', prop($request, 'documento_direccion_destino_id'));
+        $database->bind(':documento_tipo_documento_id', prop($request, 'documento_tipo_documento_id'));
+        $database->bind(':documento_numero_documento', prop($request, 'documento_numero_documento'));
+        $database->bind(':documento_numero_folio', prop($request, 'documento_numero_folio'));
+        $database->bind(':documento_fecha_documento', prop($request, 'documento_fecha_documento'));
+        $database->bind(':documento_remitente', prop($request, 'documento_remitente'));
+        $database->bind(':documento_destinatario', prop($request, 'documento_destinatario'));
+        $database->bind(':documento_asunto', prop($request, 'documento_asunto'));
+        $database->bind(':documento_archivo_escaneado', prop($request, 'documento_archivo_escaneado'));
+        $database->bind(':documento_ubicacion_fisica', prop($request, 'documento_ubicacion_fisica'));
+        $database->bind(':documento_anio', prop($request, 'documento_anio'));
+
         $success = $database->execute();
-
-        // REGISTRO EN LA TABLA TROPAS ACORDE AL OBJETO RECIBIDO
-        $grupos = prop($request, 'grupos', []);
-        foreach ($grupos as $grupo) {
-            $pelotones = prop($grupo, 'pelotones', []);
-            foreach ($pelotones as $peloton) {
-                // ELIMINAR DE LA TABLA DE TROPAS TODOS LOS REGISTROS PARA VOLVERLOS A INGRESAR
-                $database->query('DELETE FROM operaciones.tb_tropas WHERE fk_dist_pelo_id = :fk_dist_pelo_id');
-                $database->bind(':fk_dist_pelo_id', prop($peloton, 'dist_pelo_id'));
-                $database->execute();
-                // recorrer los cargos del peloton
-                $cargos = prop($peloton, 'cargos', []);
-                foreach ($cargos as $cargo) {
-                    // $cargo_nombre = prop($cargo, 'cargo_nombre');
-                    $puestos = prop($cargo, 'puestos', []);
-                    foreach ($puestos as $puesto) {
-                        // Insertar en la tabla de tropas
-                        $database->query('INSERT INTO operaciones.tb_tropas (
-                            fk_dist_pelo_id, tropa_cargo, fk_personal_id
-                        ) VALUES (
-                            :fk_dist_pelo_id, :tropa_cargo, :fk_personal_id
-                        )');
-
-                        $database->bind(':fk_dist_pelo_id', prop($puesto, 'fk_dist_pelo_id'));
-                        $database->bind(':tropa_cargo', prop($puesto, 'tropa_cargo'));
-                        $database->bind(':fk_personal_id', prop($puesto, 'fk_personal_id'));
-                        $database->execute();
-                    }
-                }
-            }
-        }
 
         if (!$success) {
             jsonResponse(['error' => 'Error al actualizar', 'msg' => $database->getErrors()[2]], 500);
         }
         $database->endTransaction();
         $database->closeConnection();
-        jsonResponse(['msg' => 'Registro actualizado con exito', 'id' => $request->distributivo_id], 200);
+        jsonResponse(['msg' => 'Registro actualizado con exito', 'id' => $request->documento_id], 200);
     }
 } catch (Throwable $th) {
     // throw $th;

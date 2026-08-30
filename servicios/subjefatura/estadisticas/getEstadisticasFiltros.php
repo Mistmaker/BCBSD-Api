@@ -101,7 +101,12 @@ try {
     $diaCriticoRow = $database->single();
     // Convertir número a nombre
     $dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    $diaCritico = $dias[intval($diaCriticoRow['dia_semana'])];
+    // $diaCritico = $dias[intval($diaCriticoRow['dia_semana'])];
+    if ($diaCriticoRow) {
+        $diaCritico = $dias[intval($diaCriticoRow['dia_semana'])];
+    } else {
+        $diaCritico = "N/A";
+    }
 
     // HORA CRITICA 
     $sqlHoraCritica = "SELECT 
@@ -115,7 +120,12 @@ try {
     LIMIT 1;";
     $database->query($sqlHoraCritica);
     $horaCriticaRow = $database->single();
-    $horaCritica = trim($horaCriticaRow['hora']);
+    // $horaCritica = trim($horaCriticaRow['hora']);
+    if ($horaCriticaRow) {
+        $horaCritica = trim($horaCriticaRow['hora']);
+    } else {
+        $horaCritica = "N/A";
+    }
 
     // MES CRITICO
     $sqlMesCritico = "SELECT 
@@ -143,7 +153,12 @@ try {
         11 => 'Noviembre',
         12 => 'Diciembre'
     ];
-    $mesCritico = $meses[intval($mesCriticoRow['mes_num'])];
+    // $mesCritico = $meses[intval($mesCriticoRow['mes_num'])];
+    if ($mesCriticoRow) {
+        $mesCritico = $meses[intval($mesCriticoRow['mes_num'])];
+    } else {
+        $mesCritico = "N/A";
+    }	
 
     // $arr_stats["estaciones"] = $rows_estaciones;
     // $arr_stats["causas"] = $rows_causas;

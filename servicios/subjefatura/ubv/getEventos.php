@@ -18,20 +18,14 @@ try {
 
     if (!isset($_GET['id'])) {
         $database = new Database();
-        $database->query("SELECT vehiculo_id, vehiculo_sigla, vehiculo_placa, vehiculo_marca, vehiculo_modelo, vehiculo_tipo 
-        FROM administrativo.tb_vehiculos v
-        left join tthh.tb_direcciones d on d.direccion_id = v.fk_direccion_id
-        left join operaciones.tb_estaciones e on e.estacion_id = v.fk_estacion_id
-        WHERE vehiculo_id not in (select fk_unidad_id from logistica.tb_ordenesmovilizacion where orden_estado = 'SALIDA') 
-        and v.vehiculo_area is not null and (d.direccion_nombre is not null or e.estacion_nombre is not null)
-        ORDER BY vehiculo_sigla");
+        $database->query("SELECT * FROM subjefatura.tb_voluntarios_eventos order by evento_id LIMIT 100");
         $rows = $database->resultset();
         $database->closeConnection();
     } else {
         // limpia el parametro
         $id = htmlentities($_GET['id']);
         $database = new Database();
-        $database->query("SELECT * FROM administrativo.tb_vehiculos WHERE vehiculo_id = :id");
+        $database->query("SELECT * FROM subjefatura.tb_voluntarios_eventos WHERE evento_id = :id");
         $database->bind('id', $id);
         $rows = $database->single();
         $database->closeConnection();
