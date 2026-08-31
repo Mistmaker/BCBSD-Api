@@ -76,6 +76,7 @@ try {
             evento_fecha_finalizacion,
             evento_hora_finalizacion,
             evento_motivo,
+            evento_lugar,
             evento_descripcion
         ) VALUES (
             :evento_estado,
@@ -84,6 +85,7 @@ try {
             :evento_fecha_finalizacion,
             :evento_hora_finalizacion,
             :evento_motivo,
+            :evento_lugar,
             :evento_descripcion
         ) RETURNING evento_id');
 
@@ -93,6 +95,7 @@ try {
         $database->bind(':evento_fecha_finalizacion', prop($request, 'evento_fecha_finalizacion'));
         $database->bind(':evento_hora_finalizacion', prop($request, 'evento_hora_finalizacion'));
         $database->bind(':evento_motivo', prop($request, 'evento_motivo'));
+        $database->bind(':evento_lugar', prop($request, 'evento_lugar'));
         $database->bind(':evento_descripcion', prop($request, 'evento_descripcion'));
 
         $inserted = $database->single();
@@ -111,6 +114,7 @@ try {
             evento_fecha_finalizacion = :evento_fecha_finalizacion,
             evento_hora_finalizacion = :evento_hora_finalizacion,
             evento_motivo = :evento_motivo,
+            evento_lugar = :evento_lugar,
             evento_descripcion = :evento_descripcion
         WHERE evento_id = :evento_id');
 
@@ -121,6 +125,7 @@ try {
         $database->bind(':evento_fecha_finalizacion', prop($request, 'evento_fecha_finalizacion'));
         $database->bind(':evento_hora_finalizacion', prop($request, 'evento_hora_finalizacion'));
         $database->bind(':evento_motivo', prop($request, 'evento_motivo'));
+        $database->bind(':evento_lugar', prop($request, 'evento_lugar'));
         $database->bind(':evento_descripcion', prop($request, 'evento_descripcion'));
 
         $success = $database->execute();
