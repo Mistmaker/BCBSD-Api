@@ -609,6 +609,35 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmovilizacion (
     orden_observaciones text COLLATE pg_catalog."default"
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 
+
+DROP TABLE IF EXISTS logistica.tb_ordenescombustible CASCADE;
+CREATE TABLE IF NOT EXISTS logistica.tb_ordenescombustible (
+    orden_id SERIAL NOT NULL PRIMARY KEY,
+    orden_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    orden_estado text COLLATE pg_catalog."default" DEFAULT 'EMITIDA'::text,
+    fk_personal_id integer NOT NULL,
+    fk_autoriza_id integer NOT NULL,
+    fk_solicitante_id integer NOT NULL,
+    fk_unidad_id integer,
+    orden_codigo text COLLATE pg_catalog."default" NOT NULL,
+    orden_serie integer NOT NULL DEFAULT 0,
+    orden_estacionservicio_codigo text COLLATE pg_catalog."default",
+    orden_estacionservicio text COLLATE pg_catalog."default",
+    orden_combustible text COLLATE pg_catalog."default",
+    orden_lugar text COLLATE pg_catalog."default",
+    orden_galones numeric(5,2),
+    orden_precio numeric(5,2),
+    orden_documento text COLLATE pg_catalog."default",
+    orden_emitida timestamp without time zone DEFAULT CURRENT_TIMESTAMP(0),
+    orden_valdacion date,
+    fk_encargadoestacion_id integer,
+    fk_operador_id integer,
+    orden_total numeric(5,2),
+    orden_kilometraje integer DEFAULT 0,
+    fk_unidad integer,
+    tipo_caneca text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
 -- Crear el esquema "archivo"
 
 
