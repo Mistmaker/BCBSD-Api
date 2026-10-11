@@ -200,11 +200,13 @@ CREATE TABLE IF NOT EXISTS operaciones.tb_estaciones (
     estacion_id SERIAL NOT NULL PRIMARY KEY,
     estacion_nombre text COLLATE pg_catalog."default" NOT NULL,
     estacion_tipo text COLLATE pg_catalog."default" DEFAULT 'ESTACION' NOT NULL,
+    estacion_subtipo text COLLATE pg_catalog."default" DEFAULT 'URBANA' NOT NULL,
+    estacion_jornada text COLLATE pg_catalog."default" DEFAULT '24 HORAS' NOT NULL, -- 24/48 , 48/96
+    estacion_ubicacion text COLLATE pg_catalog."default",
     estacion_ubicacion_x text COLLATE pg_catalog."default",
     estacion_ubicacion_y text COLLATE pg_catalog."default",
     estacion_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
-
 
 
 DROP TABLE IF EXISTS tthh.tb_personal CASCADE;
@@ -735,8 +737,8 @@ INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_pa
 INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('UBV Eventos', 'Registros de eventos de personal voluntario',5,'/sbj/ubv-eventos');
 
 --OPERACIONES
-INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Distributivo', 'Administrar distributivos de personal',6,'/ops/distributivos');
-INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Partes de servicio', 'Administrar partes de servicio',7,'/ops/partes-servicio');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Distributivo', 'Administrar distributivos de personal',6,'/operaciones/distributivo');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) VALUES ('Partes de servicio', 'Administrar partes de servicio',7,'/operaciones/partes');
 
 
 
@@ -801,7 +803,7 @@ SELECT
     perfil_descripcion,
     perfil_estado
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         perfil_id,
@@ -840,7 +842,7 @@ SELECT
     cie_no_afeccion,
     cie_observacion
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT
         cie_id,
@@ -909,7 +911,7 @@ SELECT
     usuario_registro,
     usuario_fingreso
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         usuario_id,
@@ -1015,7 +1017,7 @@ SELECT
     vehiculo_ramv,
     vehiculo_sigla
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         vehiculo_id,
@@ -1100,7 +1102,7 @@ SELECT
     country_gentilicio,
     country_iso3
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         country_id,
@@ -1136,7 +1138,7 @@ SELECT
     state_name,
     fk_country_id
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         state_id,
@@ -1167,7 +1169,7 @@ SELECT
     town_name,
     fk_state_id
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         town_id,
@@ -1198,7 +1200,7 @@ SELECT
     parish_name,
     fk_town_id
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         parish_id,
@@ -1321,7 +1323,7 @@ SELECT
     persona_enfermedad_cronica,
     persona_enfermedad_cronica_describa
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         persona_id,
@@ -1464,7 +1466,7 @@ SELECT
     personal_baselegal,
     personal_regimen_laboral
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         ppersonal_id,
@@ -1530,7 +1532,7 @@ SELECT
     direccion_baselegal,
     direccion_tipo
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         direccion_id,
@@ -1596,7 +1598,7 @@ SELECT
     puesto_partida,
     fk_grupo_id
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         puesto_id,
@@ -1654,7 +1656,7 @@ SELECT
     fk_estacion_id,
     peloton_nombre
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         peloton_id,
@@ -1696,7 +1698,7 @@ SELECT
     licencia_categoria,
     licencia_descripcion
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         licencia_id,
@@ -1744,7 +1746,7 @@ SELECT
     conductor_licencia_validez,
     conductor_pdf
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         conductor_id,
@@ -1809,7 +1811,7 @@ SELECT
     biometrico_id,
     fk_jornada_id
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         personal_id,
