@@ -49,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // echo json_encode($request);
 try {
-
     // $arrQueryStringParams = array();
     // parse_str($_SERVER['QUERY_STRING'], $arrQueryStringParams);
     $requestMethod = $_SERVER["REQUEST_METHOD"];
@@ -81,7 +80,7 @@ try {
     $database->query($sqlCustodio);
     $database->bind('vehiculo_id', prop($request, 'fk_unidad_id'));
     $dataDirAdmin = $database->single();
-    $request->director_administrativo = $dataDirAdmin["custodio_id"]; // TODO: reemplazar por custodio del vehiculo
+    $request->director_administrativo = $dataDirAdmin["custodio_id"] ?? null; // TODO: reemplazar por custodio del vehiculo
     $origen = '';
     if (isset($dataDirAdmin["direccion_codigo"])) {
         $origen = $dataDirAdmin["direccion_codigo"];
@@ -168,6 +167,51 @@ try {
         if (!$success) {
             jsonResponse(['error' => 'Error al actualizar', 'msg' => $database->getErrors()[2]], 500);
         }
+
+        // 2. Eliminar detalles existentes (si los hay)
+        $database->query('DELETE FROM logistica.tb_detalleordenesabastecimiento
+        WHERE orden_id = :orden_id');
+
+        $database->bind(':orden_id', prop($request, 'orden_id'));
+
+        if (!$database->execute()) {
+            $database->cancelTransaction();
+            jsonResponse(['error' => 'Error al eliminar detalles', 'msg' => $database->getErrors()[2]], 500);
+        }
+
+        // 3. Insertar los nuevos detalles
+        $detalles = isset($request->detalles) && is_array($request->detalles) ? $request->detalles : [];
+        $linea = 1;
+
+        foreach ($detalles as $detalle) {
+            $database->query('INSERT INTO logistica.tb_detalleordenesabastecimiento (
+                    orden_id, orden_detalle_linea, fk_unidad_id,
+                    orden_detalle_nro_canecas, orden_detalle_kilometraje,
+                    orden_detalle_tipo_combustible, orden_detalle_cantidad_galones,
+                    orden_detalle_precio_total
+                ) VALUES (
+                    :orden_id, :orden_detalle_linea, :fk_unidad_id,
+                    :orden_detalle_nro_canecas, :orden_detalle_kilometraje,
+                    :orden_detalle_tipo_combustible, :orden_detalle_cantidad_galones,
+                    :orden_detalle_precio_total
+                )');
+    
+            $database->bind(':orden_id', prop($request, 'orden_id'));
+            $database->bind(':orden_detalle_linea', $linea++);
+            $database->bind(':fk_unidad_id', prop($detalle, 'fk_unidad_id'));
+            $database->bind(':orden_detalle_nro_canecas', prop($detalle, 'orden_detalle_nro_canecas'));
+            $database->bind(':orden_detalle_kilometraje', prop($detalle, 'orden_detalle_kilometraje'));
+            $database->bind(':orden_detalle_tipo_combustible', prop($detalle, 'orden_detalle_tipo_combustible'));
+            $database->bind(':orden_detalle_cantidad_galones', prop($detalle, 'orden_detalle_cantidad_galones'));
+            $database->bind(':orden_detalle_precio_total', prop($detalle, 'orden_detalle_precio_total'));
+    
+            if (!$database->execute()) {
+                $database->cancelTransaction();
+                jsonResponse(['error' => 'Error al insertar detalle', 'msg' => $database->getErrors()[2]], 500);
+            }
+        }
+
+
         $database->endTransaction();
         $database->closeConnection();
         jsonResponse(['msg' => 'Registro actualizado con exito', 'id' => $request->orden_id], 200);

@@ -30,8 +30,10 @@ try {
     ,(select nombre_completo from tthh.vw_conductores c1 where c1.conductor_id =  o.operador_id order by c1.ppersonal_id desc limit 1)  as operador
     ,(select puesto_nombre from tthh.vw_conductores c1 where c1.conductor_id =  o.operador_id order by c1.ppersonal_id desc limit 1)  as puesto_nombre_operador
     ,(select usuario_login from admin.tb_usuarios u where u.usuario_id =  o.fk_usuario_id)  as usuario
+    ,(SELECT SUM(dor.orden_detalle_precio_total) FROM logistica.tb_detalleordenesabastecimiento dor WHERE dor.orden_id = o.orden_id) as total
+    ,(SELECT STRING_AGG(dor.orden_detalle_kilometraje::TEXT, ', ') FROM logistica.tb_detalleordenesabastecimiento dor WHERE dor.orden_id = o.orden_id) as kilometraje
     FROM logistica.tb_ordenesabastecimiento o
-    inner join administrativo.tb_vehiculos v on v.vehiculo_id = o.fk_unidad_id ORDER BY orden_id DESC";
+    left join administrativo.tb_vehiculos v on v.vehiculo_id = o.fk_unidad_id ORDER BY orden_id DESC";
 
     if (!isset($_GET['id'])) {
         $database = new Database();

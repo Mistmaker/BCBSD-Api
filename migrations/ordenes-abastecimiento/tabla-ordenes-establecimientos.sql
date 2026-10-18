@@ -21,9 +21,9 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesabastecimiento (
     orden_estado TEXT DEFAULT 'EMITIDA',
 
     fk_usuario_id INTEGER NOT NULL,
-    fk_unidad_id INTEGER NOT NULL,
+    fk_unidad_id INTEGER DEFAULT NULL,
     operador_id INTEGER DEFAULT NULL,
-    director_administrativo INTEGER NOT NULL,
+    director_administrativo INTEGER DEFAULT NULL,
     tecnico_servicios INTEGER,
 
     orden_codigo TEXT NOT NULL,
