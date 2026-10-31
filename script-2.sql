@@ -198,6 +198,7 @@ DROP TABLE IF EXISTS operaciones.tb_estaciones CASCADE;
 
 CREATE TABLE IF NOT EXISTS operaciones.tb_estaciones (
     estacion_id SERIAL NOT NULL PRIMARY KEY,
+    fk_jornada_id integer REFERENCES tthh.tb_jornadas(jornada_id),
     estacion_nombre text COLLATE pg_catalog."default" NOT NULL,
     estacion_tipo text COLLATE pg_catalog."default" DEFAULT 'ESTACION' NOT NULL,
     estacion_subtipo text COLLATE pg_catalog."default" DEFAULT 'URBANA' NOT NULL,

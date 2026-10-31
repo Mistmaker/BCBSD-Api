@@ -154,6 +154,25 @@ CREATE TABLE IF NOT EXISTS administrativo.tb_vehiculos (
     vehiculo_sigla text COLLATE pg_catalog."default"
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 
+DROP TABLE IF EXISTS tthh.tb_jornadas_trabajo CASCADE;
+CREATE TABLE IF NOT EXISTS tthh.tb_jornadas_trabajo (
+    jornada_id SERIAL NOT NULL PRIMARY KEY,
+    jornada_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    jornada_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    fk_usuario_id integer,
+    jornada_nombre text COLLATE pg_catalog."default" NOT NULL,
+    jornada_rancho numeric(10,2) DEFAULT 0,
+    jornada_diasminimo integer DEFAULT 0,
+    jornada_diasmaximo integer DEFAULT 0,
+    jornada_dias_semana text COLLATE pg_catalog."default",
+    jornada_horas_dia integer NOT NULL DEFAULT 8,
+    jornada_entrada text COLLATE pg_catalog."default",
+    jornada_salida text COLLATE pg_catalog."default",
+    jornada_break text COLLATE pg_catalog."default" DEFAULT 'NO'::text,
+    jornada_entrada_break text COLLATE pg_catalog."default",
+    jornada_salida_break text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
 DROP TABLE IF EXISTS tthh.tb_personal CASCADE;
 CREATE TABLE IF NOT EXISTS tthh.tb_personal (
     personal_id SERIAL NOT NULL PRIMARY KEY,
@@ -372,7 +391,7 @@ SELECT
     vehiculo_pasajeros, vehiculo_cilindraje, vehiculo_color2, vehiculo_proposito,
     vehiculo_anio_matricula, vehiculo_ramv, vehiculo_sigla
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     'SELECT 
         1 as fk_usuario_id, 1 as fk_estacion_id, 1 as fk_marca_id, vehiculo_estado, vehiculo_direccion,
         vehiculo_placa, vehiculo_toneladas, vehiculo_tipo, vehiculo_color1, vehiculo_marca,
@@ -421,7 +440,7 @@ SELECT
     persona_discapacidad_porcentaje, persona_discapacidad_conadis, persona_discapacidad_conadis_numero,
     persona_enfermedad_cronica, persona_enfermedad_cronica_describa
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     'SELECT 
         persona_tipo_doc, persona_doc_identidad, persona_nombres, persona_apellidos,
         persona_sexo, persona_imagen, persona_direccion, persona_telefono, persona_correo,
@@ -466,7 +485,7 @@ SELECT
     personal_fecha_registro, personal_motivo_salida, personal_observacion,
     personal_baselegal, personal_regimen_laboral
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         ppersonal_registro, ppersonal_estado, fk_usuario_id, fk_personal_id, fk_puesto_id,
@@ -502,7 +521,7 @@ SELECT
     direccion_codigo, direccion_nombre, direccion_competencias,
     direccion_fecha_creacion, direccion_baselegal, direccion_tipo
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         direccion_registro, direccion_estado, fk_usuario_id,
@@ -536,7 +555,7 @@ SELECT
     puesto_modalidad, puesto_fecha_creacion, puesto_baselegal,
     puesto_partida, fk_grupo_id
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         puesto_registro, puesto_estado, fk_usuario_id,
@@ -569,7 +588,7 @@ INSERT INTO operaciones.tb_pelotones (
 SELECT 
     peloton_registro, peloton_estado, fk_usuario_id, fk_estacion_id, peloton_nombre
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         peloton_registro, peloton_estado, fk_usuario_id, fk_estacion_id, peloton_nombre
@@ -599,7 +618,7 @@ SELECT
     licencia_categoria,
     licencia_descripcion
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         licencia_estado,
@@ -639,7 +658,7 @@ SELECT
     conductor_licencia_validez,
     conductor_pdf
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         conductor_registro,
@@ -694,7 +713,7 @@ SELECT
     persona_discapacidad_porcentaje, persona_discapacidad_conadis, persona_discapacidad_conadis_numero,
     persona_enfermedad_cronica, persona_enfermedad_cronica_describa
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         persona_tipo_doc, persona_doc_identidad, persona_nombres, persona_apellidos,
@@ -797,7 +816,7 @@ SELECT
     biometrico_id,
     fk_jornada_id
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         personal_registro,
@@ -855,7 +874,7 @@ SELECT
     conductor_licencia_validez,
     conductor_pdf
 FROM dblink(
-    'dbname=db_cbsd user=postgres password=Cbsd2019 host=localhost',
+    'dbname=db_cbsd user=postgres password=2300236524 host=localhost',
     $$
     SELECT 
         conductor_registro,
