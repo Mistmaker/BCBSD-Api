@@ -37,8 +37,12 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesabastecimiento (
     
     orden_fecha DATE DEFAULT NULL,
 	orden_estacion_servicio TEXT default 'SINDICATO DE CHOFERES',
-	
- 	orden_total DECIMAL(2) DEFAULT 0,
+
+    orden_nro_canecas int4 DEFAULT NULL,
+	orden_kilometraje int4 DEFAULT NULL,
+	orden_tipo_combustible VARCHAR(30) DEFAULT NULL,
+	orden_cantidad_galones int4 DEFAULT NULL,
+	orden_precio_total DECIMAL(10,2) DEFAULT 0,
  	
     orden_observaciones TEXT,
 

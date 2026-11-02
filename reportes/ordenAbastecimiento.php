@@ -37,7 +37,7 @@ $globalCbsdData = [
 ];
 
 $sqlOrdenes = "SELECT orden_id, orden_serie, orden_estado, orden_codigo, vehiculo_combustible, '' as responsable_titulo, vehiculo_sigla, vehiculo_placa, vehiculo_marca, vehiculo_placa, orden_registro, vehiculo_sigla, orden_estacion_servicio,
-    orden_codigo_institucion, orden_nro_vales, 
+    orden_codigo_institucion, orden_nro_vales, orden_precio_total, orden_kilometraje,
     CASE
            WHEN orden_caneca IS NULL OR orden_caneca = '' THEN 'NO APLICA'
            ELSE orden_caneca
@@ -48,8 +48,6 @@ $sqlOrdenes = "SELECT orden_id, orden_serie, orden_estado, orden_codigo, vehicul
     ,(select nombre_completo from tthh.vw_conductores c1 where c1.conductor_id =  o.operador_id order by c1.ppersonal_id desc limit 1)  as operador
     ,(select puesto_nombre from tthh.vw_conductores c1 where c1.conductor_id =  o.operador_id order by c1.ppersonal_id desc limit 1)  as puesto_nombre_operador
     ,(select usuario_login from admin.tb_usuarios u where u.usuario_id =  o.fk_usuario_id)  as usuario
-    ,(SELECT SUM(dor.orden_detalle_precio_total) FROM logistica.tb_detalleordenesabastecimiento dor WHERE dor.orden_id = o.orden_id) as total
-    ,(SELECT STRING_AGG(dor.orden_detalle_kilometraje::TEXT, ', ') FROM logistica.tb_detalleordenesabastecimiento dor WHERE dor.orden_id = o.orden_id) as kilometraje
     FROM logistica.tb_ordenesabastecimiento o
     left join administrativo.tb_vehiculos v on v.vehiculo_id = o.fk_unidad_id 
     WHERE o.orden_id::text = ANY(string_to_array(:ids, ','))

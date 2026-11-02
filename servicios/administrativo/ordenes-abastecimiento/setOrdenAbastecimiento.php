@@ -150,8 +150,12 @@ try {
                             orden_estado = :orden_estado,
                             orden_fecha = :orden_fecha,
                             orden_estacion_servicio = :orden_estacion_servicio,
-                            orden_total = :orden_total,
-                            orden_observaciones = :orden_observaciones
+                            orden_observaciones = :orden_observaciones,
+                            orden_nro_canecas = :orden_nro_canecas,
+                            orden_kilometraje = :orden_kilometraje,
+                            orden_tipo_combustible = :orden_tipo_combustible,
+                            orden_cantidad_galones = :orden_cantidad_galones,
+                            orden_precio_total = :orden_precio_total
                         WHERE orden_id = :orden_id
         ');
 
@@ -160,8 +164,12 @@ try {
         $database->bind(':orden_estado', 'VALIDADA');
         $database->bind(':orden_fecha', prop($request, 'orden_fecha'));
         $database->bind(':orden_estacion_servicio', prop($request, 'orden_estacion_servicio'));
-        $database->bind(':orden_total', prop($request, 'orden_total'));
         $database->bind(':orden_observaciones', prop($request, 'orden_observaciones'));
+        $database->bind(':orden_nro_canecas', prop($request, 'orden_nro_canecas'));
+        $database->bind(':orden_kilometraje', prop($request, 'orden_kilometraje'));
+        $database->bind(':orden_tipo_combustible', prop($request, 'orden_tipo_combustible'));
+        $database->bind(':orden_cantidad_galones', prop($request, 'orden_cantidad_galones'));
+        $database->bind(':orden_precio_total', prop($request, 'orden_precio_total'));
         $success = $database->execute();
 
         if (!$success) {
@@ -169,10 +177,10 @@ try {
         }
 
         // 2. Eliminar detalles existentes (si los hay)
-        $database->query('DELETE FROM logistica.tb_detalleordenesabastecimiento
-        WHERE orden_id = :orden_id');
+        // $database->query('DELETE FROM logistica.tb_detalleordenesabastecimiento
+        // WHERE orden_id = :orden_id');
 
-        $database->bind(':orden_id', prop($request, 'orden_id'));
+        // $database->bind(':orden_id', prop($request, 'orden_id'));
 
         if (!$database->execute()) {
             $database->cancelTransaction();
@@ -180,36 +188,36 @@ try {
         }
 
         // 3. Insertar los nuevos detalles
-        $detalles = isset($request->detalles) && is_array($request->detalles) ? $request->detalles : [];
-        $linea = 1;
+        // $detalles = isset($request->detalles) && is_array($request->detalles) ? $request->detalles : [];
+        // $linea = 1;
 
-        foreach ($detalles as $detalle) {
-            $database->query('INSERT INTO logistica.tb_detalleordenesabastecimiento (
-                    orden_id, orden_detalle_linea, fk_unidad_id,
-                    orden_detalle_nro_canecas, orden_detalle_kilometraje,
-                    orden_detalle_tipo_combustible, orden_detalle_cantidad_galones,
-                    orden_detalle_precio_total
-                ) VALUES (
-                    :orden_id, :orden_detalle_linea, :fk_unidad_id,
-                    :orden_detalle_nro_canecas, :orden_detalle_kilometraje,
-                    :orden_detalle_tipo_combustible, :orden_detalle_cantidad_galones,
-                    :orden_detalle_precio_total
-                )');
+        // foreach ($detalles as $detalle) {
+        //     $database->query('INSERT INTO logistica.tb_detalleordenesabastecimiento (
+        //             orden_id, orden_detalle_linea, fk_unidad_id,
+        //             orden_detalle_nro_canecas, orden_detalle_kilometraje,
+        //             orden_detalle_tipo_combustible, orden_detalle_cantidad_galones,
+        //             orden_detalle_precio_total
+        //         ) VALUES (
+        //             :orden_id, :orden_detalle_linea, :fk_unidad_id,
+        //             :orden_detalle_nro_canecas, :orden_detalle_kilometraje,
+        //             :orden_detalle_tipo_combustible, :orden_detalle_cantidad_galones,
+        //             :orden_detalle_precio_total
+        //         )');
     
-            $database->bind(':orden_id', prop($request, 'orden_id'));
-            $database->bind(':orden_detalle_linea', $linea++);
-            $database->bind(':fk_unidad_id', prop($detalle, 'fk_unidad_id'));
-            $database->bind(':orden_detalle_nro_canecas', prop($detalle, 'orden_detalle_nro_canecas'));
-            $database->bind(':orden_detalle_kilometraje', prop($detalle, 'orden_detalle_kilometraje'));
-            $database->bind(':orden_detalle_tipo_combustible', prop($detalle, 'orden_detalle_tipo_combustible'));
-            $database->bind(':orden_detalle_cantidad_galones', prop($detalle, 'orden_detalle_cantidad_galones'));
-            $database->bind(':orden_detalle_precio_total', prop($detalle, 'orden_detalle_precio_total'));
+        //     $database->bind(':orden_id', prop($request, 'orden_id'));
+        //     $database->bind(':orden_detalle_linea', $linea++);
+        //     $database->bind(':fk_unidad_id', prop($detalle, 'fk_unidad_id'));
+        //     $database->bind(':orden_detalle_nro_canecas', prop($detalle, 'orden_detalle_nro_canecas'));
+        //     $database->bind(':orden_detalle_kilometraje', prop($detalle, 'orden_detalle_kilometraje'));
+        //     $database->bind(':orden_detalle_tipo_combustible', prop($detalle, 'orden_detalle_tipo_combustible'));
+        //     $database->bind(':orden_detalle_cantidad_galones', prop($detalle, 'orden_detalle_cantidad_galones'));
+        //     $database->bind(':orden_detalle_precio_total', prop($detalle, 'orden_detalle_precio_total'));
     
-            if (!$database->execute()) {
-                $database->cancelTransaction();
-                jsonResponse(['error' => 'Error al insertar detalle', 'msg' => $database->getErrors()[2]], 500);
-            }
-        }
+        //     if (!$database->execute()) {
+        //         $database->cancelTransaction();
+        //         jsonResponse(['error' => 'Error al insertar detalle', 'msg' => $database->getErrors()[2]], 500);
+        //     }
+        // }
 
 
         $database->endTransaction();
