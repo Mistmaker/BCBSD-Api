@@ -198,7 +198,7 @@ DROP TABLE IF EXISTS operaciones.tb_estaciones CASCADE;
 
 CREATE TABLE IF NOT EXISTS operaciones.tb_estaciones (
     estacion_id SERIAL NOT NULL PRIMARY KEY,
-    fk_jornada_id integer REFERENCES tthh.tb_jornadas(jornada_id),
+    fk_jornada_id integer REFERENCES tthh.tb_jornadas_trabajo(jornada_id),
     estacion_nombre text COLLATE pg_catalog."default" NOT NULL,
     estacion_tipo text COLLATE pg_catalog."default" DEFAULT 'ESTACION' NOT NULL,
     estacion_subtipo text COLLATE pg_catalog."default" DEFAULT 'URBANA' NOT NULL,
@@ -628,16 +628,17 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenescombustible (
     orden_estacionservicio text COLLATE pg_catalog."default",
     orden_combustible text COLLATE pg_catalog."default",
     orden_lugar text COLLATE pg_catalog."default",
-    orden_galones numeric(5,2),
-    orden_precio numeric(5,2),
-    orden_documento text COLLATE pg_catalog."default",
     orden_emitida timestamp without time zone DEFAULT CURRENT_TIMESTAMP(0),
     orden_valdacion date,
     fk_encargadoestacion_id integer,
     fk_operador_id integer,
     orden_total numeric(5,2),
     orden_kilometraje integer DEFAULT 0,
-    fk_unidad integer,
+    orden_canecas integer DEFAULT 0,
+    orden_fecha_factura date,
+    orden_galones numeric(5,2),
+    orden_precio numeric(5,2),
+    orden_documento text COLLATE pg_catalog."default",
     tipo_caneca text COLLATE pg_catalog."default"
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 

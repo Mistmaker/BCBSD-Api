@@ -371,6 +371,22 @@ INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-5');
 INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-6');
 INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-7');
 INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('X-8');
+INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('Grupo de Canes');
+INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('Grupo de Drones');
+INSERT INTO operaciones.tb_estaciones (estacion_nombre) VALUES ('Escuela EFEESB');
+
+INSERT INTO tthh.tb_jornadas_trabajo (
+    jornada_estado,jornada_nombre,jornada_rancho,jornada_diasminimo,jornada_diasmaximo,jornada_dias_semana,jornada_horas_dia,jornada_entrada,jornada_salida,jornada_break,jornada_entrada_break,jornada_salida_break
+) VALUES
+    (
+        'ACTIVO','OPERATIVOS 24H/48H',6.00,20,20,'["1","2","3","4","5","6","0"]',24,'08:00','08:00','NO',NULL,NULL
+    ),
+    (
+        'ACTIVO','ADMINISTRATIVO 8H',0.00,5,10,'["1","2","3","4","5"]',8,'08:00','17:00','SI','13:00','14:00'
+    ),
+    (
+        'ACTIVO','OPERATIVOS 8H',3.00,20,20,'["1","2","3","4","5"]',9,'08:00','18:00','NO',NULL,NULL
+    );
 
 INSERT INTO administrativo.tb_vehiculos_marcas (marca_nombre) VALUES ('S/M');
 

@@ -150,6 +150,397 @@ CREATE TABLE IF NOT EXISTS subjefatura.tb_aph_hojaruta_medicamentos (
     -- aph_hojaruta_medicamento_frecuencia text COLLATE pg_catalog."default"
 ) WITH (OIDS = FALSE) TABLESPACE pg_default;
 
+-- PARTES DE AUXILIO E INCENDIO
+-- Una sola cabecera compartida por partes de auxilio e incendio.
+DROP TABLE IF EXISTS operaciones.tb_partes CASCADE;
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes (
+    parte_id SERIAL NOT NULL PRIMARY KEY,
+    parte_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    parte_estado text COLLATE pg_catalog."default" DEFAULT 'REGISTRADO'::text,
+    parte_numero text COLLATE pg_catalog."default" NOT NULL,
+    parte_tipo text COLLATE pg_catalog."default" NOT NULL,
+    fk_estacion_id integer NOT NULL REFERENCES operaciones.tb_estaciones(estacion_id),
+    fk_usuario_id integer NOT NULL REFERENCES admin.tb_usuarios(usuario_id),
+    fk_personal_despacho_id integer REFERENCES tthh.tb_personal(personal_id),
+    fk_personal_id integer NOT NULL REFERENCES tthh.tb_personal(personal_id),
+    fk_parroquia_id integer NOT NULL REFERENCES resources.parishes(parish_id),
+    parte_fecha date NOT NULL,
+    parte_fecha_aviso date,
+    parte_forma_aviso text COLLATE pg_catalog."default" NOT NULL,
+    parte_codigo_salida text COLLATE pg_catalog."default" NOT NULL,
+    parte_tipo_dia text COLLATE pg_catalog."default" DEFAULT 'LABORABLE'::text,
+    parte_grupo_asiste text COLLATE pg_catalog."default" NOT NULL,
+    parte_hora_aviso time without time zone NOT NULL,
+    parte_hora_transferencia_ecu smallint,
+    parte_minuto_transferencia_ecu smallint,
+    parte_hora_salida time without time zone NOT NULL,
+    parte_hora_arribo time without time zone NOT NULL,
+    parte_hora_finalizacion time without time zone NOT NULL,
+    parte_hora_retorno time without time zone NOT NULL,
+    parte_apoyo_requerido text COLLATE pg_catalog."default",
+    parte_apoyo text COLLATE pg_catalog."default",
+    parte_apoyo_otros text COLLATE pg_catalog."default",
+    parte_provincia integer NOT NULL REFERENCES resources.states(state_id),
+    parte_canton integer NOT NULL REFERENCES resources.towns(town_id),
+    parte_parroquia integer NOT NULL REFERENCES resources.parishes(parish_id),
+    parte_direccion text COLLATE pg_catalog."default" NOT NULL,
+    parte_calle_principal text COLLATE pg_catalog."default",
+    parte_calle_secundaria text COLLATE pg_catalog."default",
+    parte_numero_domicilio text COLLATE pg_catalog."default",
+    parte_telefono text COLLATE pg_catalog."default",
+    parte_sector text COLLATE pg_catalog."default",
+    parte_tipo_sector text COLLATE pg_catalog."default",
+    parte_referencia text COLLATE pg_catalog."default",
+    parte_informacion_alertante text COLLATE pg_catalog."default",
+    parte_institucion_tipo text COLLATE pg_catalog."default",
+    parte_institucion_propiedad text COLLATE pg_catalog."default",
+    parte_observacion_institucion text COLLATE pg_catalog."default",
+    parte_observacion_victimas text COLLATE pg_catalog."default",
+    parte_observacion_fallecidos text COLLATE pg_catalog."default",
+    parte_tipo_afectado text COLLATE pg_catalog."default",
+    parte_afectado_propietario text COLLATE pg_catalog."default",
+    parte_afectado_arrendatario text COLLATE pg_catalog."default",
+    parte_afectado_otros text COLLATE pg_catalog."default",
+    parte_area_destruida_m2 numeric(16,4) NOT NULL DEFAULT 0,
+    parte_especies_predominantes text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NINGUNA'::text,
+    parte_total_superficie_quemada text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NINGUNA'::text,
+    parte_total_superficie_quemada_m2 numeric(16,4),
+    parte_lugar_posible_inicio text COLLATE pg_catalog."default",
+    parte_personas_institucion text COLLATE pg_catalog."default" DEFAULT 'NINGUNA'::text,
+    parte_nombre_representante text COLLATE pg_catalog."default" DEFAULT 'NINGUNA'::text,
+    parte_propietario_afectado text COLLATE pg_catalog."default" DEFAULT 'NINGUNO'::text,
+    parte_datos_adicionales text COLLATE pg_catalog."default" DEFAULT 'NINGUNO'::text,
+    parte_causante_identificado boolean,
+    parte_nombre_causante text COLLATE pg_catalog."default",
+    parte_otros_datos_causante text COLLATE pg_catalog."default",
+    parte_naturaleza_especifique text COLLATE pg_catalog."default",
+    parte_total_muertos integer NOT NULL DEFAULT 0,
+    parte_total_heridos integer NOT NULL DEFAULT 0,
+    parte_danios_materiales text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NINGUNA'::text,
+    parte_anexo_requerido boolean,
+    parte_visita_inspectores boolean,
+    parte_visita_inspectores_motivo text COLLATE pg_catalog."default",
+    parte_descripcion_operaciones text COLLATE pg_catalog."default" NOT NULL,
+    parte_longitud numeric(10,7),
+    parte_latitud numeric(10,7),
+    parte_novedades text COLLATE pg_catalog."default",
+    parte_croquis_url text COLLATE pg_catalog."default",
+    parte_elaborado_por text COLLATE pg_catalog."default",
+    parte_revisado_por text COLLATE pg_catalog."default",
+    parte_aprobado_por text COLLATE pg_catalog."default",
+    parte_entregado_a text COLLATE pg_catalog."default",
+    parte_entregado_identificacion text COLLATE pg_catalog."default",
+    parte_fecha_entrega date
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_personal (
+    parte_personal_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_personal_id integer NOT NULL REFERENCES tthh.tb_personal(personal_id),
+    parte_personal_rol text COLLATE pg_catalog."default",
+    parte_personal_rango text COLLATE pg_catalog."default",
+    parte_personal_grupo text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_vehiculos (
+    parte_vehiculo_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id),
+    parte_vehiculo_placa text COLLATE pg_catalog."default",
+    parte_vehiculo_siglas text COLLATE pg_catalog."default",
+    parte_vehiculo_km_salida numeric,
+    parte_vehiculo_km_retorno numeric,
+    parte_vehiculo_hora_despacho timestamp without time zone,
+    parte_vehiculo_hora_salida timestamp without time zone,
+    parte_vehiculo_hora_arribo timestamp without time zone,
+    parte_vehiculo_hora_fin_operaciones timestamp without time zone,
+    parte_vehiculo_apoyo text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_tipos_auxilio (
+    parte_tipo_auxilio_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_auxilio_clave text COLLATE pg_catalog."default",
+    parte_auxilio_clasificacion text COLLATE pg_catalog."default",
+    parte_auxilio_subclasificacion text COLLATE pg_catalog."default",
+    parte_auxilio_uso_tipo text COLLATE pg_catalog."default",
+    parte_auxilio_especifique text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_causas (
+    parte_causa_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_causa_clave text COLLATE pg_catalog."default",
+    parte_causa_clasificacion text COLLATE pg_catalog."default",
+    parte_causa_descripcion text COLLATE pg_catalog."default",
+    parte_causa_especifique text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_equipos_herramientas (
+    parte_equipo_herramienta_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id),
+    parte_recurso_descripcion text COLLATE pg_catalog."default",
+    parte_recurso_cantidad numeric,
+    parte_recurso_observaciones text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_materiales_descartables (
+    parte_material_descartable_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id),
+    parte_recurso_descripcion text COLLATE pg_catalog."default",
+    parte_recurso_cantidad numeric,
+    parte_recurso_observaciones text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_insumos (
+    parte_insumo_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id),
+    parte_recurso_descripcion text COLLATE pg_catalog."default",
+    parte_recurso_cantidad numeric,
+    parte_recurso_observaciones text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_personas_asistidas (
+    parte_persona_asistida_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_persona_institucion text COLLATE pg_catalog."default",
+    parte_persona_tipo_institucion text COLLATE pg_catalog."default",
+    parte_persona_nombre text COLLATE pg_catalog."default",
+    parte_persona_identificacion text COLLATE pg_catalog."default",
+    parte_persona_telefono text COLLATE pg_catalog."default",
+    parte_persona_propiedad text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_victimas (
+    parte_victima_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_victima_numero_hoja text COLLATE pg_catalog."default",
+    parte_victima_tipo_identificacion text COLLATE pg_catalog."default",
+    parte_victima_identificacion text COLLATE pg_catalog."default",
+    parte_victima_nombres text COLLATE pg_catalog."default",
+    parte_victima_edad numeric,
+    parte_victima_tipo_edad text COLLATE pg_catalog."default",
+    parte_victima_sexo text COLLATE pg_catalog."default",
+    parte_victima_signos_sintomas text COLLATE pg_catalog."default",
+    parte_victima_traslado text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_fallecidos (
+    parte_fallecido_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_fallecido_numero text COLLATE pg_catalog."default",
+    parte_fallecido_tipo_identificacion text COLLATE pg_catalog."default",
+    parte_fallecido_identificacion text COLLATE pg_catalog."default",
+    parte_fallecido_nombres text COLLATE pg_catalog."default",
+    parte_fallecido_edad numeric,
+    parte_fallecido_tipo_edad text COLLATE pg_catalog."default",
+    parte_fallecido_sexo text COLLATE pg_catalog."default",
+    parte_fallecido_observaciones text COLLATE pg_catalog."default",
+    parte_fallecido_traslado text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_tipos_incendio (
+    tipo_incendio_id SERIAL NOT NULL PRIMARY KEY,
+    tipo_incendio_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    tipo_incendio_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    tipo_incendio_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_causas_incendio (
+    causa_incendio_id SERIAL NOT NULL PRIMARY KEY,
+    causa_incendio_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    causa_incendio_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    causa_incendio_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_naturalezas (
+    naturaleza_id SERIAL NOT NULL PRIMARY KEY,
+    naturaleza_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    naturaleza_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    naturaleza_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_causas_afectacion_humana (
+    causa_afectacion_humana_id SERIAL NOT NULL PRIMARY KEY,
+    causa_afectacion_humana_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    causa_afectacion_humana_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    causa_afectacion_humana_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_tipo_afectado (
+    tipo_afectado_id SERIAL NOT NULL PRIMARY KEY,
+    tipo_afectado_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    tipo_afectado_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    tipo_afectado_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_forma_aviso (
+    forma_aviso_id SERIAL NOT NULL PRIMARY KEY,
+    forma_aviso_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    forma_aviso_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    forma_aviso_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_apoyo (
+    apoyo_id SERIAL NOT NULL PRIMARY KEY,
+    apoyo_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    apoyo_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    apoyo_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_tipos_auxilio (
+    tipo_auxilio_id SERIAL NOT NULL PRIMARY KEY,
+    tipo_auxilio_clave text COLLATE pg_catalog."default" NOT NULL,
+    tipo_auxilio_clasificacion text COLLATE pg_catalog."default" NOT NULL,
+    tipo_auxilio_subclasificacion text COLLATE pg_catalog."default" NOT NULL,
+    tipo_auxilio_uso_tipo text COLLATE pg_catalog."default" NOT NULL DEFAULT ''::text,
+    tipo_auxilio_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text,
+    CONSTRAINT tb_partes_catalogo_tipos_auxilio_uk UNIQUE (
+        tipo_auxilio_clave,
+        tipo_auxilio_clasificacion,
+        tipo_auxilio_subclasificacion,
+        tipo_auxilio_uso_tipo
+    )
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_tipos_incendio (
+    parte_tipo_incendio_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_tipo_incendio_catalogo_id integer REFERENCES operaciones.tb_partes_catalogo_tipos_incendio(tipo_incendio_id),
+    parte_incendio_clave text COLLATE pg_catalog."default",
+    parte_incendio_clasificacion text COLLATE pg_catalog."default",
+    parte_incendio_especifique text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_naturalezas (
+    parte_naturaleza_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_naturaleza_catalogo_id integer REFERENCES operaciones.tb_partes_catalogo_naturalezas(naturaleza_id),
+    parte_naturaleza_clave text COLLATE pg_catalog."default",
+    parte_naturaleza_descripcion text COLLATE pg_catalog."default",
+    parte_naturaleza_especifique text COLLATE pg_catalog."default"
+) WITH (OIDS = FALSE) TABLESPACE pg_default;
+
+-- Catalogos iniciales leidos de los formatos de partes.
+INSERT INTO operaciones.tb_partes_catalogo_tipos_incendio (
+    tipo_incendio_codigo,
+    tipo_incendio_descripcion
+) VALUES
+    ('DECLARADO', 'Declarado'),
+    ('INCENDIO', 'Incendio'),
+    ('AMAGO', 'Amago'),
+    ('FORESTAL', 'Forestal'),
+    ('FUGA_GAS', 'Fuga de gas'),
+    ('INSPECCION_SIRENA_BALIZA', 'Inspección con sirena - baliza'),
+    ('INSPECCION_SIN_SIRENA_BALIZA', 'Inspección sin sirena - baliza'),
+    ('FALSA_ALARMA', 'Falsa alarma'),
+    ('SIMULACRO', 'Simulacro'),
+    ('INCENDIO_APOYO', 'Incendio / apoyo')
+ON CONFLICT (tipo_incendio_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_causas_incendio (
+    causa_incendio_codigo,
+    causa_incendio_descripcion
+) VALUES
+    ('DESCONOCIDA', 'Desconocida'),
+    ('DERRAME_COMBUSTIBLE', 'Derrame de combustible'),
+    ('ELECTRICA', 'Eléctrica'),
+    ('ACCIDENTE_TRANSITO', 'Accidente de tránsito'),
+    ('INTENCIONAL', 'Intencional'),
+    ('EXPLOSION', 'Explosión'),
+    ('RAYO', 'Rayo'),
+    ('DESPRENDIMIENTO_CHISPAS', 'Desprendimiento de chispas'),
+    ('IMPREVISION', 'Imprevisión'),
+    ('FUGA_GAS', 'Fuga de gas'),
+    ('MANIOBRAS_MILITARES', 'Maniobras militares'),
+    ('PROPAGACION_INCENDIO', 'Propagación de incendio'),
+    ('DESCUIDO', 'Descuido'),
+    ('COMBUSTION_ESPONTANEA', 'Combustión espontánea'),
+    ('QUEMA_AGRICOLA', 'Quema agrícola'),
+    ('QUEMA_BASURA', 'Quema de basura'),
+    ('INSTRUIR_CIUDADANIA', 'Instruir a la ciudadanía'),
+    ('VEHICULAR', 'Vehicular')
+ON CONFLICT (causa_incendio_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_naturalezas (
+    naturaleza_codigo,
+    naturaleza_descripcion
+) VALUES
+    ('VIVIENDA', 'Vivienda'),
+    ('CLANDESTINO', 'Clandestino'),
+    ('TERRENO_BALDIO', 'Terreno baldío'),
+    ('PANADERIA', 'Panadería'),
+    ('INDUSTRIA', 'Industria'),
+    ('MECANICA', 'Mecánica'),
+    ('BOSQUE_CAMPO', 'Bosque / campo'),
+    ('IGLESIA', 'Iglesia'),
+    ('COMERCIO', 'Comercio'),
+    ('RESTAURANTE', 'Restaurante'),
+    ('CENTRO_COMERCIAL', 'Centro comercial'),
+    ('ASERRADERO', 'Aserradero'),
+    ('VEHICULO', 'Vehículo'),
+    ('ESTACION_SERVICIO', 'Estación de servicio'),
+    ('EDIFICIO_OFICINAS', 'Edificio de oficinas'),
+    ('OTROS', 'Otros')
+ON CONFLICT (naturaleza_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_causas_afectacion_humana (
+    causa_afectacion_humana_codigo,
+    causa_afectacion_humana_descripcion
+) VALUES
+    ('ASFIXIA', 'Asfixia'),
+    ('QUEMADURAS', 'Quemaduras'),
+    ('CAIDA', 'Caída'),
+    ('OTRAS', 'Otras')
+ON CONFLICT (causa_afectacion_humana_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_tipo_afectado (
+    tipo_afectado_codigo,
+    tipo_afectado_descripcion
+) VALUES
+    ('PROPIO', 'Propio'),
+    ('ARRENDADO', 'Arrendado')
+ON CONFLICT (tipo_afectado_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_forma_aviso (
+    forma_aviso_codigo,
+    forma_aviso_descripcion
+) VALUES
+    ('CR', 'Central de radio'),
+    ('CABINA_RADIO', 'Cabina de radio'),
+    ('TELEFONO', 'Teléfono'),
+    ('PERSONAL', 'Personal')
+ON CONFLICT (forma_aviso_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_apoyo (
+    apoyo_codigo,
+    apoyo_descripcion
+) VALUES
+    ('POLICIA', 'Policía'),
+    ('CRUZ_ROJA', 'Cruz Roja'),
+    ('EJERCITO', 'Ejército'),
+    ('PERSONAS_PARTICULARES', 'Personas particulares'),
+    ('OTROS', 'Otros')
+ON CONFLICT (apoyo_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_tipos_auxilio (
+    tipo_auxilio_clave,
+    tipo_auxilio_clasificacion,
+    tipo_auxilio_subclasificacion,
+    tipo_auxilio_uso_tipo
+) VALUES
+    ('10-1', 'Auxilio', 'Evacuación', 'Menaje + personas'),
+    ('10-1', 'Auxilio', 'Tala de árboles', '')
+ON CONFLICT (
+    tipo_auxilio_clave,
+    tipo_auxilio_clasificacion,
+    tipo_auxilio_subclasificacion,
+    tipo_auxilio_uso_tipo
+) DO NOTHING;
+
 -- TABLAS BOMBEROS VOLUNTARIOS
 
 DROP TABLE IF EXISTS subjefatura.tb_voluntarios CASCADE;
