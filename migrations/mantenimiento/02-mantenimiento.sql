@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmantenimiento (
     ultimo_km_mantenimiento numeric(10,2),
     ultimo_fecha_mantenimiento date,
     orden_proximomantenimiento numeric(10,2),
-    orden_fecha_entrega date,
+    orden_fecha_entrega date,                                   -- fecha del acta de entrega
     orden_observaciones text,
     orden_fecha_recepcion date,
     orden_quien_recepcion text,
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmantenimiento (
 );
 CREATE INDEX IF NOT EXISTS ix_ordenesmantenimiento_vehiculo ON logistica.tb_ordenesmantenimiento (fk_vehiculo_id, orden_fecha_mantenimiento DESC);
 
-CREATE TABLE IF NOT EXISTS logistica.tb_mantenimiento_trabajos (     -- trabajos realizados
+CREATE TABLE IF NOT EXISTS logistica.tb_mantenimiento_trabajos (     -- trabajos a realizar (novedades reportadas por el custodio)
     trabajo_id SERIAL NOT NULL PRIMARY KEY,
     trabajo_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
     trabajo_estado text DEFAULT 'ACTIVO'::text,
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS logistica.tb_mantenimiento_trabajos (     -- trabajos
     trabajo_descripcion text NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS logistica.tb_mantenimiento_sugeridos (     -- trabajos sugeridos por el taller
+CREATE TABLE IF NOT EXISTS logistica.tb_mantenimiento_sugeridos (     -- trabajos sugeridos por el contratista (taller)
     trabajo_id SERIAL NOT NULL PRIMARY KEY,
     trabajo_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
     trabajo_estado text DEFAULT 'ACTIVO'::text,
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS logistica.tb_mantenimiento_facturas (
     fk_usuario_id integer REFERENCES admin.tb_usuarios(usuario_id),
     fk_personal_id integer,                                     -- histórico del sistema anterior
     fk_orden_id integer NOT NULL REFERENCES logistica.tb_ordenesmantenimiento(orden_id) ON DELETE CASCADE,
-    factura_tipo text NOT NULL,                                 -- FACTURA | PROFORMA | ...
+    factura_tipo text NOT NULL,                                 -- rubro: MANO DE OBRA | REPUESTOS | ACEITES Y LUBRICANTES (parámetro MANT_RUBROS)
     factura_numero text,
     factura_valor numeric(10,2),
     factura_descripcion text
@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS logistica.tb_informemantenimiento (
 );
 
 ALTER TABLE logistica.tb_informemantenimiento ADD COLUMN IF NOT EXISTS informe_serie integer NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS ix_informemantenimiento_numero ON logistica.tb_informemantenimiento (upper(informe_numero));
 
 CREATE TABLE IF NOT EXISTS logistica.tb_informe_ordenesmantenimiento (
     fk_informe_id integer NOT NULL REFERENCES logistica.tb_informemantenimiento(informe_id) ON DELETE CASCADE,
@@ -176,16 +177,23 @@ SELECT o.*,
        (SELECT count(*) FROM logistica.tb_mantenimiento_trabajos tr WHERE tr.fk_orden_id = o.orden_id) AS trabajos,
        (SELECT COALESCE(sum(f.factura_valor), 0) FROM logistica.tb_mantenimiento_facturas f
          WHERE f.fk_orden_id = o.orden_id AND f.factura_estado = 'ACTIVO') AS total_facturas,
-       (SELECT i.fk_informe_id FROM logistica.tb_informe_ordenesmantenimiento i
-          JOIN logistica.tb_informemantenimiento im ON im.informe_id = i.fk_informe_id AND im.informe_estado <> 'ANULADO'
-         WHERE i.fk_orden_id = o.orden_id LIMIT 1) AS informe_id,
+       (SELECT COALESCE(json_object_agg(r.factura_tipo, r.total), '{}'::json) FROM (
+            SELECT f.factura_tipo, sum(COALESCE(f.factura_valor, 0)) AS total FROM logistica.tb_mantenimiento_facturas f
+             WHERE f.fk_orden_id = o.orden_id AND f.factura_estado = 'ACTIVO' GROUP BY f.factura_tipo) r) AS totales_rubro,
+       inf.informe_id, inf.informe_numero, inf.informe_fecha,
        u.usuario_login AS usuario
 FROM logistica.tb_ordenesmantenimiento o
 JOIN administrativo.tb_vehiculos v ON v.vehiculo_id = o.fk_vehiculo_id
 LEFT JOIN tthh.vw_personal_simple s ON s.ppersonal_id = o.personal_solicita
 LEFT JOIN tthh.vw_personal_simple da ON da.ppersonal_id = o.director_administrativo
 LEFT JOIN tthh.vw_personal_simple t ON t.ppersonal_id = o.tecnico_servicios
-LEFT JOIN admin.tb_usuarios u ON u.usuario_id = o.fk_usuario_id;
+LEFT JOIN admin.tb_usuarios u ON u.usuario_id = o.fk_usuario_id
+LEFT JOIN LATERAL (
+    SELECT im.informe_id, im.informe_numero, im.informe_fecha
+      FROM logistica.tb_informe_ordenesmantenimiento io
+      JOIN logistica.tb_informemantenimiento im ON im.informe_id = io.fk_informe_id AND im.informe_estado <> 'ANULADO'
+     WHERE io.fk_orden_id = o.orden_id
+     ORDER BY im.informe_id DESC LIMIT 1) inf ON true;
 
 DROP VIEW IF EXISTS logistica.vw_informemantenimiento;
 CREATE VIEW logistica.vw_informemantenimiento AS
@@ -193,6 +201,9 @@ SELECT i.*,
        t.nombre_completo AS psg_nombre, t.puesto_nombre AS psg_puesto, t.persona_doc_identidad AS psg_cc,
        da.nombre_completo AS da_nombre, da.puesto_nombre AS da_puesto, da.persona_doc_identidad AS da_cc,
        (SELECT count(*) FROM logistica.tb_informe_ordenesmantenimiento io WHERE io.fk_informe_id = i.informe_id) AS ordenes,
+       (SELECT COALESCE(sum(f.factura_valor), 0) FROM logistica.tb_mantenimiento_facturas f
+          JOIN logistica.tb_informe_ordenesmantenimiento io ON io.fk_orden_id = f.fk_orden_id
+         WHERE io.fk_informe_id = i.informe_id AND f.factura_estado = 'ACTIVO') AS total,
        u.usuario_login AS usuario
 FROM logistica.tb_informemantenimiento i
 LEFT JOIN tthh.vw_personal_simple t ON t.ppersonal_id = i.tecnico_servicios

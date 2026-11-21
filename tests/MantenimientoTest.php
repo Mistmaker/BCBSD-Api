@@ -65,6 +65,20 @@ final class MantenimientoTest extends TestCase
         $this->assertSame('CBQ27INF00001', mantCodigo('CBQ', 'inf', 1, 2027));
     }
 
+    public function testSerieDeCodigo(): void
+    {
+        $this->assertSame(12, mantSerieDeCodigo('CBSD26INF00012', 'CBSD', 'INF', 2026));
+        $this->assertSame(3, mantSerieDeCodigo(' cbsd26inf00003 ', 'CBSD', 'INF', 2026));
+        $this->assertNull(mantSerieDeCodigo('CBSD25INF00012', 'CBSD', 'INF', 2026), 'otro año');
+        $this->assertNull(mantSerieDeCodigo('CBSD-17-RUPIF-001-M', 'CBSD', 'INF', 2026), 'formato manual');
+    }
+
+    public function testLista(): void
+    {
+        $this->assertSame(['MANO DE OBRA', 'REPUESTOS', 'ACEITES Y LUBRICANTES'], mantLista('MANO DE OBRA| REPUESTOS |ACEITES Y LUBRICANTES|'));
+        $this->assertSame([], mantLista(null));
+    }
+
     private function ordenValida(): object
     {
         return (object) [
@@ -107,7 +121,7 @@ final class MantenimientoTest extends TestCase
             'tipo inválido' => [fn($o) => $o->orden_tipomantenimiento = 'OTRO', 'Tipo'],
             'estado inválido' => [fn($o) => $o->orden_estado = 'BORRADA', 'Estado'],
             'trabajo vacío' => [fn($o) => $o->trabajos[] = (object) ['trabajo_descripcion' => '  '], 'trabajos'],
-            'factura sin tipo' => [fn($o) => $o->facturas[0]->factura_tipo = '', 'tipo'],
+            'factura sin rubro' => [fn($o) => $o->facturas[0]->factura_tipo = '', 'rubro'],
             'factura negativa' => [fn($o) => $o->facturas[0]->factura_valor = -1, 'valor'],
         ];
     }

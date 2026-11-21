@@ -5,9 +5,17 @@ require_once __DIR__ . '/../../../classes/api.php';
 require_once __DIR__ . '/../../../classes/mantenimiento.php';
 // GET          -> listado de informes
 // GET ?id=N    -> informe con sus órdenes (incluye trabajos de cada orden)
+// GET ?siguiente=1 -> siguiente número de informe sugerido (botón +1)
 apiMetodo(['GET']);
 try {
     $db = new Database();
+    if (!empty($_GET['siguiente'])) {
+        $siglas = institucion($db)['sistema_siglas'];
+        $db->query("SELECT COALESCE(MAX(informe_serie), 0) + 1 AS serie FROM logistica.tb_informemantenimiento
+                     WHERE date_part('year', informe_registro) = date_part('year', CURRENT_DATE)");
+        $serie = (int) $db->single()['serie'];
+        jsonResponse(['informe_numero' => mantCodigo($siglas, 'INF', $serie), 'informe_serie' => $serie]);
+    }
     $id = apiParamId();
     if ($id === null) {
         $db->query('SELECT * FROM logistica.vw_informemantenimiento ORDER BY informe_id DESC');

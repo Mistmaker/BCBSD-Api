@@ -74,7 +74,7 @@ final class MantenimientoApiTest extends TestCase
     {
         self::$pdo->exec("
             DELETE FROM logistica.tb_informe_ordenesmantenimiento WHERE fk_informe_id IN (SELECT informe_id FROM logistica.tb_informemantenimiento WHERE fk_usuario_id = 9001);
-            DELETE FROM logistica.tb_informemantenimiento WHERE fk_usuario_id = 9001;
+            DELETE FROM logistica.tb_informemantenimiento WHERE fk_usuario_id = 9001 OR informe_numero LIKE 'PRUEBA-%';
             DELETE FROM logistica.tb_ordenesmantenimiento WHERE fk_vehiculo_id = 9001;
             UPDATE administrativo.tb_vehiculos SET fk_plan_id = NULL WHERE vehiculo_id = 9001;
             DELETE FROM logistica.tb_planesmantenimiento WHERE plan_modelo LIKE 'PRUEBA %';
@@ -142,7 +142,9 @@ final class MantenimientoApiTest extends TestCase
             'orden_tipomantenimiento' => 'PREVENTIVO',
             'trabajos' => [['trabajo_descripcion' => 'Cambio de aceite y filtro']],
             'sugeridos' => [['trabajo_descripcion' => 'Revisar frenos']],
-            'facturas' => [['factura_tipo' => 'FACTURA', 'factura_numero' => '001-001-123', 'factura_valor' => '85.40'], ['factura_tipo' => 'PROFORMA', 'factura_valor' => '']],
+            'facturas' => [['factura_tipo' => 'MANO DE OBRA', 'factura_descripcion' => '001-001-123', 'factura_valor' => '51.10'],
+                           ['factura_tipo' => 'REPUESTOS', 'factura_descripcion' => '001-001-124', 'factura_valor' => '34.30'],
+                           ['factura_tipo' => 'ACEITES Y LUBRICANTES', 'factura_valor' => '']],
             'anexos' => [['anexo_descripcion' => 'Fotos del taller']],
         ];
         [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $orden);
@@ -154,9 +156,12 @@ final class MantenimientoApiTest extends TestCase
         [$st, $o] = $this->api('GET', $base . "getOrdenesMantenimiento.php?id=$ordenId");
         $this->assertSame('PRUEBA-1', $o['vehiculo_sigla']);
         $this->assertCount(1, $o['trabajos']);
-        $this->assertCount(2, $o['facturas']);
-        $this->assertNull($o['facturas'][1]['factura_valor']);
+        $this->assertCount(3, $o['facturas']);
+        $this->assertNull($o['facturas'][2]['factura_valor']);
         $this->assertEquals(85.40, $o['total_facturas']);
+        $totales = json_decode($o['totales_rubro'], true);
+        $this->assertEquals(51.10, $totales['MANO DE OBRA']);
+        $this->assertEquals(34.30, $totales['REPUESTOS']);
 
         // El km de la orden pasa a ser el km actual del vehículo
         [, $v] = $this->api('GET', $base . 'getEstadoVehiculos.php?id=' . self::VEHICULO);
@@ -171,7 +176,7 @@ final class MantenimientoApiTest extends TestCase
         $this->assertSame(200, $st, json_encode($r));
         [, $o2] = $this->api('GET', $base . "getOrdenesMantenimiento.php?id=$ordenId");
         $this->assertCount(2, $o2['trabajos']);
-        $this->assertCount(2, $o2['facturas'], 'Las facturas no enviadas se conservan');
+        $this->assertCount(3, $o2['facturas'], 'Las facturas no enviadas se conservan');
         $this->assertSame('FINALIZADA', $o2['orden_estado']);
 
         // 5. Informe con la orden; la orden ya no aparece como disponible
@@ -201,6 +206,38 @@ final class MantenimientoApiTest extends TestCase
         $this->assertCount(1, $libres);
     }
 
+    public function testInformeDePagoDesdeLaOrden(): void
+    {
+        $base = 'administrativo/mantenimiento/';
+        [$st, $sig] = $this->api('GET', $base . 'getInformesMantenimiento.php?siguiente=1');
+        $this->assertSame(200, $st);
+        $this->assertMatchesRegularExpression('/INF\d{5}$/', $sig['informe_numero']);
+
+        $orden = [
+            'fk_vehiculo_id' => self::VEHICULO, 'personal_solicita' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
+            'tecnico_servicios' => self::PERSONAL, 'orden_fecha_mantenimiento' => '2026-11-21 10:00', 'orden_km_mantenimiento' => 36000,
+            'trabajos' => [['trabajo_descripcion' => 'Revisión de frenos']],
+            'informe_numero' => 'PRUEBA-INF-001', 'informe_fecha' => '2026-11-25',
+        ];
+        [$st, $r1] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $orden);
+        $this->assertSame(201, $st, json_encode($r1));
+        $this->assertSame('PRUEBA-INF-001', $r1['informe']['informe_numero']);
+        [$st, $r2] = $this->api('POST', $base . 'setOrdenMantenimiento.php', array_merge($orden, ['orden_km_mantenimiento' => 36100]));
+        $this->assertSame($r1['informe']['informe_id'], $r2['informe']['informe_id'], 'El mismo número agrupa ambas órdenes en un informe');
+
+        [, $inf] = $this->api('GET', $base . 'getInformesMantenimiento.php?id=' . $r1['informe']['informe_id']);
+        $this->assertSame(2, $inf['ordenes']);
+        $this->assertSame('2026-11-25', $inf['informe_fecha']);
+
+        // Vaciar el número desvincula la orden
+        [, $o] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?id=' . $r2['id']);
+        $this->assertSame('PRUEBA-INF-001', $o['informe_numero']);
+        [$st] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', array_merge($o, ['informe_numero' => '']));
+        $this->assertSame(200, $st);
+        [, $o] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?id=' . $r2['id']);
+        $this->assertNull($o['informe_numero']);
+    }
+
     public function testValidacionesYPermisos(): void
     {
         $base = 'administrativo/mantenimiento/';
@@ -224,6 +261,7 @@ final class MantenimientoApiTest extends TestCase
         [$st, $s] = $this->api('GET', 'admin/getSistema.php?modulo=MANTENIMIENTO');
         $this->assertSame(200, $st);
         $this->assertArrayHasKey('sistema_siglas', $s);
-        $this->assertContains('MANT_TOLERANCIA_KM', array_column($s['parametros'], 'param_key'));
+        $this->assertContains('MANT_RUBROS', array_column($s['parametros'], 'param_key'));
+        $this->assertArrayHasKey('director_administrativo', $s);
     }
 }

@@ -72,6 +72,20 @@ function mantCodigo(string $siglas, string $tipo, int $serie, ?int $anio = null)
     return strtoupper($siglas) . substr((string) $anio, -2) . strtoupper($tipo) . str_pad((string) $serie, 5, '0', STR_PAD_LEFT);
 }
 
+/** Serie de un código generado con mantCodigo() para el año en curso; null si el código tiene otro formato. */
+function mantSerieDeCodigo(string $codigo, string $siglas, string $tipo, ?int $anio = null): ?int
+{
+    $anio = $anio ?? (int) date('Y');
+    $patron = '/^' . preg_quote(strtoupper($siglas), '/') . substr((string) $anio, -2) . preg_quote(strtoupper($tipo), '/') . '(\d{5})$/';
+    return preg_match($patron, strtoupper(trim($codigo)), $m) ? (int) $m[1] : null;
+}
+
+/** Valores de un parámetro tipo lista ("A|B|C"). */
+function mantLista(?string $valor): array
+{
+    return array_values(array_filter(array_map('trim', explode('|', (string) $valor)), fn($x) => $x !== ''));
+}
+
 const MANT_ESTADOS_ORDEN = ['MANTENIMIENTO', 'FINALIZADA', 'ANULADA'];
 const MANT_TIPOS_ORDEN = ['CORRECTIVO', 'PREVENTIVO'];
 
@@ -104,10 +118,10 @@ function mantValidarOrden(object $o): void
     }
     foreach ((array) ($o->facturas ?? []) as $f) {
         if (trim((string) ($f->factura_tipo ?? '')) === '') {
-            throw new ValidacionException('Cada factura debe tener un tipo');
+            throw new ValidacionException('Cada valor del desglose debe tener un rubro');
         }
         if (isset($f->factura_valor) && $f->factura_valor !== '' && (!is_numeric($f->factura_valor) || $f->factura_valor < 0)) {
-            throw new ValidacionException('El valor de la factura debe ser un número mayor o igual a 0');
+            throw new ValidacionException('El valor de cada rubro debe ser un número mayor o igual a 0');
         }
     }
 }

@@ -7,8 +7,10 @@ require_once __DIR__ . '/../../../classes/mantenimiento.php';
 // PUT  -> actualiza una orden (con orden_id). Para anular: orden_estado = 'ANULADA'.
 // Cuerpo: campos de logistica.tb_ordenesmantenimiento más los arreglos
 //   trabajos [{trabajo_descripcion}], sugeridos [{trabajo_descripcion}],
-//   facturas [{factura_tipo, factura_numero, factura_valor, factura_descripcion}], anexos [{anexo_descripcion}]
+//   facturas [{factura_tipo (rubro), factura_numero, factura_valor, factura_descripcion}], anexos [{anexo_descripcion}]
 // Los arreglos que se envían reemplazan a los existentes; los que no se envían no se tocan.
+// Informe de pago (opcional): informe_numero, informe_fecha. Si el número existe (informe vigente) la orden se
+// vincula a él; si no, se crea el informe. Enviar informe_numero vacío desvincula la orden.
 $metodo = apiMetodo(['POST', 'PUT']);
 $o = apiCuerpoJson();
 $db = null;
@@ -23,6 +25,7 @@ try {
     $tecnicoPuesto = prop($o, 'tecnico_puesto') ?: parametro($db, 'MANT_TECNICO_PUESTO', 'PROFESIONAL TÉCNICO EN SERVICIOS GENERALES');
     $tolerancia = (int) parametro($db, 'MANT_TOLERANCIA_KM', 1000);
     $siglas = institucion($db)['sistema_siglas'];
+    $informeCargo = parametro($db, 'MANT_INFORME_CARGO', 'ADMINISTRADOR DE CONTRATO');
     $db->beginTransaction();
 
     if ($metodo === 'POST') {
@@ -140,9 +143,57 @@ try {
         }
     }
 
+    // Informe de pago
+    $informe = null;
+    if (property_exists($o, 'informe_numero')) {
+        $numero = trim((string) $o->informe_numero);
+        $informeId = null;
+        if ($numero !== '') {
+            $db->query("SELECT informe_id FROM logistica.tb_informemantenimiento
+                         WHERE upper(informe_numero) = upper(:n) AND informe_estado <> 'ANULADO' ORDER BY informe_id DESC LIMIT 1");
+            $db->bind(':n', $numero);
+            $existente = $db->single();
+            $fechaInforme = prop($o, 'informe_fecha') ?: null;
+            if ($existente) {
+                $informeId = (int) $existente['informe_id'];
+                if ($fechaInforme) {
+                    $db->query('UPDATE logistica.tb_informemantenimiento SET informe_fecha = :f WHERE informe_id = :i');
+                    $db->bind(':f', $fechaInforme);
+                    $db->bind(':i', $informeId);
+                    $db->execute();
+                }
+            } else {
+                $db->query('INSERT INTO logistica.tb_informemantenimiento (fk_usuario_id, tecnico_servicios, tecnico_cargo, director_administrativo,
+                                informe_numero, informe_serie, informe_fecha)
+                            VALUES (:u, :t, :tc, :da, :n, :serie, :f) RETURNING informe_id');
+                $db->bind(':u', $usuario);
+                $db->bind(':t', (int) $o->tecnico_servicios);
+                $db->bind(':tc', $informeCargo);
+                $db->bind(':da', (int) $o->director_administrativo);
+                $db->bind(':n', $numero);
+                $db->bind(':serie', mantSerieDeCodigo($numero, $siglas, 'INF') ?? 0);
+                $db->bind(':f', $fechaInforme ?? date('Y-m-d'));
+                $informeId = (int) $db->single()['informe_id'];
+            }
+        }
+        // Una orden solo puede estar en un informe vigente
+        $db->query("DELETE FROM logistica.tb_informe_ordenesmantenimiento WHERE fk_orden_id = :o AND fk_informe_id <> :i
+                     AND fk_informe_id IN (SELECT informe_id FROM logistica.tb_informemantenimiento WHERE informe_estado <> 'ANULADO')");
+        $db->bind(':o', $ordenId);
+        $db->bind(':i', $informeId ?? 0);
+        $db->execute();
+        if ($informeId) {
+            $db->query('INSERT INTO logistica.tb_informe_ordenesmantenimiento (fk_informe_id, fk_orden_id) VALUES (:i, :o) ON CONFLICT DO NOTHING');
+            $db->bind(':i', $informeId);
+            $db->bind(':o', $ordenId);
+            $db->execute();
+            $informe = ['informe_id' => $informeId, 'informe_numero' => $numero];
+        }
+    }
+
     $db->endTransaction();
     jsonResponse(['msg' => $metodo === 'POST' ? 'Orden de mantenimiento creada' : 'Orden de mantenimiento actualizada',
-                  'id' => $ordenId, 'orden_codigo' => $codigo ?? null, 'proximo' => $proximo], $metodo === 'POST' ? 201 : 200);
+                  'id' => $ordenId, 'orden_codigo' => $codigo ?? null, 'proximo' => $proximo, 'informe' => $informe], $metodo === 'POST' ? 201 : 200);
 } catch (Throwable $e) {
     $db?->cancelTransaction();
     apiError($e, 'No se pudo guardar la orden de mantenimiento');
