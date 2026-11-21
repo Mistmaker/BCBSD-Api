@@ -27,6 +27,7 @@ Alternativa sin archivo: definir variables de entorno en el VirtualHost:
 
 ```apache
 SetEnv BCBSD_DB_HOST localhost
+SetEnv BCBSD_DB_PORT 5432
 SetEnv BCBSD_DB_USER postgres
 SetEnv BCBSD_DB_PASS "..."
 SetEnv BCBSD_DB_NAME db_bcbsd
@@ -56,6 +57,30 @@ si `AllowOverride` no lo permite, agregar en el VirtualHost:
 </Directory>
 ```
 
+## Migraciones de la base de datos
+
+Orden para crear una base nueva desde cero: `script.sql`, `script-2.sql`, `script_sbj_temp.sql`,
+`migrations/ordenes-abastecimiento/*.sql` y luego las migraciones de cada módulo.
+
+### Mantenimiento vehicular (`migrations/mantenimiento/`)
+
+```bash
+psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/01-institucion.sql
+psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/02-mantenimiento.sql
+# Importar datos del sistema anterior (opcional, re-ejecutable):
+psql -d db_bcbsd -v legacy_conn="dbname=db_cbsd host=localhost user=postgres password=XXXX" \
+     -f migrations/mantenimiento/03-importacion-db_cbsd.sql
+```
+
+- `01` crea `admin.tb_sistema` (nombre, **siglas**, logo, contacto de la institución) y `admin.tb_params`.
+  Las siglas son el prefijo de los códigos (`CBSD26MAN00001`); otro cuerpo de bomberos solo cambia ese registro.
+- `02` crea las tablas, vistas y roles del menú. Es re-ejecutable.
+- `03` importa institución, parámetros, planes, recursos, órdenes e informes desde `db_cbsd`, convirtiendo
+  la unidad antigua (`logistica.tb_unidades`) en el vehículo nuevo. Al final muestra cuántos registros se omitieron
+  (vehículo, personal o usuario inexistente en la base nueva).
+- Parámetros del módulo (`admin.tb_params`): `MANT_TOLERANCIA_KM` (anticipación de la alerta, 1000 km),
+  `MANT_TECNICO_PUESTO`, `MANT_INFORME_CARGO`.
+
 ## Pruebas
 
 ```bash
@@ -63,8 +88,15 @@ composer install            # incluye PHPUnit (dependencia de desarrollo)
 vendor/bin/phpunit
 ```
 
-No necesitan base de datos: prueban emisión/validación del token, que todos los endpoints estén protegidos
-y, levantando el API con el servidor embebido de PHP, las respuestas HTTP (preflight, 401, token válido).
+Sin base de datos prueban: emisión/validación del token, que todos los endpoints estén protegidos, las
+respuestas HTTP de autenticación y las reglas del mantenimiento (próximo mantenimiento, códigos, validaciones).
+
+Pruebas de integración del módulo de mantenimiento (se omiten si no se configura una base): usar una base
+**desechable** con los scripts y migraciones aplicados:
+
+```bash
+BCBSD_TEST_DB_NAME=db_bcbsd_pruebas BCBSD_TEST_DB_HOST=localhost BCBSD_TEST_DB_USER=postgres BCBSD_TEST_DB_PASS=... vendor/bin/phpunit
+```
 
 ## Pendientes de seguridad conocidos
 
