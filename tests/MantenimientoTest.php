@@ -89,12 +89,26 @@ final class MantenimientoTest extends TestCase
         ];
     }
 
+    public function testTiposPreventivos(): void
+    {
+        $this->assertTrue(mantEsPreventivo('PREVENTIVO'));
+        $this->assertTrue(mantEsPreventivo('preventivo y correctivo'));
+        $this->assertFalse(mantEsPreventivo('CORRECTIVO'));
+        $this->assertFalse(mantEsPreventivo(null));
+    }
+
     public function testOrdenValidaNormalizaTipo(): void
     {
         $o = $this->ordenValida();
         $o->orden_tipomantenimiento = 'preventivo';
         mantValidarOrden($o);
         $this->assertSame('PREVENTIVO', $o->orden_tipomantenimiento);
+
+        $o3 = $this->ordenValida();
+        $o3->orden_tipomantenimiento = 'Preventivo y correctivo';
+        $o3->orden_serie = '5';
+        mantValidarOrden($o3);
+        $this->assertSame('PREVENTIVO Y CORRECTIVO', $o3->orden_tipomantenimiento);
 
         $o2 = $this->ordenValida();
         mantValidarOrden($o2);
@@ -123,6 +137,7 @@ final class MantenimientoTest extends TestCase
             'trabajo vacío' => [fn($o) => $o->trabajos[] = (object) ['trabajo_descripcion' => '  '], 'trabajos'],
             'factura sin rubro' => [fn($o) => $o->facturas[0]->factura_tipo = '', 'rubro'],
             'factura negativa' => [fn($o) => $o->facturas[0]->factura_valor = -1, 'valor'],
+            'número de informe no entero' => [fn($o) => $o->orden_serie = 'A5', 'número de informe'],
         ];
     }
 }

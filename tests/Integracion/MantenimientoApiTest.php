@@ -74,6 +74,7 @@ final class MantenimientoApiTest extends TestCase
     {
         self::$pdo->exec("
             DELETE FROM logistica.tb_informe_ordenesmantenimiento WHERE fk_informe_id IN (SELECT informe_id FROM logistica.tb_informemantenimiento WHERE fk_usuario_id = 9001);
+            DELETE FROM logistica.tb_informe_ordenesmantenimiento WHERE fk_orden_id IN (SELECT orden_id FROM logistica.tb_ordenesmantenimiento WHERE fk_vehiculo_id = 9001);
             DELETE FROM logistica.tb_informemantenimiento WHERE fk_usuario_id = 9001 OR informe_numero LIKE 'PRUEBA-%';
             DELETE FROM logistica.tb_ordenesmantenimiento WHERE fk_vehiculo_id = 9001;
             UPDATE administrativo.tb_vehiculos SET fk_plan_id = NULL WHERE vehiculo_id = 9001;
@@ -149,7 +150,7 @@ final class MantenimientoApiTest extends TestCase
         ];
         [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $orden);
         $this->assertSame(201, $st, json_encode($r));
-        $this->assertMatchesRegularExpression('/^[A-Z]+\d{2}MAN\d{5}$/', $r['orden_codigo']);
+        $this->assertMatchesRegularExpression('/^[A-Z]+\d{2}ODM\d{5}$/', $r['orden_codigo']);
         $this->assertSame(45000, $r['proximo']['km_proximo'], 'Tras el preventivo en 34500 el siguiente punto es 45000');
         $ordenId = $r['id'];
 
@@ -206,36 +207,49 @@ final class MantenimientoApiTest extends TestCase
         $this->assertCount(1, $libres);
     }
 
-    public function testInformeDePagoDesdeLaOrden(): void
+    public function testNumeroDeInformeIndividualYReportes(): void
     {
         $base = 'administrativo/mantenimiento/';
-        [$st, $sig] = $this->api('GET', $base . 'getInformesMantenimiento.php?siguiente=1');
+        [$st, $sig] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?siguiente_serie=1');
         $this->assertSame(200, $st);
-        $this->assertMatchesRegularExpression('/INF\d{5}$/', $sig['informe_numero']);
+        $this->assertGreaterThanOrEqual(1, $sig['orden_serie']);
 
         $orden = [
             'fk_vehiculo_id' => self::VEHICULO, 'personal_solicita' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
             'tecnico_servicios' => self::PERSONAL, 'orden_fecha_mantenimiento' => '2026-11-21 10:00', 'orden_km_mantenimiento' => 36000,
+            'orden_tipomantenimiento' => 'PREVENTIVO Y CORRECTIVO', 'orden_serie' => $sig['orden_serie'], 'orden_taller' => 'TALLER DE PRUEBA',
+            'orden_fecha_recepcion' => '2026-12-01',
             'trabajos' => [['trabajo_descripcion' => 'Revisión de frenos']],
-            'informe_numero' => 'PRUEBA-INF-001', 'informe_fecha' => '2026-11-25',
+            'sugeridos' => [['trabajo_descripcion' => 'Cambio de pastillas']],
+            'facturas' => [['factura_tipo' => 'MANO DE OBRA', 'factura_descripcion' => '001-001-1', 'factura_valor' => '51.10']],
         ];
-        [$st, $r1] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $orden);
-        $this->assertSame(201, $st, json_encode($r1));
-        $this->assertSame('PRUEBA-INF-001', $r1['informe']['informe_numero']);
-        [$st, $r2] = $this->api('POST', $base . 'setOrdenMantenimiento.php', array_merge($orden, ['orden_km_mantenimiento' => 36100]));
-        $this->assertSame($r1['informe']['informe_id'], $r2['informe']['informe_id'], 'El mismo número agrupa ambas órdenes en un informe');
+        [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $orden);
+        $this->assertSame(201, $st, json_encode($r));
+        $this->assertMatchesRegularExpression('/^[A-Z]+\d{2}ODM\d{5}$/', $r['orden_codigo']);
+        [, $o] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?id=' . $r['id']);
+        $this->assertSame($sig['orden_serie'], $o['orden_serie']);
+        $this->assertSame('TALLER DE PRUEBA', $o['orden_taller']);
+        $this->assertSame('2026-12-01', $o['orden_fecha_recepcion']);
 
-        [, $inf] = $this->api('GET', $base . 'getInformesMantenimiento.php?id=' . $r1['informe']['informe_id']);
-        $this->assertSame(2, $inf['ordenes']);
-        $this->assertSame('2026-11-25', $inf['informe_fecha']);
+        [$st, $sig2] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?siguiente_serie=1');
+        $this->assertSame($sig['orden_serie'] + 1, $sig2['orden_serie']);
 
-        // Vaciar el número desvincula la orden
-        [, $o] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?id=' . $r2['id']);
-        $this->assertSame('PRUEBA-INF-001', $o['informe_numero']);
-        [$st] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', array_merge($o, ['informe_numero' => '']));
+        // Bitácora con la orden y los cuatro PDF
+        [$st, $inf] = $this->api('POST', $base . 'setInformeMantenimiento.php', [
+            'informe_numero' => 'PRUEBA-BITACORA-01', 'tecnico_servicios' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
+            'informe_taller' => 'TALLER DE PRUEBA', 'ordenes' => [$r['id']],
+        ]);
+        $this->assertSame(201, $st, json_encode($inf));
+        foreach (['orden', 'informe', 'acta'] as $doc) {
+            [$st, , $pdf] = $this->api('GET', '../reportes/mantenimiento/ordenMantenimiento.php?doc=' . $doc . '&id=' . $r['id']);
+            $this->assertSame(200, $st, "PDF $doc");
+            $this->assertStringStartsWith('%PDF', $pdf, "PDF $doc");
+        }
+        [$st, , $pdf] = $this->api('GET', '../reportes/mantenimiento/informeMantenimiento.php?id=' . $inf['id']);
         $this->assertSame(200, $st);
-        [, $o] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?id=' . $r2['id']);
-        $this->assertNull($o['informe_numero']);
+        $this->assertStringStartsWith('%PDF', $pdf);
+        [$st] = $this->api('GET', '../reportes/mantenimiento/ordenMantenimiento.php?doc=otro&id=' . $r['id']);
+        $this->assertSame(400, $st);
     }
 
     public function testValidacionesYPermisos(): void

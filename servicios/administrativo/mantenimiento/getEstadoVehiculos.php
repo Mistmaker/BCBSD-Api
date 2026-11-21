@@ -20,7 +20,7 @@ try {
                    (SELECT o.orden_fecha_mantenimiento::date FROM logistica.tb_ordenesmantenimiento o WHERE o.fk_vehiculo_id = v.vehiculo_id AND o.orden_estado <> 'ANULADA'
                      ORDER BY o.orden_fecha_mantenimiento DESC LIMIT 1) AS ultimo_fecha_mantenimiento,
                    (SELECT max(o.orden_km_mantenimiento) FROM logistica.tb_ordenesmantenimiento o WHERE o.fk_vehiculo_id = v.vehiculo_id AND o.orden_estado <> 'ANULADA'
-                     AND o.orden_tipomantenimiento = 'PREVENTIVO') AS ultimo_km_preventivo,
+                     AND o.orden_tipomantenimiento IN ('PREVENTIVO', 'PREVENTIVO Y CORRECTIVO')) AS ultimo_km_preventivo,
                    (SELECT count(*) FROM logistica.tb_ordenesmantenimiento o WHERE o.fk_vehiculo_id = v.vehiculo_id AND o.orden_estado = 'MANTENIMIENTO') AS ordenes_abiertas
               FROM administrativo.tb_vehiculos v
               JOIN administrativo.vw_vehiculos_kilometraje k ON k.vehiculo_id = v.vehiculo_id

@@ -30,6 +30,12 @@ CREATE TABLE IF NOT EXISTS admin.tb_sistema (
     sistema_latitud numeric(10,6),                           -- centro por defecto de los mapas
     sistema_longitud numeric(10,6)
 );
+-- Datos usados en el encabezado y pie de los reportes PDF
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_siglas text NOT NULL DEFAULT 'CBSD';
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_facebook text;
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_twitter text;
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_latitud numeric(10,6);
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_longitud numeric(10,6);
 
 CREATE TABLE IF NOT EXISTS admin.tb_params (
     param_id SERIAL NOT NULL PRIMARY KEY,

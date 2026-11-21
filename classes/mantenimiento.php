@@ -87,7 +87,14 @@ function mantLista(?string $valor): array
 }
 
 const MANT_ESTADOS_ORDEN = ['MANTENIMIENTO', 'FINALIZADA', 'ANULADA'];
-const MANT_TIPOS_ORDEN = ['CORRECTIVO', 'PREVENTIVO'];
+const MANT_TIPOS_ORDEN = ['CORRECTIVO', 'PREVENTIVO', 'PREVENTIVO Y CORRECTIVO'];
+/** Tipos que cuentan como mantenimiento preventivo para el plan por kilometraje. */
+const MANT_TIPOS_PREVENTIVOS = ['PREVENTIVO', 'PREVENTIVO Y CORRECTIVO'];
+
+function mantEsPreventivo(?string $tipo): bool
+{
+    return in_array(strtoupper((string) $tipo), MANT_TIPOS_PREVENTIVOS, true);
+}
 
 /** Valida y normaliza los datos de una orden. Lanza ValidacionException con un mensaje para el usuario. */
 function mantValidarOrden(object $o): void
@@ -104,6 +111,10 @@ function mantValidarOrden(object $o): void
     $o->orden_tipomantenimiento = strtoupper($o->orden_tipomantenimiento ?? 'CORRECTIVO');
     if (!in_array($o->orden_tipomantenimiento, MANT_TIPOS_ORDEN, true)) {
         throw new ValidacionException('Tipo de mantenimiento inválido');
+    }
+    if (isset($o->orden_serie) && $o->orden_serie !== '' && $o->orden_serie !== null
+        && (filter_var($o->orden_serie, FILTER_VALIDATE_INT) === false || (int) $o->orden_serie < 0)) {
+        throw new ValidacionException('El número de informe debe ser un número entero');
     }
     if (isset($o->orden_estado) && !in_array($o->orden_estado, MANT_ESTADOS_ORDEN, true)) {
         throw new ValidacionException('Estado de orden inválido');

@@ -66,21 +66,22 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmantenimiento (
     director_administrativo integer NOT NULL REFERENCES tthh.tb_personal_puestos(ppersonal_id),
     tecnico_servicios integer NOT NULL REFERENCES tthh.tb_personal_puestos(ppersonal_id),
     tecnico_puesto text,
-    orden_codigo text NOT NULL UNIQUE,
-    orden_serie integer NOT NULL DEFAULT 0,
-    orden_tipomantenimiento text DEFAULT 'CORRECTIVO'::text,  -- CORRECTIVO | PREVENTIVO
+    orden_codigo text NOT NULL UNIQUE,                          -- SIGLAS + año + ODM + serie (CBSD26ODM00010)
+    orden_serie integer NOT NULL DEFAULT 0,                     -- número de informe individual ("No. 005")
+    orden_tipomantenimiento text DEFAULT 'CORRECTIVO'::text,  -- CORRECTIVO | PREVENTIVO | PREVENTIVO Y CORRECTIVO
     orden_fecha_mantenimiento_tipo text DEFAULT 'SISTEMA'::text,
     orden_fecha_mantenimiento timestamp without time zone NOT NULL,
     orden_km_mantenimiento numeric(10,2) NOT NULL,
     ultimo_km_mantenimiento numeric(10,2),
     ultimo_fecha_mantenimiento date,
     orden_proximomantenimiento numeric(10,2),
-    orden_fecha_entrega date,                                   -- fecha del acta de entrega
+    orden_fecha_entrega date,                                   -- fecha de entrega del informe de pago
     orden_observaciones text,
-    orden_fecha_recepcion date,
+    orden_fecha_recepcion date,                                 -- fecha del acta entrega-recepción
     orden_quien_recepcion text,
     orden_cargo_recepcion text
 );
+ALTER TABLE logistica.tb_ordenesmantenimiento ADD COLUMN IF NOT EXISTS orden_taller text;   -- taller / contratista
 CREATE INDEX IF NOT EXISTS ix_ordenesmantenimiento_vehiculo ON logistica.tb_ordenesmantenimiento (fk_vehiculo_id, orden_fecha_mantenimiento DESC);
 
 CREATE TABLE IF NOT EXISTS logistica.tb_mantenimiento_trabajos (     -- trabajos a realizar (novedades reportadas por el custodio)

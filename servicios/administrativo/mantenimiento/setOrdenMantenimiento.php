@@ -9,8 +9,8 @@ require_once __DIR__ . '/../../../classes/mantenimiento.php';
 //   trabajos [{trabajo_descripcion}], sugeridos [{trabajo_descripcion}],
 //   facturas [{factura_tipo (rubro), factura_numero, factura_valor, factura_descripcion}], anexos [{anexo_descripcion}]
 // Los arreglos que se envían reemplazan a los existentes; los que no se envían no se tocan.
-// Informe de pago (opcional): informe_numero, informe_fecha. Si el número existe (informe vigente) la orden se
-// vincula a él; si no, se crea el informe. Enviar informe_numero vacío desvincula la orden.
+// orden_serie es el número de informe individual ("No. 005"); orden_codigo se genera (SIGLAS + año + ODM + serie).
+// La agrupación en bitácoras se hace con setInformeMantenimiento.php.
 $metodo = apiMetodo(['POST', 'PUT']);
 $o = apiCuerpoJson();
 $db = null;
@@ -25,17 +25,19 @@ try {
     $tecnicoPuesto = prop($o, 'tecnico_puesto') ?: parametro($db, 'MANT_TECNICO_PUESTO', 'PROFESIONAL TÉCNICO EN SERVICIOS GENERALES');
     $tolerancia = (int) parametro($db, 'MANT_TOLERANCIA_KM', 1000);
     $siglas = institucion($db)['sistema_siglas'];
-    $informeCargo = parametro($db, 'MANT_INFORME_CARGO', 'ADMINISTRADOR DE CONTRATO');
     $db->beginTransaction();
 
     if ($metodo === 'POST') {
         // Serie anual por institución; el bloqueo evita series repetidas con dos usuarios a la vez
         $db->query("SELECT pg_advisory_xact_lock(hashtext('logistica.tb_ordenesmantenimiento.serie'))");
         $db->execute();
-        $db->query("SELECT COALESCE(MAX(orden_serie), 0) + 1 AS serie FROM logistica.tb_ordenesmantenimiento
-                     WHERE date_part('year', orden_registro) = date_part('year', CURRENT_DATE)");
-        $serie = (int) $db->single()['serie'];
-        $codigo = mantCodigo($siglas, 'MAN', $serie);
+        // Serie del código: mayor código del año con el mismo prefijo (incluye órdenes importadas y anuladas)
+        $prefijo = mantCodigo($siglas, 'ODM', 0);
+        $prefijo = substr($prefijo, 0, -5);
+        $db->query("SELECT COALESCE(MAX(substring(orden_codigo FROM '(\\d{5})$')::int), 0) + 1 AS serie
+                      FROM logistica.tb_ordenesmantenimiento WHERE orden_codigo LIKE :p");
+        $db->bind(':p', $prefijo . '%');
+        $codigo = mantCodigo($siglas, 'ODM', (int) $db->single()['serie']);
 
         $db->query("SELECT orden_km_mantenimiento, orden_fecha_mantenimiento::date AS fecha FROM logistica.tb_ordenesmantenimiento
                      WHERE fk_vehiculo_id = :v AND orden_estado <> 'ANULADA' ORDER BY orden_fecha_mantenimiento DESC LIMIT 1");
@@ -45,13 +47,13 @@ try {
         $db->query("INSERT INTO logistica.tb_ordenesmantenimiento (
                 fk_usuario_id, fk_vehiculo_id, personal_solicita, director_administrativo, tecnico_servicios, tecnico_puesto,
                 orden_codigo, orden_serie, orden_tipomantenimiento, orden_fecha_mantenimiento_tipo, orden_fecha_mantenimiento,
-                orden_km_mantenimiento, ultimo_km_mantenimiento, ultimo_fecha_mantenimiento, orden_fecha_entrega, orden_observaciones)
-            VALUES (:u, :v, :s, :da, :t, :tp, :codigo, :serie, :tipo, :ftipo, :fecha, :km, :ukm, :ufecha, :entrega, :obs)
+                orden_km_mantenimiento, ultimo_km_mantenimiento, ultimo_fecha_mantenimiento, orden_fecha_entrega, orden_observaciones,
+                orden_fecha_recepcion, orden_quien_recepcion, orden_cargo_recepcion, orden_taller)
+            VALUES (:u, :v, :s, :da, :t, :tp, :codigo, :serie, :tipo, :ftipo, :fecha, :km, :ukm, :ufecha, :entrega, :obs, :frec, :qrec, :crec, :taller)
             RETURNING orden_id");
         $db->bind(':u', $usuario);
         $db->bind(':v', (int) $o->fk_vehiculo_id);
         $db->bind(':codigo', $codigo);
-        $db->bind(':serie', $serie);
         $db->bind(':ftipo', prop($o, 'orden_fecha_mantenimiento_tipo', 'SISTEMA'));
         $db->bind(':ukm', $ultimo['orden_km_mantenimiento']);
         $db->bind(':ufecha', $ultimo['fecha']);
@@ -80,14 +82,11 @@ try {
         $db->query('UPDATE logistica.tb_ordenesmantenimiento SET
                 personal_solicita = :s, director_administrativo = :da, tecnico_servicios = :t, tecnico_puesto = :tp,
                 orden_tipomantenimiento = :tipo, orden_fecha_mantenimiento = :fecha, orden_km_mantenimiento = :km,
-                orden_fecha_entrega = :entrega, orden_observaciones = :obs, orden_estado = :estado,
-                orden_fecha_recepcion = :frec, orden_quien_recepcion = :qrec, orden_cargo_recepcion = :crec
+                orden_fecha_entrega = :entrega, orden_observaciones = :obs, orden_estado = :estado, orden_serie = :serie,
+                orden_fecha_recepcion = :frec, orden_quien_recepcion = :qrec, orden_cargo_recepcion = :crec, orden_taller = :taller
             WHERE orden_id = :id RETURNING orden_id');
         $db->bind(':id', (int) $o->orden_id);
         $db->bind(':estado', prop($o, 'orden_estado', $actual['orden_estado']));
-        $db->bind(':frec', prop($o, 'orden_fecha_recepcion') ?: null);
-        $db->bind(':qrec', prop($o, 'orden_quien_recepcion'));
-        $db->bind(':crec', prop($o, 'orden_cargo_recepcion'));
         $o->fk_vehiculo_id = $actual['fk_vehiculo_id']; // el vehículo no se cambia en una orden existente
     }
     $db->bind(':s', (int) $o->personal_solicita);
@@ -99,6 +98,11 @@ try {
     $db->bind(':km', (string) $o->orden_km_mantenimiento);
     $db->bind(':entrega', prop($o, 'orden_fecha_entrega') ?: null);
     $db->bind(':obs', prop($o, 'orden_observaciones'));
+    $db->bind(':serie', (int) (prop($o, 'orden_serie') ?: 0));
+    $db->bind(':frec', prop($o, 'orden_fecha_recepcion') ?: null);
+    $db->bind(':qrec', prop($o, 'orden_quien_recepcion'));
+    $db->bind(':crec', prop($o, 'orden_cargo_recepcion'));
+    $db->bind(':taller', trim((string) prop($o, 'orden_taller', '')) ?: null);
     $ordenId = (int) $db->single()['orden_id'];
 
     // Próximo mantenimiento según el plan del vehículo (si tiene)
@@ -108,7 +112,7 @@ try {
     $db->bind(':v', (int) $o->fk_vehiculo_id);
     $reglas = $db->resultset();
     $km = (float) $o->orden_km_mantenimiento;
-    $proximo = $reglas ? mantEvaluarPlan($km, $reglas, $o->orden_tipomantenimiento === 'PREVENTIVO' ? $km : null, $tolerancia) : null;
+    $proximo = $reglas ? mantEvaluarPlan($km, $reglas, mantEsPreventivo($o->orden_tipomantenimiento) ? $km : null, $tolerancia) : null;
     $db->query('UPDATE logistica.tb_ordenesmantenimiento SET orden_proximomantenimiento = :p WHERE orden_id = :id');
     $db->bind(':p', $proximo ? (string) $proximo['km_proximo'] : null);
     $db->bind(':id', $ordenId);
@@ -143,57 +147,9 @@ try {
         }
     }
 
-    // Informe de pago
-    $informe = null;
-    if (property_exists($o, 'informe_numero')) {
-        $numero = trim((string) $o->informe_numero);
-        $informeId = null;
-        if ($numero !== '') {
-            $db->query("SELECT informe_id FROM logistica.tb_informemantenimiento
-                         WHERE upper(informe_numero) = upper(:n) AND informe_estado <> 'ANULADO' ORDER BY informe_id DESC LIMIT 1");
-            $db->bind(':n', $numero);
-            $existente = $db->single();
-            $fechaInforme = prop($o, 'informe_fecha') ?: null;
-            if ($existente) {
-                $informeId = (int) $existente['informe_id'];
-                if ($fechaInforme) {
-                    $db->query('UPDATE logistica.tb_informemantenimiento SET informe_fecha = :f WHERE informe_id = :i');
-                    $db->bind(':f', $fechaInforme);
-                    $db->bind(':i', $informeId);
-                    $db->execute();
-                }
-            } else {
-                $db->query('INSERT INTO logistica.tb_informemantenimiento (fk_usuario_id, tecnico_servicios, tecnico_cargo, director_administrativo,
-                                informe_numero, informe_serie, informe_fecha)
-                            VALUES (:u, :t, :tc, :da, :n, :serie, :f) RETURNING informe_id');
-                $db->bind(':u', $usuario);
-                $db->bind(':t', (int) $o->tecnico_servicios);
-                $db->bind(':tc', $informeCargo);
-                $db->bind(':da', (int) $o->director_administrativo);
-                $db->bind(':n', $numero);
-                $db->bind(':serie', mantSerieDeCodigo($numero, $siglas, 'INF') ?? 0);
-                $db->bind(':f', $fechaInforme ?? date('Y-m-d'));
-                $informeId = (int) $db->single()['informe_id'];
-            }
-        }
-        // Una orden solo puede estar en un informe vigente
-        $db->query("DELETE FROM logistica.tb_informe_ordenesmantenimiento WHERE fk_orden_id = :o AND fk_informe_id <> :i
-                     AND fk_informe_id IN (SELECT informe_id FROM logistica.tb_informemantenimiento WHERE informe_estado <> 'ANULADO')");
-        $db->bind(':o', $ordenId);
-        $db->bind(':i', $informeId ?? 0);
-        $db->execute();
-        if ($informeId) {
-            $db->query('INSERT INTO logistica.tb_informe_ordenesmantenimiento (fk_informe_id, fk_orden_id) VALUES (:i, :o) ON CONFLICT DO NOTHING');
-            $db->bind(':i', $informeId);
-            $db->bind(':o', $ordenId);
-            $db->execute();
-            $informe = ['informe_id' => $informeId, 'informe_numero' => $numero];
-        }
-    }
-
     $db->endTransaction();
     jsonResponse(['msg' => $metodo === 'POST' ? 'Orden de mantenimiento creada' : 'Orden de mantenimiento actualizada',
-                  'id' => $ordenId, 'orden_codigo' => $codigo ?? null, 'proximo' => $proximo, 'informe' => $informe], $metodo === 'POST' ? 201 : 200);
+                  'id' => $ordenId, 'orden_codigo' => $codigo ?? null, 'proximo' => $proximo], $metodo === 'POST' ? 201 : 200);
 } catch (Throwable $e) {
     $db?->cancelTransaction();
     apiError($e, 'No se pudo guardar la orden de mantenimiento');

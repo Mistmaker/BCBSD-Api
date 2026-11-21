@@ -7,9 +7,15 @@ require_once __DIR__ . '/../../../classes/mantenimiento.php';
 // GET ?vehiculo_id=N     -> órdenes de un vehículo
 // GET ?sin_informe=1     -> órdenes no anuladas que aún no están en un informe (para armar informes)
 // GET ?id=N              -> orden con trabajos, sugeridos, facturas y anexos
+// GET ?siguiente_serie=1 -> siguiente número de informe individual del año (botón +1)
 apiMetodo(['GET']);
 try {
     $db = new Database();
+    if (!empty($_GET['siguiente_serie'])) {
+        $db->query("SELECT COALESCE(MAX(orden_serie), 0) + 1 AS serie FROM logistica.tb_ordenesmantenimiento
+                     WHERE orden_estado <> 'ANULADA' AND date_part('year', orden_registro) = date_part('year', CURRENT_DATE)");
+        jsonResponse(['orden_serie' => (int) $db->single()['serie']]);
+    }
     $id = apiParamId();
     if ($id !== null) {
         $db->query('SELECT * FROM logistica.vw_ordenesmantenimiento WHERE orden_id = :id');
