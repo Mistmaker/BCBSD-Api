@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../classes/auth.php';
+$auth = requireAuth();
 require_once '../../vendor/autoload.php';
 // DB configuration
 include_once("../../classes/dbconfig.php");

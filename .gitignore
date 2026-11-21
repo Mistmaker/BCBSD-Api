@@ -1,2 +1,4 @@
 /vendor
 /servicios/no_usar
+/classes/config.local.php
+/.phpunit.cache

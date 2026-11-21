@@ -1,0 +1,27 @@
+# Configuración de Apache para el API BCBSD (requiere AllowOverride FileInfo Limit, o All).
+
+# 1. Pasar el encabezado Authorization a PHP.
+#    Con PHP-FPM / CGI, Apache lo descarta por defecto y el JWT nunca llega al endpoint.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+<IfModule mod_setenvif.c>
+    SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
+# 2. No exponer scripts SQL, manifiestos ni archivos ocultos.
+<FilesMatch "(\.(sql|lock|md|dist|example\.php)|composer\.json|phpunit\.xml)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes
+
+# 3. Bloquear dependencias de Composer (vendor/ no se versiona, por eso no lleva su propio .htaccess).
+<IfModule mod_alias.c>
+    RedirectMatch 403 /vendor/
+</IfModule>

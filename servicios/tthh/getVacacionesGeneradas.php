@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../classes/auth.php';
+$auth = requireAuth();
     // Retorna un json
     header('Content-Type: application/json');
     header('Access-Control-Allow-Origin: *');

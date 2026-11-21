@@ -13,23 +13,17 @@ class Database
 
 	public function __construct()
 	{
-		$dsn = 'mysql:host=' . $this->host . ';dbname=' . $this->dbname;
-		// $options = array(
-		//     PDO::ATTR_PERSISTENT    => true,
-		//     PDO::ATTR_ERRMODE       => PDO::ERRMODE_EXCEPTION,
-		// 	PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8",
-		// 	PDO::MYSQL_ATTR_INIT_COMMAND => "SET CHARACTER SET utf8"
-		// );
+		$port = defined('DB_PORT') ? DB_PORT : 5432;
 		try {
-			// $this->dbh = new PDO($dsn, $this->user, $this->pass, $options);
-			$this->dbh = new PDO("pgsql:host={$this->host};port=5432;dbname={$this->dbname};user={$this->user};password={$this->pass}");
+			$this->dbh = new PDO("pgsql:host={$this->host};port={$port};dbname={$this->dbname}", $this->user, $this->pass, [
+				PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+			]);
 		} catch (PDOException $e) {
-			$this->error = $e->getMessage();
-			echo 'ERROR!';
-			print_r($e);
+			// No se muestra el detalle: el mensaje de PDO puede incluir datos de la conexión.
+			error_log('Error de conexión a la base de datos: ' . $e->getMessage());
+			throw new RuntimeException('No se pudo conectar a la base de datos.');
 		}
 	}
-
 
 	public function query($query)
 	{

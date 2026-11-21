@@ -1,15 +1,14 @@
 <?php
-require_once '../../vendor/autoload.php';
+require_once __DIR__ . '/../../classes/auth.php';
 // DB configuration
 include_once("../../classes/dbconfig.php");
 include_once '../../classes/database.class.php';
 
-use \Firebase\JWT\JWT;
 
 // Retorna un json
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header("Access-Control-Allow-Headers: Origin, Content-Type, Accept");
+header("Access-Control-Allow-Headers: Origin, Content-Type, Accept, Authorization");
 header("Access-Control-Allow-Methods: POST, PUT, OPTIONS");
 
 // Función utilitaria para respuestas JSON con código HTTP
@@ -33,10 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 
-// Parámetros de configuración
-$key = JWT_SECPWD;
-$alg = 'HS256';
-
 $input = json_decode(file_get_contents("php://input"), true);
 $usuario = $input['usuario'] ?? '';
 $password = $input['password'] ?? '';
@@ -50,15 +45,17 @@ $db->closeConnection();
 // if ($usuarioDb && password_verify($password, $usuarioDb['usuario_pass'])) {
 if ($usuarioDb && $usuarioDb['voluntario_pass'] == md5($password)) {
     $payload = [
-        'iss' => 'cbsd-login-api',
-        'iat' => time(),
-        'exp' => time() + 3600,
+        'tipo' => 'voluntario',
         'sub' => $usuarioDb['voluntario_id'],
         'nombre' => $usuarioDb['voluntario_doc_identidad'] . ' - ' . $usuarioDb['voluntario_nombres'] . ' ' . $usuarioDb['voluntario_apellidos'],
         'modulo' => 'voluntarios'
     ];
 
-    $jwt = JWT::encode($payload, $key, $alg);
+    try {
+        $jwt = jwtEmitir($payload);
+    } catch (AuthException $e) {
+        jsonResponse(['error' => 'Configuración inválida', 'msg' => $e->getMessage()], 500);
+    }
 
     $grouped = array();
 
@@ -117,6 +114,7 @@ if ($usuarioDb && $usuarioDb['voluntario_pass'] == md5($password)) {
 
     echo json_encode([
         'token' => $jwt,
+        'expira_en' => JWT_EXP_SECONDS,
         'usuario' => [
             'usuario_id' => $usuarioDb['voluntario_id'],
             'voluntario_id' => $usuarioDb['voluntario_id'],

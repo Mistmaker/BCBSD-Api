@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../classes/auth.php';
+$auth = requireAuth();
 // Define configuration
 include_once("../../config.php");
 
