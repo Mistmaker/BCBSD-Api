@@ -25,6 +25,7 @@ if (!function_exists('bcbsdEnv')) {
 }
 
 defined('DB_HOST') || define('DB_HOST', bcbsdEnv('BCBSD_DB_HOST', 'localhost'));
+defined('DB_PORT') || define('DB_PORT', (int) bcbsdEnv('BCBSD_DB_PORT', 5432));
 defined('DB_USER') || define('DB_USER', bcbsdEnv('BCBSD_DB_USER', 'postgres'));
 defined('DB_PASS') || define('DB_PASS', bcbsdEnv('BCBSD_DB_PASS', ''));
 defined('DB_NAME') || define('DB_NAME', bcbsdEnv('BCBSD_DB_NAME', 'db_bcbsd'));
