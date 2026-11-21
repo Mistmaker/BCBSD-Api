@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../classes/auth.php';
+$auth = requireAuth();
 // error_reporting(E_ALL);
 // ini_set('display_errors', 1);
 // DB configuration
@@ -54,7 +56,7 @@ try {
             ) RETURNING distributivo_id
         ');
 
-        $database->bind(':fk_usuario_id', prop($request, 'fk_usuario_id'));
+        $database->bind(':fk_usuario_id', authUsuarioId() ?? prop($request, 'fk_usuario_id'));
         $database->bind(':distributivo_codigo', prop($request, 'distributivo_codigo'));
         $database->bind(':distributivo_periodo_inicio', prop($request, 'distributivo_periodo_inicio'));
         $inserted = $database->single(); // ejecuta y devuelve resultado
@@ -97,7 +99,7 @@ try {
             WHERE distributivo_id = :distributivo_id
         ');
 
-        $database->bind(':fk_usuario_id', prop($request, 'fk_usuario_id'));
+        $database->bind(':fk_usuario_id', authUsuarioId() ?? prop($request, 'fk_usuario_id'));
         $database->bind(':distributivo_codigo', prop($request, 'distributivo_codigo'));
         $database->bind(':distributivo_periodo_inicio', prop($request, 'distributivo_periodo_inicio'));
         $database->bind(':distributivo_periodo_cierre', prop($request, 'distributivo_periodo_cierre'));

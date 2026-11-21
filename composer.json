@@ -3,5 +3,8 @@
         "spipu/html2pdf": "^5.2",
         "mustache/mustache": "^2.14",
         "firebase/php-jwt": "^7.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
     }
 }

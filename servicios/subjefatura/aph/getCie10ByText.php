@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../../classes/auth.php';
+$auth = requireAuth();
 // use Spipu\Html2Pdf\Html2Pdf;
 // DB configuration
 include_once("../../../classes/dbconfig.php");

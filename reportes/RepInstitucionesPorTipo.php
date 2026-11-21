@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../classes/auth.php';
+$auth = requireAuth();
 //incluir la clase de la Bdd
 include_once("../config.php");
 include_once("../classes/database.class.php");	

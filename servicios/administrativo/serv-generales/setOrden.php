@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../../classes/auth.php';
+$auth = requireAuth();
 // error_reporting(E_ALL);
 // ini_set('display_errors', 1);
 // use \Firebase\JWT\JWT;
@@ -136,7 +138,7 @@ try {
         ) RETURNING orden_id
         ');
 
-        $database->bind(':fk_usuario_id', prop($request, 'fk_usuario_id'));
+        $database->bind(':fk_usuario_id', authUsuarioId() ?? prop($request, 'fk_usuario_id'));
         $database->bind(':fk_unidad_id', prop($request, 'fk_unidad_id'));
         $database->bind(':operador_id', prop($request, 'operador_id'));
         $database->bind(':director_administrativo', prop($request, 'director_administrativo'));
