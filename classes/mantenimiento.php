@@ -101,6 +101,25 @@ const MANT_TRANSICIONES = [
     'ANULADA' => [],
 ];
 
+/**
+ * Privilegio necesario para guardar una orden (ver 04-privilegios.sql):
+ *   crear o editar en MANTENIMIENTO -> MANT_ORDEN_CREAR; pasar a/editar en RECIBIDO -> MANT_ORDEN_RECIBIR;
+ *   generar el acta o reabrir (ENTREGADO <-> RECIBIDO) -> MANT_ORDEN_ACTA; anular -> MANT_ORDEN_ANULAR.
+ */
+function mantPermisoOrden(?string $estadoActual, string $estadoNuevo): string
+{
+    if ($estadoNuevo === 'ANULADA') {
+        return 'MANT_ORDEN_ANULAR';
+    }
+    if ($estadoNuevo === 'ENTREGADO' || $estadoActual === 'ENTREGADO') {
+        return 'MANT_ORDEN_ACTA';
+    }
+    if ($estadoNuevo === 'RECIBIDO') {
+        return 'MANT_ORDEN_RECIBIR';
+    }
+    return 'MANT_ORDEN_CREAR';
+}
+
 /** Lanza ValidacionException si no se puede pasar de $actual a $nuevo. */
 function mantValidarTransicion(string $actual, string $nuevo, object $orden): void
 {

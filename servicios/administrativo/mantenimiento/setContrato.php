@@ -51,6 +51,7 @@ try {
     }
 
     $db = new Database();
+    requirePermiso($db, 'MANT_CONTRATO_GESTIONAR');
     $tipos = mantLista(parametro($db, 'MANT_TIPOS_CONTRATO', 'GENERAL|VIGENCIA TECNOLÓGICA'));
     $tipo = prop($c, 'contrato_tipo', 'GENERAL');
     if (!in_array($tipo, $tipos, true)) {

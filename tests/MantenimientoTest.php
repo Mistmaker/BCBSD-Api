@@ -108,6 +108,17 @@ final class MantenimientoTest extends TestCase
         }
     }
 
+    public function testPermisoSegunEstado(): void
+    {
+        $this->assertSame('MANT_ORDEN_CREAR', mantPermisoOrden(null, 'MANTENIMIENTO'));
+        $this->assertSame('MANT_ORDEN_CREAR', mantPermisoOrden('MANTENIMIENTO', 'MANTENIMIENTO'));
+        $this->assertSame('MANT_ORDEN_RECIBIR', mantPermisoOrden('MANTENIMIENTO', 'RECIBIDO'));
+        $this->assertSame('MANT_ORDEN_RECIBIR', mantPermisoOrden('RECIBIDO', 'RECIBIDO'));
+        $this->assertSame('MANT_ORDEN_ACTA', mantPermisoOrden('RECIBIDO', 'ENTREGADO'));
+        $this->assertSame('MANT_ORDEN_ACTA', mantPermisoOrden('ENTREGADO', 'RECIBIDO'));
+        $this->assertSame('MANT_ORDEN_ANULAR', mantPermisoOrden('RECIBIDO', 'ANULADA'));
+    }
+
     public function testEntregadoExigeFechaDelActa(): void
     {
         $this->expectException(ValidacionException::class);

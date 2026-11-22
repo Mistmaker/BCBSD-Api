@@ -8,7 +8,8 @@ use PHPUnit\Framework\TestCase;
  * Se OMITEN salvo que se defina BCBSD_TEST_DB_NAME (y opcionalmente BCBSD_TEST_DB_HOST,
  * BCBSD_TEST_DB_PORT, BCBSD_TEST_DB_USER, BCBSD_TEST_DB_PASS). Usar una base DESECHABLE con
  * script.sql, script-2.sql, script_sbj_temp.sql y las migraciones aplicadas. El usuario debe
- * poder usar session_replication_role (superusuario) para insertar datos de prueba.
+ * poder usar session_replication_role (superusuario) para insertar datos de prueba. Requiere 04-privilegios.sql
+ * (el usuario de prueba recibe todos los privilegios MANT_*).
  * Los datos de prueba usan IDs >= 9000 y se borran al terminar.
  * El log del servidor PHP queda en <temp>/bcbsd-api-integracion.log.
  */
@@ -43,7 +44,8 @@ final class MantenimientoApiTest extends TestCase
             INSERT INTO logistica.tb_ordenesabastecimiento (orden_id, fk_usuario_id, fk_unidad_id, orden_kilometraje, orden_codigo, orden_serie, orden_codigo_serie,
                  director_administrativo, personal_solicita, operador_id, orden_codigo_institucion)
                  VALUES (9001, 9001, 9001, 31500, 'TST-ABS-9001', 0, 0, 9001, 9001, 9001, 'TST');
-            SET session_replication_role = origin;");
+            SET session_replication_role = origin;
+            INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9001, rol_id FROM admin.tb_roles WHERE rol_codigo LIKE 'MANT_%';");
 
         $socket = stream_socket_server('tcp://127.0.0.1:0');
         self::$puerto = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
@@ -86,6 +88,7 @@ final class MantenimientoApiTest extends TestCase
             DELETE FROM logistica.tb_contratosmantenimiento_vehiculos WHERE fk_vehiculo_id IN (9001, 9002);
             DELETE FROM administrativo.tb_vehiculos WHERE vehiculo_id IN (9001, 9002);
             DELETE FROM tthh.tb_personal_puestos WHERE ppersonal_id = 9001;
+            DELETE FROM admin.tb_usuario_rol WHERE fk_usuario_id = 9001;
             DELETE FROM admin.tb_usuarios WHERE usuario_id = 9001;");
     }
 
@@ -345,6 +348,47 @@ final class MantenimientoApiTest extends TestCase
         $this->assertSame(200, $st);
         [, $liberado] = $this->api('GET', $base . "getContratos.php?id=$contrato");
         $this->assertEquals($saldo['MANO DE OBRA'], array_column($liberado['partidas'], 'saldo', 'partida_rubro')['MANO DE OBRA']);
+    }
+
+    public function testPrivilegios(): void
+    {
+        $base = 'administrativo/mantenimiento/';
+        $quitar = fn(string $codigo) => self::$pdo->exec("DELETE FROM admin.tb_usuario_rol WHERE fk_usuario_id = 9001
+            AND fk_rol_id = (SELECT rol_id FROM admin.tb_roles WHERE rol_codigo = '$codigo')");
+        $dar = fn(string $codigo) => self::$pdo->exec("INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
+            SELECT 9001, rol_id FROM admin.tb_roles WHERE rol_codigo = '$codigo'");
+
+        $orden = ['fk_vehiculo_id' => self::VEHICULO, 'personal_solicita' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
+            'tecnico_servicios' => self::PERSONAL, 'orden_fecha_mantenimiento' => '2026-11-22 11:00', 'orden_km_mantenimiento' => 38000,
+            'fk_contrato_id' => $this->contrato()];
+        $quitar('MANT_ORDEN_CREAR');
+        [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $orden);
+        $this->assertSame(403, $st, 'Sin MANT_ORDEN_CREAR no se crean órdenes');
+        $this->assertStringContainsString('MANT_ORDEN_CREAR', $r['msg']);
+        $dar('MANT_ORDEN_CREAR');
+        [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $orden);
+        $this->assertSame(201, $st, json_encode($r));
+        [, $o] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?id=' . $r['id']);
+
+        $quitar('MANT_ORDEN_RECIBIR');
+        [$st] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', array_merge($o, ['orden_estado' => 'RECIBIDO']));
+        $this->assertSame(403, $st, 'Sin MANT_ORDEN_RECIBIR no se recibe el vehículo');
+        $dar('MANT_ORDEN_RECIBIR');
+
+        $quitar('MANT_ORDEN_ANULAR');
+        [$st] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', array_merge($o, ['orden_estado' => 'ANULADA']));
+        $this->assertSame(403, $st, 'Sin MANT_ORDEN_ANULAR no se anula');
+        $dar('MANT_ORDEN_ANULAR');
+        [$st] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', array_merge($o, ['orden_estado' => 'ANULADA']));
+        $this->assertSame(200, $st);
+
+        $quitar('MANT_CONTRATO_GESTIONAR');
+        [$st] = $this->api('POST', $base . 'setContrato.php', ['contrato_codigo' => 'PRUEBA-SIN-PERMISO', 'contrato_taller' => 'X']);
+        $this->assertSame(403, $st);
+        $dar('MANT_CONTRATO_GESTIONAR');
+        // Las consultas no requieren privilegio de acción
+        [$st] = $this->api('GET', $base . 'getContratos.php');
+        $this->assertSame(200, $st);
     }
 
     public function testValidacionesYPermisos(): void

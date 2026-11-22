@@ -27,6 +27,7 @@ try {
     }
     $usuario = authUsuarioId();
     $db = new Database();
+    requirePermiso($db, 'MANT_PLAN_GESTIONAR');
     $db->beginTransaction();
     if ($metodo === 'POST') {
         $db->query('INSERT INTO logistica.tb_planesmantenimiento (fk_usuario_id, plan_modelo, plan_observaciones) VALUES (:u, :m, :o) RETURNING plan_id');

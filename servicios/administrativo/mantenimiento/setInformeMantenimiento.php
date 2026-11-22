@@ -31,6 +31,7 @@ try {
 
     $contratoInforme = prop($i, 'fk_contrato_id') ? (int) $i->fk_contrato_id : null;
     $db = new Database();
+    requirePermiso($db, 'MANT_BITACORA_GESTIONAR');
     if ($contratoInforme && trim((string) prop($i, 'informe_taller', '')) === '') {
         $db->query('SELECT contrato_taller FROM logistica.tb_contratosmantenimiento WHERE contrato_id = :c');
         $db->bind(':c', $contratoInforme);

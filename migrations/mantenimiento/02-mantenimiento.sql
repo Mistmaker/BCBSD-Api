@@ -269,18 +269,4 @@ LEFT JOIN logistica.tb_ordenesmantenimiento o ON o.fk_contrato_id = p.fk_contrat
 LEFT JOIN logistica.tb_mantenimiento_facturas f ON f.fk_orden_id = o.orden_id AND f.factura_estado = 'ACTIVO' AND f.factura_tipo = p.partida_rubro
 GROUP BY p.fk_contrato_id, p.partida_id, p.partida_rubro, p.partida_codigo, p.partida_monto;
 
--- MENÚ (Dir. Administrativa = modulo_id 2 en script-2.sql) ---------------------
-INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre)
-SELECT 2, 'Mantenimiento vehicular'
-WHERE NOT EXISTS (SELECT 1 FROM admin.tb_submodulos WHERE submodulo_nombre = 'Mantenimiento vehicular');
-
-INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path)
-SELECT r.nombre, r.descripcion, s.submodulo_id, r.path
-FROM admin.tb_submodulos s,
-     (VALUES ('Ordenes de Mantenimiento', 'Administrar ordenes de mantenimiento vehicular', '/admin/ordenes-mantenimiento'),
-             ('Informes de Mantenimiento', 'Administrar informes de mantenimiento', '/admin/informes-mantenimiento'),
-             ('Planes de Mantenimiento', 'Planes preventivos y catalogo de recursos', '/admin/planes-mantenimiento'),
-             ('Contratos de Mantenimiento', 'Contratos, partidas presupuestarias y saldos', '/admin/contratos-mantenimiento')) AS r(nombre, descripcion, path)
-WHERE s.submodulo_nombre = 'Mantenimiento vehicular'
-  AND NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path = r.path);
--- Asignar los roles a los usuarios desde la administración de perfiles/usuarios.
+-- MENÚ Y PRIVILEGIOS: ver 04-privilegios.sql

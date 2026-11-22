@@ -11,7 +11,17 @@ final class EndpointsProtegidosTest extends TestCase
     private const PUBLICOS = [
         'servicios/auth/login.php',
         'servicios/auth/loginVoluntarios.php',
+        'servicios/auth/loginOperativos.php',
     ];
+
+    public function testLoginsSonPublicos(): void
+    {
+        foreach (self::PUBLICOS as $rel) {
+            $contenido = file_get_contents(dirname(__DIR__) . '/' . $rel);
+            $this->assertStringNotContainsString('requireAuth()', $contenido, "$rel debe poder usarse sin token");
+            $this->assertStringContainsString('jwtEmitir(', $contenido, "$rel debe emitir el token con jwtEmitir()");
+        }
+    }
 
     public static function endpoints(): array
     {

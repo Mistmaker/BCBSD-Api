@@ -11,6 +11,7 @@ try {
         throw new ValidacionException('La descripción es obligatoria');
     }
     $db = new Database();
+    requirePermiso($db, 'MANT_PLAN_GESTIONAR');
     if ($metodo === 'POST') {
         $db->query('INSERT INTO logistica.tb_recursosmantenimiento (fk_usuario_id, recurso_tipo, recurso_codigo, recurso_descripcion)
                     VALUES (:u, :tipo, :codigo, :descripcion) RETURNING recurso_id');

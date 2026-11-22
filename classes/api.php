@@ -107,3 +107,27 @@ function parametro(Database $db, string $clave, $porDefecto = null)
     }
     return $fila ? $fila['param_value'] : $porDefecto;
 }
+
+/** Códigos de privilegio (admin.tb_roles.rol_codigo) asignados al usuario autenticado. */
+function permisosUsuario(Database $db, ?int $usuarioId = null): array
+{
+    $usuarioId = $usuarioId ?? authUsuarioId();
+    if ($usuarioId === null) {
+        return [];
+    }
+    $db->query('SELECT DISTINCT r.rol_codigo FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
+                 WHERE ur.fk_usuario_id = :u AND r.rol_codigo IS NOT NULL');
+    $db->bind(':u', $usuarioId);
+    return array_column($db->resultset(), 'rol_codigo');
+}
+
+/**
+ * Corta con 403 si el usuario no tiene ninguno de los privilegios indicados.
+ * Llamar ANTES de preparar otras sentencias (comparte la conexión).
+ */
+function requirePermiso(Database $db, string ...$codigos): void
+{
+    if (!array_intersect($codigos, permisosUsuario($db))) {
+        jsonResponse(['error' => 'Sin permiso', 'msg' => 'No tiene el privilegio necesario para esta acción (' . implode(' o ', $codigos) . ').'], 403);
+    }
+}

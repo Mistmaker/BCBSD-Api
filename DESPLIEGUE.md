@@ -62,11 +62,30 @@ si `AllowOverride` no lo permite, agregar en el VirtualHost:
 Orden para crear una base nueva desde cero: `script.sql`, `script-2.sql`, `script_sbj_temp.sql`,
 `migrations/ordenes-abastecimiento/*.sql` y luego las migraciones de cada módulo.
 
+### Script único para pgAdmin: `script-3.sql`
+
+Contiene, en orden, todo lo posterior a `script.sql`, `script-2.sql` y `script_sbj_temp.sql`: órdenes de combustible,
+institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, importación desde `db_cbsd`
+(opcional: edite la línea `conexion`) y el registro inicial de la institución. Se pega completo en el Query Tool,
+se puede ejecutar varias veces y no borra datos ni toca `operaciones.tb_estaciones`.
+Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos de `migrations/`.
+
+### Privilegios (`migrations/mantenimiento/04-privilegios.sql`)
+
+- Rol **con** `rol_path`: acceso a una pantalla (menú). Rol **sin** `rol_path`: permiso de acción dentro de la pantalla.
+- `rol_codigo` es la clave fija que usan el front (`AuthService.tienePermiso`) y el API (`requirePermiso`); el login
+  la devuelve en `usuario.permisos`. Los usuarios deben volver a iniciar sesión para recibir los privilegios nuevos.
+- Mantenimiento: `MANT_ORDENES`, `MANT_BITACORAS`, `MANT_PLANES`, `MANT_CONTRATOS` (pantallas) y `MANT_ORDEN_CREAR`,
+  `MANT_ORDEN_RECIBIR`, `MANT_ORDEN_ACTA`, `MANT_ORDEN_ANULAR`, `MANT_BITACORA_GESTIONAR`, `MANT_CONTRATO_GESTIONAR`,
+  `MANT_PLAN_GESTIONAR` (acciones; el API los exige). Combustible: `ADM_COMBUSTIBLE`, `ADM_COMBUSTIBLE_CREAR`.
+  Movilización: `ADM_MOVILIZACION`, `ADM_MOVILIZACION_CREAR`. Vehículos: `ADM_VEHICULOS`, `ADM_VEHICULO_CREAR`.
+
 ### Mantenimiento vehicular (`migrations/mantenimiento/`)
 
 ```bash
 psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/01-institucion.sql
 psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/02-mantenimiento.sql
+psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/04-privilegios.sql
 # Importar datos del sistema anterior (opcional, re-ejecutable):
 psql -d db_bcbsd -v legacy_conn="dbname=db_cbsd host=localhost user=postgres password=XXXX" \
      -f migrations/mantenimiento/03-importacion-db_cbsd.sql

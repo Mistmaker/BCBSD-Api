@@ -1,4 +1,4 @@
-CREATE TABLE logistica.tb_detalleordenesabastecimiento (
+CREATE TABLE IF NOT EXISTS logistica.tb_detalleordenesabastecimiento (
 	orden_detalle_id serial4 NOT NULL,
 	orden_id int4 NOT NULL,
 	orden_detalle_linea int4 NOT NULL,

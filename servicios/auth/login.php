@@ -70,6 +70,15 @@ if ($usuarioDb && $usuarioDb['usuario_pass'] == md5($password)) {
     $db->query("SELECT fk_rol_id FROM admin.tb_usuario_rol WHERE fk_usuario_id = :fk_usuario_id");
     $db->bind(':fk_usuario_id', $usuarioDb['usuario_id']);
     $rolesUsuario = $db->resultset();
+    // Códigos de privilegio (admin.tb_roles.rol_codigo), usados por el front en lugar de los rol_id
+    try {
+        $db->query("SELECT DISTINCT r.rol_codigo FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
+                     WHERE ur.fk_usuario_id = :fk_usuario_id AND r.rol_codigo IS NOT NULL");
+        $db->bind(':fk_usuario_id', $usuarioDb['usuario_id']);
+        $permisosUsuario = array_column($db->resultset(), 'rol_codigo');
+    } catch (PDOException $e) {
+        $permisosUsuario = []; // base sin la migración 04-privilegios.sql
+    }
     $db->closeConnection();
 
     $grouped = array();
@@ -107,7 +116,8 @@ if ($usuarioDb && $usuarioDb['usuario_pass'] == md5($password)) {
             'usuario_id' => $usuarioDb['usuario_id'],
             'nombre' => $usuarioDb['usuario_login'],
             'menus' => $navItems,
-            'roles' => $roles
+            'roles' => $roles,
+            'permisos' => $permisosUsuario
         ]
     ]);
 } else {

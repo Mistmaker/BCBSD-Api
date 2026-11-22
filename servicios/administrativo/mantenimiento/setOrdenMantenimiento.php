@@ -24,6 +24,14 @@ try {
     }
     mantValidarOrden($o);
     $db = new Database();
+    if ($metodo === 'POST') {
+        requirePermiso($db, 'MANT_ORDEN_CREAR');
+    } else {
+        $db->query('SELECT orden_estado FROM logistica.tb_ordenesmantenimiento WHERE orden_id = :id');
+        $db->bind(':id', (int) prop($o, 'orden_id', 0));
+        $estadoActual = $db->single()['orden_estado'] ?? null;
+        requirePermiso($db, mantPermisoOrden($estadoActual, prop($o, 'orden_estado', $estadoActual) ?? 'MANTENIMIENTO'));
+    }
     // Parámetros e institución se leen antes de preparar las sentencias (comparten la conexión)
     $tecnicoPuesto = prop($o, 'tecnico_puesto') ?: parametro($db, 'MANT_TECNICO_PUESTO', 'PROFESIONAL TÉCNICO EN SERVICIOS GENERALES');
     $tolerancia = (int) parametro($db, 'MANT_TOLERANCIA_KM', 1000);
