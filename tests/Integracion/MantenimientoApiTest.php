@@ -399,6 +399,18 @@ final class MantenimientoApiTest extends TestCase
         [, $pv] = $this->api('GET', 'auth/getPermisos.php', null, 'voluntario');
         $this->assertSame([], $pv['permisos']);
 
+        // Menú: solo pantallas asignadas, con el usuario del token (se ignora ?id de otro usuario)
+        [$st, $menu] = $this->api('GET', 'auth/getMenuUsuario.php?id=113');
+        $this->assertSame(200, $st);
+        $urls = array_merge(...array_map(fn($m) => array_column($m['children'], 'url'), $menu));
+        $this->assertContains('/admin/ordenes-mantenimiento', $urls);
+        $this->assertNotContains('/admin/ordenes-movilizacion', $urls, 'Movilización no está asignada al usuario de prueba');
+        $quitar('MANT_CONTRATOS');
+        [, $menu] = $this->api('GET', 'auth/getMenuUsuario.php?id=9001');
+        $urls = array_merge(...array_map(fn($m) => array_column($m['children'], 'url'), $menu));
+        $this->assertNotContains('/admin/contratos-mantenimiento', $urls, 'Una pantalla quitada desaparece del menú');
+        $dar('MANT_CONTRATOS');
+
         // Las consultas no requieren privilegio de acción
         [$st] = $this->api('GET', $base . 'getContratos.php');
         $this->assertSame(200, $st);
