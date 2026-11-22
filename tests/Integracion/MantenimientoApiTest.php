@@ -298,6 +298,46 @@ final class MantenimientoApiTest extends TestCase
         $this->assertSame(400, $st);
     }
 
+    public function testDirectorAdministrativoLoAsignaElServidor(): void
+    {
+        $base = 'administrativo/mantenimiento/';
+        $vigente = self::$pdo->query("SELECT pp.ppersonal_id FROM tthh.tb_personal_puestos pp
+                 WHERE pp.fk_puesto_id = (SELECT param_value::int FROM admin.tb_params WHERE param_key = 'MANT_DIRECTOR_PUESTO_ID')
+                   AND pp.ppersonal_estado = 'EN FUNCIONES' ORDER BY pp.ppersonal_id DESC LIMIT 1")->fetchColumn();
+        if (!$vigente) {
+            $this->markTestSkipped('La base de prueba no tiene un director administrativo EN FUNCIONES');
+        }
+        [, $cfg] = $this->api('GET', 'admin/getSistema.php?modulo=MANTENIMIENTO');
+        $this->assertSame((int) $vigente, $cfg['director_administrativo']['ppersonal_id']);
+
+        // el cliente intenta enviar otra persona como director: se ignora
+        $orden = ['fk_vehiculo_id' => self::VEHICULO, 'personal_solicita' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
+                  'tecnico_servicios' => self::PERSONAL, 'orden_fecha_mantenimiento' => '2026-11-21 09:00', 'orden_km_mantenimiento' => 34600,
+                  'orden_tipomantenimiento' => 'CORRECTIVO', 'fk_contrato_id' => $this->contrato()];
+        [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $orden);
+        $this->assertSame(201, $st, json_encode($r));
+        [, $o] = $this->api('GET', $base . "getOrdenesMantenimiento.php?id={$r['id']}");
+        $this->assertSame((int) $vigente, (int) $o['director_administrativo']);
+
+        // al editar se conserva el director con el que se emitió, aunque se envíe otro
+        [$st, $r2] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', $orden + ['orden_id' => $r['id'], 'orden_observaciones' => 'editada']);
+        $this->assertSame(200, $st, json_encode($r2));
+        [, $o] = $this->api('GET', $base . "getOrdenesMantenimiento.php?id={$r['id']}");
+        $this->assertSame((int) $vigente, (int) $o['director_administrativo']);
+
+        // nadie EN FUNCIONES en el puesto configurado: no se puede emitir la orden
+        $anterior = self::$pdo->query("SELECT param_value FROM admin.tb_params WHERE param_key = 'MANT_DIRECTOR_PUESTO_ID'")->fetchColumn();
+        self::$pdo->exec("UPDATE admin.tb_params SET param_value = '999999' WHERE param_key = 'MANT_DIRECTOR_PUESTO_ID'");
+        try {
+            [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $orden);
+            $this->assertSame(422, $st, json_encode($r));
+            $this->assertStringContainsString('MANT_DIRECTOR_PUESTO_ID', $r['msg'] ?? $r['error'] ?? '');
+        } finally {
+            $st = self::$pdo->prepare("UPDATE admin.tb_params SET param_value = ? WHERE param_key = 'MANT_DIRECTOR_PUESTO_ID'");
+            $st->execute([$anterior]);
+        }
+    }
+
     public function testContratoSaldoYTope(): void
     {
         $base = 'administrativo/mantenimiento/';

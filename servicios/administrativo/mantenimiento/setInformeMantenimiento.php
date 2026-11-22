@@ -4,7 +4,7 @@ $auth = requireAuth();
 require_once __DIR__ . '/../../../classes/api.php';
 require_once __DIR__ . '/../../../classes/mantenimiento.php';
 // POST -> crea un informe; PUT (con informe_id) -> lo actualiza. Para anular: informe_estado = 'ANULADO'.
-// Cuerpo: { tecnico_servicios, director_administrativo, tecnico_cargo, informe_fecha, informe_taller,
+// Cuerpo: { tecnico_servicios, tecnico_cargo, informe_fecha, informe_taller,
 //           informe_detalle, informe_numero (opcional, se genera si falta), fk_contrato_id, ordenes: [orden_id, ...] }
 // Las órdenes deben estar RECIBIDO o ENTREGADO y, si hay contrato, pertenecer a él (el taller se toma del contrato).
 $metodo = apiMetodo(['POST', 'PUT']);
@@ -15,7 +15,8 @@ try {
     if ($usuario === null) {
         jsonResponse(['error' => 'No autorizado', 'msg' => 'Solo usuarios administrativos pueden registrar informes'], 403);
     }
-    foreach (['tecnico_servicios' => 'técnico de servicios', 'director_administrativo' => 'director administrativo'] as $campo => $nombre) {
+    // El director administrativo lo asigna el servidor: en un informe nuevo, quien ocupa el puesto EN FUNCIONES
+    foreach (['tecnico_servicios' => 'técnico de servicios'] as $campo => $nombre) {
         if (empty($i->$campo)) {
             throw new ValidacionException("Falta el campo: $nombre");
         }
@@ -40,6 +41,7 @@ try {
     // Parámetros e institución se leen antes de preparar las sentencias (comparten la conexión)
     $tecnicoCargo = prop($i, 'tecnico_cargo') ?: parametro($db, 'MANT_INFORME_CARGO', 'ADMINISTRADOR DE CONTRATO');
     $siglas = institucion($db)['sistema_siglas'];
+    $directorId = $metodo === 'POST' ? mantDirectorObligatorio($db) : null;
     $db->beginTransaction();
     $informeId = (int) prop($i, 'informe_id', 0);
 
@@ -82,11 +84,12 @@ try {
         $db->bind(':u', $usuario);
         $db->bind(':num', $numero);
         $db->bind(':serie', $serie);
+        $db->bind(':da', $directorId);
     } else {
         if (!$informeId) {
             throw new ValidacionException('Falta informe_id');
         }
-        $db->query('UPDATE logistica.tb_informemantenimiento SET tecnico_servicios = :t, tecnico_cargo = :tc, director_administrativo = :da,
+        $db->query('UPDATE logistica.tb_informemantenimiento SET tecnico_servicios = :t, tecnico_cargo = :tc,
                         informe_fecha = :fecha, informe_taller = :taller, informe_detalle = :detalle, informe_estado = :estado, fk_contrato_id = :contrato
                     WHERE informe_id = :id RETURNING informe_id');
         $db->bind(':id', $informeId);
@@ -94,7 +97,6 @@ try {
     }
     $db->bind(':t', (int) $i->tecnico_servicios);
     $db->bind(':tc', $tecnicoCargo);
-    $db->bind(':da', (int) $i->director_administrativo);
     $db->bind(':fecha', prop($i, 'informe_fecha') ?: date('Y-m-d'));
     $db->bind(':taller', prop($i, 'informe_taller'));
     $db->bind(':detalle', prop($i, 'informe_detalle'));
