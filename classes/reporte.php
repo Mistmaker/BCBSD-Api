@@ -176,6 +176,17 @@ function reporteTablaFacturas(array $facturas): string
         . '</table>';
 }
 
+/** Carga una plantilla de reportes/formatos/ y reemplaza {{variable}} (los valores ya deben venir escapados). */
+function reportePlantilla(string $rutaRelativa, array $variables): string
+{
+    $html = file_get_contents(__DIR__ . '/../reportes/formatos/' . $rutaRelativa);
+    $pares = [];
+    foreach ($variables as $clave => $valor) {
+        $pares['{{' . $clave . '}}'] = (string) $valor;
+    }
+    return strtr($html, $pares);
+}
+
 /** Genera el PDF y lo envía al navegador (inline). */
 function reporteSalida(string $html, string $titulo, string $archivo): void
 {

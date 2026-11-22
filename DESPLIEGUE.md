@@ -89,7 +89,7 @@ Orden para crear una base nueva desde cero: `script.sql`, `script-2.sql`, `scrip
 ### Script único para pgAdmin: `script-3.sql`
 
 Contiene, en orden, todo lo posterior a `script.sql`, `script-2.sql` y `script_sbj_temp.sql`: órdenes de combustible,
-institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, bitácora del vehículo, operadores, usuarios y perfiles, importación desde `db_cbsd`
+institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, bitácora del vehículo, operadores, usuarios y perfiles, petición de materiales, importación desde `db_cbsd`
 (opcional: edite la línea `conexion`) y el registro inicial de la institución. Se pega completo en el Query Tool,
 se puede ejecutar varias veces y no borra datos ni toca `operaciones.tb_estaciones`.
 Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos de `migrations/`.
@@ -103,6 +103,18 @@ Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos 
   `MANT_ORDEN_RECIBIR`, `MANT_ORDEN_ACTA`, `MANT_ORDEN_ANULAR`, `MANT_BITACORA_GESTIONAR`, `MANT_CONTRATO_GESTIONAR`,
   `MANT_PLAN_GESTIONAR` (acciones; el API los exige). Combustible: `ADM_COMBUSTIBLE`, `ADM_COMBUSTIBLE_CREAR`.
   Movilización: `ADM_MOVILIZACION`, `ADM_MOVILIZACION_CREAR`. Vehículos: `ADM_VEHICULOS`, `ADM_VEHICULO_CREAR`.
+
+### Petición de materiales (`migrations/servicios-generales/01-peticion-materiales.sql`)
+
+Pantalla **Dir. Administrativa > Peticiones de materiales** (`ADM_PETICIONES_MATERIALES` para consultar e imprimir,
+`ADM_PETICION_MATERIALES_GESTIONAR` para registrar, editar y anular). Reemplaza el libretín: se digitan cantidad, unidad y
+descripción (sin stock ni catálogo), se imprime (`reportes/servicios-generales/peticionMateriales.php?id=`) y se firma.
+
+- Código `{SIGLAS}{AA}PDM{NNNNN}` (p. ej. `CBSD26PDM00001`); la secuencia reinicia cada año.
+- Quien autoriza se precarga con el puesto `PDM_AUTORIZA_PUESTO_ID` EN FUNCIONES (editable). Unidades sugeridas:
+  `PDM_UNIDADES` (se puede escribir otra). `PDM_FILAS_MINIMAS`: filas de la tabla del PDF, como el libretín.
+- Formato editable: `reportes/formatos/servicios-generales/peticion_materiales.html` (encabezado, logo y pie de la
+  institución configurada en `admin.tb_sistema`).
 
 ### Usuarios y perfiles (`migrations/admin/01-usuarios-perfiles.sql`)
 
