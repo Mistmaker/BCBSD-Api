@@ -26,8 +26,11 @@ try {
         exit;
     }
 
-    $usuario_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-    $voluntario_id = isset($_GET['id_vol']) ? intval($_GET['id_vol']) : 0;
+    // El menú se arma con el usuario del TOKEN (no con ?id), para que nadie pueda pedir el menú de otro usuario.
+    // Los parámetros ?id e ?id_vol se mantienen solo por compatibilidad con el front actual.
+    $tipoToken = $auth->tipo ?? 'usuario';
+    $usuario_id = $tipoToken === 'usuario' ? (int) $auth->sub : (isset($_GET['id']) ? intval($_GET['id']) : 0);
+    $voluntario_id = $tipoToken === 'voluntario' ? (int) $auth->sub : 0;
     if ($usuario_id <= 0) {
         http_response_code(400);
         echo json_encode(["error" => "Falta el parámetro usuario_id"]);
@@ -37,10 +40,12 @@ try {
     if ($voluntario_id <= 0) {
 
         $db = new Database();
-        $db->query("SELECT fk_usuario_id,rol_id,modulo_nombre,submodulo_nombre,rol_nombre,rol_path FROM admin.tb_usuario_rol ur
+        // Solo los roles con ruta (pantallas) asignados al usuario forman el menú
+        $db->query("SELECT DISTINCT m.modulo_nombre, s.submodulo_nombre, r.rol_id, r.rol_nombre, r.rol_path FROM admin.tb_usuario_rol ur
                 INNER JOIN admin.tb_roles r on r.rol_id = ur.fk_rol_id
                 INNER JOIN admin.tb_submodulos s on s.submodulo_id = r.fk_submodulo_id
-                INNER JOIN admin.tb_modulos m on m.modulo_id = s.fk_modulo_id WHERE rol_path IS NOT NULL AND fk_usuario_id = :fk_usuario_id");
+                INNER JOIN admin.tb_modulos m on m.modulo_id = s.fk_modulo_id WHERE rol_path IS NOT NULL AND fk_usuario_id = :fk_usuario_id
+                ORDER BY m.modulo_nombre, r.rol_id");
         $db->bind(':fk_usuario_id', $usuario_id);
         $menusUsuario = $db->resultset();
         $db->closeConnection();

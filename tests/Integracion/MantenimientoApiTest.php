@@ -386,6 +386,31 @@ final class MantenimientoApiTest extends TestCase
         [$st] = $this->api('POST', $base . 'setContrato.php', ['contrato_codigo' => 'PRUEBA-SIN-PERMISO', 'contrato_taller' => 'X']);
         $this->assertSame(403, $st);
         $dar('MANT_CONTRATO_GESTIONAR');
+        // Privilegios actuales (sin volver a iniciar sesión)
+        $quitar('MANT_PLAN_GESTIONAR');
+        [$st, $p] = $this->api('GET', 'auth/getPermisos.php');
+        $this->assertSame(200, $st);
+        $this->assertContains('MANT_ORDEN_CREAR', $p['permisos']);
+        $this->assertNotContains('MANT_PLAN_GESTIONAR', $p['permisos']);
+        $this->assertContains('/admin/ordenes-mantenimiento', $p['rutas']);
+        $dar('MANT_PLAN_GESTIONAR');
+        [, $p] = $this->api('GET', 'auth/getPermisos.php');
+        $this->assertContains('MANT_PLAN_GESTIONAR', $p['permisos'], 'Un privilegio asignado se ve de inmediato');
+        [, $pv] = $this->api('GET', 'auth/getPermisos.php', null, 'voluntario');
+        $this->assertSame([], $pv['permisos']);
+
+        // Menú: solo pantallas asignadas, con el usuario del token (se ignora ?id de otro usuario)
+        [$st, $menu] = $this->api('GET', 'auth/getMenuUsuario.php?id=113');
+        $this->assertSame(200, $st);
+        $urls = array_merge(...array_map(fn($m) => array_column($m['children'], 'url'), $menu));
+        $this->assertContains('/admin/ordenes-mantenimiento', $urls);
+        $this->assertNotContains('/admin/ordenes-movilizacion', $urls, 'Movilización no está asignada al usuario de prueba');
+        $quitar('MANT_CONTRATOS');
+        [, $menu] = $this->api('GET', 'auth/getMenuUsuario.php?id=9001');
+        $urls = array_merge(...array_map(fn($m) => array_column($m['children'], 'url'), $menu));
+        $this->assertNotContains('/admin/contratos-mantenimiento', $urls, 'Una pantalla quitada desaparece del menú');
+        $dar('MANT_CONTRATOS');
+
         // Las consultas no requieren privilegio de acción
         [$st] = $this->api('GET', $base . 'getContratos.php');
         $this->assertSame(200, $st);
