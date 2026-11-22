@@ -386,6 +386,19 @@ final class MantenimientoApiTest extends TestCase
         [$st] = $this->api('POST', $base . 'setContrato.php', ['contrato_codigo' => 'PRUEBA-SIN-PERMISO', 'contrato_taller' => 'X']);
         $this->assertSame(403, $st);
         $dar('MANT_CONTRATO_GESTIONAR');
+        // Privilegios actuales (sin volver a iniciar sesión)
+        $quitar('MANT_PLAN_GESTIONAR');
+        [$st, $p] = $this->api('GET', 'auth/getPermisos.php');
+        $this->assertSame(200, $st);
+        $this->assertContains('MANT_ORDEN_CREAR', $p['permisos']);
+        $this->assertNotContains('MANT_PLAN_GESTIONAR', $p['permisos']);
+        $this->assertContains('/admin/ordenes-mantenimiento', $p['rutas']);
+        $dar('MANT_PLAN_GESTIONAR');
+        [, $p] = $this->api('GET', 'auth/getPermisos.php');
+        $this->assertContains('MANT_PLAN_GESTIONAR', $p['permisos'], 'Un privilegio asignado se ve de inmediato');
+        [, $pv] = $this->api('GET', 'auth/getPermisos.php', null, 'voluntario');
+        $this->assertSame([], $pv['permisos']);
+
         // Las consultas no requieren privilegio de acción
         [$st] = $this->api('GET', $base . 'getContratos.php');
         $this->assertSame(200, $st);

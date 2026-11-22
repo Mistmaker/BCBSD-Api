@@ -72,12 +72,15 @@ if ($usuarioDb && $usuarioDb['usuario_pass'] == md5($password)) {
     $rolesUsuario = $db->resultset();
     // Códigos de privilegio (admin.tb_roles.rol_codigo), usados por el front en lugar de los rol_id
     try {
-        $db->query("SELECT DISTINCT r.rol_codigo FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
-                     WHERE ur.fk_usuario_id = :fk_usuario_id AND r.rol_codigo IS NOT NULL");
+        $db->query("SELECT DISTINCT r.rol_codigo, r.rol_path FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
+                     WHERE ur.fk_usuario_id = :fk_usuario_id");
         $db->bind(':fk_usuario_id', $usuarioDb['usuario_id']);
-        $permisosUsuario = array_column($db->resultset(), 'rol_codigo');
+        $filasPermisos = $db->resultset();
+        $permisosUsuario = array_values(array_unique(array_filter(array_column($filasPermisos, 'rol_codigo'))));
+        $rutasUsuario = array_values(array_unique(array_filter(array_column($filasPermisos, 'rol_path'))));
     } catch (PDOException $e) {
         $permisosUsuario = []; // base sin la migración 04-privilegios.sql
+        $rutasUsuario = [];
     }
     $db->closeConnection();
 
@@ -117,7 +120,8 @@ if ($usuarioDb && $usuarioDb['usuario_pass'] == md5($password)) {
             'nombre' => $usuarioDb['usuario_login'],
             'menus' => $navItems,
             'roles' => $roles,
-            'permisos' => $permisosUsuario
+            'permisos' => $permisosUsuario,
+            'rutas' => $rutasUsuario
         ]
     ]);
 } else {
