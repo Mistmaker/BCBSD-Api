@@ -60,9 +60,11 @@ secciones = [
      leer('migrations/operadores/01-operadores.sql')),
     ("7. USUARIOS Y PERFILES (privilegios por perfil, menú de administración, claves)",
      leer('migrations/admin/01-usuarios-perfiles.sql')),
-    ("8. IMPORTACIÓN DESDE EL SISTEMA ANTERIOR (db_cbsd) - opcional",
+    ("8. PETICIÓN DE MATERIALES (servicios generales)",
+     leer('migrations/servicios-generales/01-peticion-materiales.sql')),
+    ("9. IMPORTACIÓN DESDE EL SISTEMA ANTERIOR (db_cbsd) - opcional",
      importacion_como_bloque(leer('migrations/mantenimiento/03-importacion-db_cbsd.sql'))),
-    ("9. REGISTRO INICIAL DE LA INSTITUCIÓN (solo si no se importó ni existe)", """INSERT INTO admin.tb_sistema (sistema_nombre, sistema_siglas, sistema_slogan, sistema_ciudad, sistema_direccion,
+    ("10. REGISTRO INICIAL DE LA INSTITUCIÓN (solo si no se importó ni existe)", """INSERT INTO admin.tb_sistema (sistema_nombre, sistema_siglas, sistema_slogan, sistema_ciudad, sistema_direccion,
                               sistema_telefono, sistema_correo, sistema_sitioweb, sistema_facebook, sistema_twitter)
 SELECT 'CUERPO DE BOMBEROS SANTO DOMINGO', 'CBSD', 'Juntos hacia el crecimiento institucional', 'Santo Domingo',
        'Av. Jacinto Cortez y Jorge Icaza', '(02) 3959-340', 'info@cbsd.gob.ec', 'http://bomberosantodomingo.gob.ec',
@@ -77,12 +79,12 @@ UPDATE admin.tb_sistema SET sistema_slogan = COALESCE(sistema_slogan, 'Juntos ha
 
 encabezado = """-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 -- SCRIPT 3: cambios posteriores a script.sql, script-2.sql y script_sbj_temp.sql
---   combustible, institución, mantenimiento vehicular, contratos, menús y privilegios, bitácora del vehículo, operadores, usuarios y perfiles, importación de db_cbsd.
+--   combustible, institución, mantenimiento vehicular, contratos, menús y privilegios, bitácora del vehículo, operadores, usuarios y perfiles, petición de materiales, importación de db_cbsd.
 --
 -- CÓMO USARLO (pgAdmin): abra el Query Tool sobre la base NUEVA (db_bcbsd), pegue TODO el archivo y ejecútelo.
 --   * Se puede ejecutar varias veces: no borra tablas ni datos; lo que ya existe se omite.
 --   * No toca operaciones.tb_estaciones.
---   * La importación (sección 8) solo corre si edita la línea "conexion" con la clave de la base anterior.
+--   * La importación (sección 9) solo corre si edita la línea "conexion" con la clave de la base anterior.
 --   * Después: asigne los privilegios nuevos a los usuarios en Administración > Usuarios > Privilegios.
 --
 -- ARCHIVO GENERADO por migrations/generar-script-3.py a partir de migrations/. No lo edite a mano:

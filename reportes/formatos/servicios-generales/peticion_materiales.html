@@ -1,0 +1,20 @@
+{{anulada_html}}
+<div class="title-single" style="text-align:center;margin:2mm 0 1mm;">{{institucion}}</div>
+<div class="title-single" style="text-align:center;margin-bottom:4mm;">PETICIÓN DE MATERIALES &nbsp;&nbsp; <span style="color:#bf0411;">{{codigo}}</span></div>
+<div style="font-size:9px;font-weight:bold;">SÍRVASE AUTORIZAR LOS SIGUIENTES MATERIALES, PARA SER UTILIZADOS EN:</div>
+<div style="font-size:10px;border-bottom:1px solid #222d32;padding:2px 0 2px 0;margin-bottom:3mm;">{{destino}}</div>
+<table class="t">
+    <tr><th style="width:15%;">CANTIDAD</th><th style="width:18%;">UNIDAD</th><th style="width:67%;">DESCRIPCIÓN</th></tr>
+    {{filas_html}}
+</table>
+{{observaciones_html}}
+<table style="width:100%;margin-top:5mm;font-size:10px;">
+    <tr><td style="width:100%;"><b>Lugar y fecha:</b> {{lugar_fecha}}</td></tr>
+    <tr><td style="padding-top:3mm;"><b>AUTORIZADO PARA:</b> &nbsp; {{marca_adquisicion}} Adquisición &nbsp;&nbsp;&nbsp; {{marca_bodega}} Bodega</td></tr>
+</table>
+<table style="width:100%;margin-top:18mm;">
+    <tr>
+        <td style="width:50%;"><div class="firma">______________________________<br>{{solicitante_nombre}}<br><b>{{solicitante_cargo}}</b><br><b>SOLICITANTE</b></div></td>
+        <td style="width:50%;"><div class="firma">______________________________<br>{{autoriza_nombre}}<br><b>{{autoriza_cargo}}</b><br><b>AUTORIZADO</b></div></td>
+    </tr>
+</table>
