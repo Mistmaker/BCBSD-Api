@@ -113,6 +113,18 @@ function docGuardar(string $tmp, string $tipo, string $nombre, ?string $anterior
     return $relativa;
 }
 
+/** Tamaño máximo de subida que admite PHP (upload_max_filesize y post_max_size), en MB. */
+function docLimiteSubidaMb(): int
+{
+    $mb = function (string $v): float {
+        $v = trim($v);
+        $n = (float) $v;
+        return match (strtoupper(substr($v, -1))) { 'G' => $n * 1024, 'K' => $n / 1024, 'M' => $n, default => $n / 1048576 };
+    };
+    $limites = array_filter([$mb((string) ini_get('upload_max_filesize')), $mb((string) ini_get('post_max_size'))], fn($x) => $x > 0);
+    return $limites ? max(1, (int) floor(min($limites))) : 2;
+}
+
 /** Envía un PDF guardado al navegador (inline) y termina. */
 function docEnviarPdf(string $relativa, string $nombreDescarga): void
 {
