@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../classes/auth.php';
 // DB configuration
 include_once("../../classes/dbconfig.php");
 include_once '../../classes/database.class.php';
+require_once __DIR__ . '/../../classes/usuarios.php';
 
 
 // Retorna un json
@@ -33,98 +34,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 
 $input = json_decode(file_get_contents("php://input"), true);
-$usuario = $input['usuario'] ?? '';
-$password = $input['password'] ?? '';
+$usuario = trim((string) ($input['usuario'] ?? ''));
+$password = (string) ($input['password'] ?? '');
 
 $db = new Database();
-$db->query("SELECT usuario_id, usuario_login, usuario_pass FROM admin.tb_usuarios WHERE usuario_login = :usuario");
+$db->query("SELECT usuario_id, usuario_login, usuario_pass, COALESCE(usuario_estado, 'ACTIVO') AS usuario_estado, usuario_cambiar_pass
+              FROM admin.tb_usuarios WHERE lower(usuario_login) = lower(:usuario) ORDER BY usuario_id LIMIT 1");
 $db->bind(':usuario', $usuario);
 $usuarioDb = $db->single();
+[$claveValida, $nuevoHash] = usrVerificarClave($password, $usuarioDb['usuario_pass'] ?? null);
+
+if (!$usuarioDb || !$claveValida) {
+    jsonResponse(['error' => 'Credenciales inválidas'], 401);
+}
+if ($usuarioDb['usuario_estado'] !== 'ACTIVO') {
+    jsonResponse(['error' => 'Usuario inactivo', 'msg' => 'Su usuario está inactivo. Comuníquese con el administrador del sistema.'], 403);
+}
+$usuarioId = (int) $usuarioDb['usuario_id'];
+// Clave MD5 heredada (o algoritmo antiguo): se reemplaza por password_hash en este inicio de sesión
+if ($nuevoHash) {
+    $db->query('UPDATE admin.tb_usuarios SET usuario_pass = :h WHERE usuario_id = :id');
+    $db->bind(':h', $nuevoHash);
+    $db->bind(':id', $usuarioId);
+    $db->execute();
+}
+try { // columna de la migración admin/01-usuarios-perfiles.sql: el login no debe fallar si aún no se ejecutó
+    $db->query('UPDATE admin.tb_usuarios SET usuario_ultimo_acceso = CURRENT_TIMESTAMP(0) WHERE usuario_id = :id');
+    $db->bind(':id', $usuarioId);
+    $db->execute();
+} catch (PDOException $e) {
+}
+
+try {
+    $jwt = jwtEmitir(['tipo' => 'usuario', 'sub' => $usuarioId, 'nombre' => $usuarioDb['usuario_login'], 'modulo' => 'administrativo']);
+} catch (AuthException $e) {
+    jsonResponse(['error' => 'Configuración inválida', 'msg' => $e->getMessage()], 500);
+}
+
+// Privilegios efectivos: los del perfil + los adicionales del usuario
+$privilegios = privilegiosUsuario($db, $usuarioId);
 $db->closeConnection();
 
-// if ($usuarioDb && password_verify($password, $usuarioDb['usuario_pass'])) {
-if ($usuarioDb && $usuarioDb['usuario_pass'] == md5($password)) {
-    $payload = [
-        'tipo' => 'usuario',
-        'sub' => $usuarioDb['usuario_id'],
+echo json_encode([
+    'token' => $jwt,
+    'expira_en' => JWT_EXP_SECONDS,
+    'usuario' => [
+        'usuario_id' => $usuarioId,
         'nombre' => $usuarioDb['usuario_login'],
-        'modulo' => 'administrativo'
-    ];
-
-    try {
-        $jwt = jwtEmitir($payload);
-    } catch (AuthException $e) {
-        jsonResponse(['error' => 'Configuración inválida', 'msg' => $e->getMessage()], 500);
-    }
-
-    $db = new Database();
-    $db->query("SELECT fk_usuario_id,rol_id,modulo_nombre,submodulo_nombre,rol_nombre,rol_path FROM admin.tb_usuario_rol ur
-                INNER JOIN admin.tb_roles r on r.rol_id = ur.fk_rol_id
-                INNER JOIN admin.tb_submodulos s on s.submodulo_id = r.fk_submodulo_id
-                INNER JOIN admin.tb_modulos m on m.modulo_id = s.fk_modulo_id WHERE rol_path IS NOT NULL AND fk_usuario_id = :fk_usuario_id");
-    $db->bind(':fk_usuario_id', $usuarioDb['usuario_id']);
-    $menusUsuario = $db->resultset();
-    $db->closeConnection();
-    
-    $db = new Database();
-    $db->query("SELECT fk_rol_id FROM admin.tb_usuario_rol WHERE fk_usuario_id = :fk_usuario_id");
-    $db->bind(':fk_usuario_id', $usuarioDb['usuario_id']);
-    $rolesUsuario = $db->resultset();
-    // Códigos de privilegio (admin.tb_roles.rol_codigo), usados por el front en lugar de los rol_id
-    try {
-        $db->query("SELECT DISTINCT r.rol_codigo, r.rol_path FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
-                     WHERE ur.fk_usuario_id = :fk_usuario_id");
-        $db->bind(':fk_usuario_id', $usuarioDb['usuario_id']);
-        $filasPermisos = $db->resultset();
-        $permisosUsuario = array_values(array_unique(array_filter(array_column($filasPermisos, 'rol_codigo'))));
-        $rutasUsuario = array_values(array_unique(array_filter(array_column($filasPermisos, 'rol_path'))));
-    } catch (PDOException $e) {
-        $permisosUsuario = []; // base sin la migración 04-privilegios.sql
-        $rutasUsuario = [];
-    }
-    $db->closeConnection();
-
-    $grouped = array();
-    // Reestructuración
-    foreach ($menusUsuario as $item) {
-        $modulo = $item['modulo_nombre'];
-
-        if (!isset($grouped[$modulo])) {
-            $grouped[$modulo] = [
-                'name' => $modulo,
-                'url' => '/' . explode('/', $item['rol_path'])[1], // ej: "/admin", "/sbj"
-                'icon' => 'fa fa-folder', // 👈 aquí puedes mapear íconos según el módulo
-                'children' => []
-            ];
-        }
-
-        $grouped[$modulo]['children'][] = [
-            'name' => $item['rol_nombre'],
-            'url'  => $item['rol_path'],
-            'icon' => 'nav-icon-bullet'
-        ];
-    }
-
-    $roles = array_map(function($item) {
-        return $item['fk_rol_id'];
-    }, $rolesUsuario);
-
-    // Convertir en array numérico
-    $navItems = array_values($grouped);
-
-    echo json_encode([
-        'token' => $jwt,
-        'expira_en' => JWT_EXP_SECONDS,
-        'usuario' => [
-            'usuario_id' => $usuarioDb['usuario_id'],
-            'nombre' => $usuarioDb['usuario_login'],
-            'menus' => $navItems,
-            'roles' => $roles,
-            'permisos' => $permisosUsuario,
-            'rutas' => $rutasUsuario
-        ]
-    ]);
-} else {
-    http_response_code(401);
-    echo json_encode(['error' => 'Credenciales inválidas']);
-}
+        'menus' => menuUsuario($privilegios),
+        'roles' => array_map('intval', array_column($privilegios, 'rol_id')),
+        'permisos' => array_values(array_unique(array_filter(array_column($privilegios, 'rol_codigo')))),
+        'rutas' => array_values(array_unique(array_filter(array_column($privilegios, 'rol_path')))),
+        'cambiar_clave' => (bool) $usuarioDb['usuario_cambiar_pass'],
+    ]
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

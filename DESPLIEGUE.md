@@ -89,7 +89,7 @@ Orden para crear una base nueva desde cero: `script.sql`, `script-2.sql`, `scrip
 ### Script único para pgAdmin: `script-3.sql`
 
 Contiene, en orden, todo lo posterior a `script.sql`, `script-2.sql` y `script_sbj_temp.sql`: órdenes de combustible,
-institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, bitácora del vehículo, operadores, importación desde `db_cbsd`
+institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, bitácora del vehículo, operadores, usuarios y perfiles, importación desde `db_cbsd`
 (opcional: edite la línea `conexion`) y el registro inicial de la institución. Se pega completo en el Query Tool,
 se puede ejecutar varias veces y no borra datos ni toca `operaciones.tb_estaciones`.
 Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos de `migrations/`.
@@ -103,6 +103,21 @@ Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos 
   `MANT_ORDEN_RECIBIR`, `MANT_ORDEN_ACTA`, `MANT_ORDEN_ANULAR`, `MANT_BITACORA_GESTIONAR`, `MANT_CONTRATO_GESTIONAR`,
   `MANT_PLAN_GESTIONAR` (acciones; el API los exige). Combustible: `ADM_COMBUSTIBLE`, `ADM_COMBUSTIBLE_CREAR`.
   Movilización: `ADM_MOVILIZACION`, `ADM_MOVILIZACION_CREAR`. Vehículos: `ADM_VEHICULOS`, `ADM_VEHICULO_CREAR`.
+
+### Usuarios y perfiles (`migrations/admin/01-usuarios-perfiles.sql`)
+
+- **Perfil** = grupo de privilegios predefinido (`admin.tb_perfil_rol`). **Privilegios efectivos** de un usuario = los de
+  su perfil + sus privilegios adicionales (`admin.tb_usuario_rol`), solo si el usuario y el perfil están ACTIVOS
+  (vista `admin.vw_usuario_privilegios`; la usan el login, el menú, `getPermisos` y `requirePermiso`). Cambiar los
+  privilegios de un perfil se aplica de inmediato a todos sus usuarios.
+- Menú **Administración > Usuarios / Perfiles** por privilegios (`SIS_USUARIOS`, `SIS_PERFILES`, `SIS_USUARIO_GESTIONAR`,
+  `SIS_USUARIO_PRIVILEGIOS`, `SIS_PERFIL_GESTIONAR`); antes estaba fijo para el usuario 113. Se asignan al usuario 113 y
+  al perfil ADMINISTRADOR. Nadie puede inactivarse ni quitarse a sí mismo la administración de usuarios o perfiles.
+- **Claves**: `password_hash` (bcrypt). Las MD5 heredadas siguen funcionando y se convierten solas en el siguiente inicio
+  de sesión (no hay que restablecerlas). El login rechaza a los usuarios INACTIVOS.
+- Endpoints en `servicios/admin/`: `getUsuarios`, `getPersonaUsuario?doc=`, `setUsuario`, `setClaveUsuario`,
+  `getPerfiles`, `setPerfil`; `servicios/auth/getPrivilegios` y `setPrivilegios` (privilegios adicionales) ahora exigen
+  privilegio, y `getUsuarios` ya no devuelve las claves.
 
 ### Operadores (`migrations/operadores/01-operadores.sql`)
 

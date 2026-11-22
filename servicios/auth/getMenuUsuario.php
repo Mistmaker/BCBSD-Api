@@ -5,6 +5,7 @@ require_once '../../vendor/autoload.php';
 // DB configuration
 include_once("../../classes/dbconfig.php");
 include_once '../../classes/database.class.php';
+require_once __DIR__ . '/../../classes/api.php';
 
 use \Firebase\JWT\JWT;
 
@@ -38,51 +39,10 @@ try {
     }
 
     if ($voluntario_id <= 0) {
-
+        // Menú = pantallas (privilegios con ruta) del perfil del usuario + sus privilegios adicionales
         $db = new Database();
-        // Solo los roles con ruta (pantallas) asignados al usuario forman el menú
-        $db->query("SELECT DISTINCT m.modulo_nombre, s.submodulo_nombre, r.rol_id, r.rol_nombre, r.rol_path FROM admin.tb_usuario_rol ur
-                INNER JOIN admin.tb_roles r on r.rol_id = ur.fk_rol_id
-                INNER JOIN admin.tb_submodulos s on s.submodulo_id = r.fk_submodulo_id
-                INNER JOIN admin.tb_modulos m on m.modulo_id = s.fk_modulo_id WHERE rol_path IS NOT NULL AND fk_usuario_id = :fk_usuario_id
-                ORDER BY m.modulo_nombre, r.rol_id");
-        $db->bind(':fk_usuario_id', $usuario_id);
-        $menusUsuario = $db->resultset();
+        $navItems = menuUsuario(privilegiosUsuario($db, $usuario_id));
         $db->closeConnection();
-
-        $db = new Database();
-        $db->query("SELECT fk_rol_id FROM admin.tb_usuario_rol WHERE fk_usuario_id = :fk_usuario_id");
-        $db->bind(':fk_usuario_id', $usuario_id);
-        $rolesUsuario = $db->resultset();
-        $db->closeConnection();
-
-        $grouped = array();
-        // Reestructuración
-        foreach ($menusUsuario as $item) {
-            $modulo = $item['modulo_nombre'];
-
-            if (!isset($grouped[$modulo])) {
-                $grouped[$modulo] = [
-                    'name' => $modulo,
-                    'url' => '/' . explode('/', $item['rol_path'])[1], // ej: "/admin", "/sbj"
-                    'icon' => 'fa fa-folder', // 👈 aquí puedes mapear íconos según el módulo
-                    'children' => []
-                ];
-            }
-
-            $grouped[$modulo]['children'][] = [
-                'name' => $item['rol_nombre'],
-                'url'  => $item['rol_path'],
-                'icon' => 'nav-icon-bullet'
-            ];
-        }
-
-        $roles = array_map(function ($item) {
-            return $item['fk_rol_id'];
-        }, $rolesUsuario);
-
-        // Convertir en array numérico
-        $navItems = array_values($grouped);
     } else {
 
         $grouped = array();

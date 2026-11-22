@@ -115,10 +115,42 @@ function permisosUsuario(Database $db, ?int $usuarioId = null): array
     if ($usuarioId === null) {
         return [];
     }
-    $db->query('SELECT DISTINCT r.rol_codigo FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
-                 WHERE ur.fk_usuario_id = :u AND r.rol_codigo IS NOT NULL');
-    $db->bind(':u', $usuarioId);
-    return array_column($db->resultset(), 'rol_codigo');
+    return array_values(array_unique(array_filter(array_column(privilegiosUsuario($db, $usuarioId), 'rol_codigo'))));
+}
+
+/**
+ * Privilegios EFECTIVOS de un usuario: los de su perfil + los adicionales (vista admin.vw_usuario_privilegios), solo si
+ * el usuario y el perfil están ACTIVOS. Filas: rol_id, rol_codigo, rol_path, rol_nombre, submodulo_nombre, modulo_nombre, origen.
+ * En una base sin la migración de perfiles usa solo admin.tb_usuario_rol.
+ */
+function privilegiosUsuario(Database $db, int $usuarioId): array
+{
+    $sql = fn(string $fuente) => "SELECT DISTINCT ON (r.rol_id) r.rol_id, r.rol_codigo, r.rol_path, r.rol_nombre, s.submodulo_nombre, m.modulo_nombre, x.origen
+              FROM $fuente x JOIN admin.tb_roles r ON r.rol_id = x.rol_id
+              JOIN admin.tb_submodulos s ON s.submodulo_id = r.fk_submodulo_id JOIN admin.tb_modulos m ON m.modulo_id = s.fk_modulo_id
+             WHERE x.usuario_id = :u ORDER BY r.rol_id, (x.origen = 'PERFIL') DESC";
+    try {
+        $db->query($sql('admin.vw_usuario_privilegios'));
+        $db->bind(':u', $usuarioId);
+        return $db->resultset();
+    } catch (PDOException $e) {
+        $db->query($sql("(SELECT fk_usuario_id AS usuario_id, fk_rol_id AS rol_id, 'USUARIO'::text AS origen FROM admin.tb_usuario_rol)"));
+        $db->bind(':u', $usuarioId);
+        return $db->resultset();
+    }
+}
+
+/** Menú del usuario: pantallas (privilegios con ruta) agrupadas por módulo, ordenadas por módulo y rol. */
+function menuUsuario(array $privilegios): array
+{
+    $pantallas = array_values(array_filter($privilegios, fn($p) => !empty($p['rol_path'])));
+    usort($pantallas, fn($a, $b) => [$a['modulo_nombre'], (int) $a['rol_id']] <=> [$b['modulo_nombre'], (int) $b['rol_id']]);
+    $grupos = [];
+    foreach ($pantallas as $p) {
+        $grupos[$p['modulo_nombre']] ??= ['name' => $p['modulo_nombre'], 'url' => '/' . explode('/', $p['rol_path'])[1], 'icon' => 'fa fa-folder', 'children' => []];
+        $grupos[$p['modulo_nombre']]['children'][] = ['name' => $p['rol_nombre'], 'url' => $p['rol_path'], 'icon' => 'nav-icon-bullet'];
+    }
+    return array_values($grupos);
 }
 
 /**
