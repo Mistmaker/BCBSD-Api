@@ -8,6 +8,7 @@ $auth = requireAuth();
 // DB configuration
 include_once("../../../classes/dbconfig.php");
 include_once '../../../classes/database.class.php';
+require_once __DIR__ . '/../../../classes/operadores.php';
 
 // Obtener el token desde el header Authorization
 // $headers = getallheaders();
@@ -145,7 +146,14 @@ try {
         $database->closeConnection();
         jsonResponse(['msg' => 'Registro creado con exito', 'ids' => $inserted['orden_id']], 201);
     } else {
-
+        // VALIDAR OPERADOR al asignarlo o cambiarlo: activo, en funciones y con licencia vigente
+        $database->query('SELECT operador_id FROM logistica.tb_ordenesabastecimiento WHERE orden_id = :id');
+        $database->bind(':id', (int) prop($request, 'orden_id'));
+        $operadorActual = $database->single()['operador_id'] ?? null;
+        if ((int) prop($request, 'operador_id') !== (int) $operadorActual
+            && ($motivo = operMotivoNoHabilitado($database, prop($request, 'operador_id')))) {
+            jsonResponse(['error' => 'Operador no habilitado', 'msg' => $motivo], 422);
+        }
 
         $database->query('UPDATE logistica.tb_ordenesabastecimiento SET
                             operador_id = :operador_id,

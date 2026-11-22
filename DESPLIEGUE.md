@@ -65,7 +65,7 @@ Orden para crear una base nueva desde cero: `script.sql`, `script-2.sql`, `scrip
 ### Script único para pgAdmin: `script-3.sql`
 
 Contiene, en orden, todo lo posterior a `script.sql`, `script-2.sql` y `script_sbj_temp.sql`: órdenes de combustible,
-institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, bitácora del vehículo, importación desde `db_cbsd`
+institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, bitácora del vehículo, operadores, importación desde `db_cbsd`
 (opcional: edite la línea `conexion`) y el registro inicial de la institución. Se pega completo en el Query Tool,
 se puede ejecutar varias veces y no borra datos ni toca `operaciones.tb_estaciones`.
 Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos de `migrations/`.
@@ -79,6 +79,23 @@ Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos 
   `MANT_ORDEN_RECIBIR`, `MANT_ORDEN_ACTA`, `MANT_ORDEN_ANULAR`, `MANT_BITACORA_GESTIONAR`, `MANT_CONTRATO_GESTIONAR`,
   `MANT_PLAN_GESTIONAR` (acciones; el API los exige). Combustible: `ADM_COMBUSTIBLE`, `ADM_COMBUSTIBLE_CREAR`.
   Movilización: `ADM_MOVILIZACION`, `ADM_MOVILIZACION_CREAR`. Vehículos: `ADM_VEHICULOS`, `ADM_VEHICULO_CREAR`.
+
+### Operadores (`migrations/operadores/01-operadores.sql`)
+
+Pantalla **Dir. Administrativa > Operadores** (privilegios `ADM_OPERADORES` para consultar y `ADM_OPERADOR_GESTIONAR`
+para registrar y editar). Un operador es un funcionario, operativo o administrativo, con licencia registrada en
+`tthh.tb_conductores`.
+
+- **Ingreso rápido** (`servicios/administrativo/operadores/setOperador.php`, POST): cédula, nombres, apellidos, tipo de
+  licencia, emisión y validez. Si la cédula ya existe se reutiliza la persona (sus datos los mantiene Talento Humano). Si
+  aún no tiene un puesto EN FUNCIONES se pide el puesto. Si ya es operador responde 409 con su id para editarlo.
+- **Edición** (PUT): solo la licencia (tipo, emisión, validez) y el estado ACTIVO/INACTIVO.
+- `servicios/tthh/getConductores.php` (selectores de movilización y combustible) muestra la licencia en el nombre y marca
+  `disabled` a quien no puede conducir. Al emitir movilización o asignar el operador en combustible, el API rechaza a un
+  operador inactivo, sin puesto en funciones o con licencia vencida.
+- Parámetros: `OPER_DIAS_AVISO_LICENCIA` (30: la licencia se marca POR VENCER) y `OPER_BLOQUEAR_LICENCIA_VENCIDA`
+  (SI/NO).
+- El catálogo `resources.tb_licenciasdeconducir` se carga con las categorías de Ecuador solo si está vacío.
 
 ### Bitácora del vehículo (`migrations/mantenimiento/05-bitacora.sql`)
 

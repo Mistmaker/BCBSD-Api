@@ -1,46 +1,31 @@
 <?php
 require_once __DIR__ . '/../../classes/auth.php';
 $auth = requireAuth();
-// use Spipu\Html2Pdf\Html2Pdf;
-// DB configuration
-include_once("../../classes/dbconfig.php");
-include_once '../../classes/database.class.php';
-// Retorna un json
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-
+require_once __DIR__ . '/../../classes/operadores.php';
+// GET -> operadores ACTIVOS y EN FUNCIONES para los selectores de movilización y combustible, con su licencia.
+// Los que tienen la licencia vencida vienen con disabled = true (no se pueden elegir) si OPER_BLOQUEAR_LICENCIA_VENCIDA = SI.
+// ?id=N -> un operador (cualquier estado), para mostrar el de una orden ya emitida.
+apiMetodo(['GET']);
 try {
-
-    $requestMethod = $_SERVER["REQUEST_METHOD"];
-    $arrQueryStringParams = array();
-    parse_str($_SERVER['QUERY_STRING'], $arrQueryStringParams);
-    if (strtoupper($requestMethod) != 'GET') {
-        $respuesta = json_encode(array('err' => true, 'mensaje' => 'Metodo no soportado'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $db = new Database();
+    $dias = (int) parametro($db, 'OPER_DIAS_AVISO_LICENCIA', 30);
+    $bloquear = strtoupper((string) parametro($db, 'OPER_BLOQUEAR_LICENCIA_VENCIDA', 'SI')) === 'SI';
+    $id = apiParamId();
+    $filas = $id === null
+        ? operListar($db, "AND c.conductor_estado = 'ACTIVO' AND pp.ppersonal_estado = 'EN FUNCIONES'")
+        : operListar($db, 'AND c.conductor_id = :id', [':id' => $id]);
+    $filas = array_map(function ($o) use ($dias, $bloquear) {
+        $o = operCompletar($o, $dias);
+        $licencia = trim('Lic. ' . ($o['licencia_categoria'] ?? '?'));
+        $aviso = $o['licencia_vigencia'] === 'VENCIDA' ? ' (LICENCIA VENCIDA)' : ($o['licencia_vigencia'] === 'POR VENCER' ? ' (licencia por vencer)' : '');
+        $o['nombre_completo'] = trim("{$o['persona_apellidos']} {$o['persona_nombres']} - {$o['puesto_nombre']} · $licencia$aviso", ' -');
+        $o['disabled'] = $bloquear && !$o['habilitado'];
+        return $o;
+    }, $filas);
+    if ($id !== null) {
+        $filas ? jsonResponse($filas[0]) : jsonResponse(['error' => 'Operador no encontrado'], 404);
     }
-
-    $sqlConductores = "select ppersonal_id, personal_id,conductor_id, persona_doc_identidad,conductor_estado, licencia_categoria,persona_doc_identidad,persona_apellidos, persona_nombres, puesto_nombre, conductor_licencia_validez, concat( persona_apellidos,' ',persona_nombres, ' ', puesto_nombre ) as nombre_completo
-    from tthh.tb_conductores c 
-    inner join resources.tb_licenciasdeconducir l on l.licencia_id = c.fk_licencia_id inner join tthh.tb_personal p on p.personal_id = c.fk_personal_id
-    inner join tthh.tb_personal_puestos pp ON pp.fk_personal_id = p.personal_id inner join tthh.tb_puestos pu on pu.puesto_id = pp.fk_puesto_id
-    inner join resources.tb_personas pe on pe.persona_id = fk_persona_id WHERE ppersonal_estado ='EN FUNCIONES' order by persona_apellidos, persona_nombres";
-
-    if (!isset($_GET['id'])) {
-        $database = new Database();
-        $database->query($sqlConductores);
-        $rows = $database->resultset();
-        $database->closeConnection();
-    } else {
-        // limpia el parametro
-        $id = htmlentities($_GET['id']);
-        $database = new Database();
-        $database->query($sqlConductores);
-        $database->bind('id', $id);
-        $rows = $database->single();
-        $database->closeConnection();
-    }
-    echo json_encode($rows);
-} catch (Throwable $th) {
-    // throw $th;
-    $respuesta = json_encode(array('err' => true, 'mensaje' => $th), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    echo $respuesta;
+    jsonResponse($filas);
+} catch (Throwable $e) {
+    apiError($e, 'Error al obtener los conductores');
 }

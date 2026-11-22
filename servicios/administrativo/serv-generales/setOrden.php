@@ -8,6 +8,7 @@ $auth = requireAuth();
 // DB configuration
 include_once("../../../classes/dbconfig.php");
 include_once '../../../classes/database.class.php';
+require_once __DIR__ . '/../../../classes/operadores.php';
 
 // Obtener el token desde el header Authorization
 // $headers = getallheaders();
@@ -92,6 +93,11 @@ try {
     }
 
     if (!isset($request->orden_id)) {
+
+        // VALIDAR OPERADOR: activo, en funciones y con licencia vigente (parámetro OPER_BLOQUEAR_LICENCIA_VENCIDA)
+        if ($motivo = operMotivoNoHabilitado($database, prop($request, 'operador_id'))) {
+            jsonResponse(['error' => 'Operador no habilitado', 'msg' => $motivo], 422);
+        }
 
         // VALIDAR ORDEN YA EXISTENTE
         $sqlOrden = "SELECT orden_id, orden_kilometraje_salida, orden_kilometraje_entrada from logistica.tb_ordenesmovilizacion where fk_unidad_id = :fk_unidad_id and orden_estado = 'SALIDA' ORDER BY orden_id desc limit 1";
