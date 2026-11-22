@@ -65,7 +65,7 @@ Orden para crear una base nueva desde cero: `script.sql`, `script-2.sql`, `scrip
 ### Script único para pgAdmin: `script-3.sql`
 
 Contiene, en orden, todo lo posterior a `script.sql`, `script-2.sql` y `script_sbj_temp.sql`: órdenes de combustible,
-institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, importación desde `db_cbsd`
+institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, bitácora del vehículo, importación desde `db_cbsd`
 (opcional: edite la línea `conexion`) y el registro inicial de la institución. Se pega completo en el Query Tool,
 se puede ejecutar varias veces y no borra datos ni toca `operaciones.tb_estaciones`.
 Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos de `migrations/`.
@@ -80,12 +80,33 @@ Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos 
   `MANT_PLAN_GESTIONAR` (acciones; el API los exige). Combustible: `ADM_COMBUSTIBLE`, `ADM_COMBUSTIBLE_CREAR`.
   Movilización: `ADM_MOVILIZACION`, `ADM_MOVILIZACION_CREAR`. Vehículos: `ADM_VEHICULOS`, `ADM_VEHICULO_CREAR`.
 
+### Bitácora del vehículo (`migrations/mantenimiento/05-bitacora.sql`)
+
+Pantalla **Unidades > Bitácora de vehículos** (privilegio `ADM_BITACORA_VEHICULOS`). Endpoints
+`servicios/administrativo/bitacora/getBitacoraFlota.php` y `getBitacoraVehiculo.php?id=` (`?desde=&hasta=`, por
+defecto los últimos 12 meses). Junta por vehículo, ordenado por fecha y kilometraje: cargas de combustible VALIDADAS,
+órdenes de mantenimiento no anuladas (valores por rubro de las facturas activas), movilizaciones y partes de emergencia.
+
+- **Rendimiento (km/gal)**, método de tanque lleno: el tramo entre dos cargas rinde los km recorridos divididos para
+  los galones de la segunda carga. El del período es Σkm / Σgalones de los tramos válidos. Se usa como punto de partida
+  la última carga anterior al período. Una carga sin kilometraje o con uno menor al anterior no tiene rendimiento propio
+  y su combustible se suma al siguiente tramo válido. Para que el cálculo sea fiable las cargas deben ser a tanque lleno.
+- **Km recorridos**: mayor menos menor lectura del período entre todas las fuentes.
+- **Trabajos repetidos**: compara los trabajos a realizar de las órdenes (sin tildes, mayúsculas, sin artículos ni
+  preposiciones: "Cambio de motor de arranque" = "CAMBIO MOTOR ARRANQUE").
+- **Comparación**: con los vehículos de la misma marca, modelo y año (sin distinguir mayúsculas ni espacios).
+- Parámetros (`admin.tb_params`): `BIT_VENTANA_REPETICION_DIAS` (180: un trabajo repetido dentro de este plazo genera
+  alerta), `BIT_ALERTA_RENDIMIENTO_PCT` (15: alerta si rinde ese % menos que los iguales), `BIT_ALERTA_COSTO_PCT`
+  (30: alerta si el mantenimiento por km cuesta ese % más que los iguales).
+- `orden_cantidad_galones` pasa de entero a `numeric(10,3)` para registrar galones con decimales.
+
 ### Mantenimiento vehicular (`migrations/mantenimiento/`)
 
 ```bash
 psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/01-institucion.sql
 psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/02-mantenimiento.sql
 psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/04-privilegios.sql
+psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/05-bitacora.sql
 # Importar datos del sistema anterior (opcional, re-ejecutable):
 psql -d db_bcbsd -v legacy_conn="dbname=db_cbsd host=localhost user=postgres password=XXXX" \
      -f migrations/mantenimiento/03-importacion-db_cbsd.sql
