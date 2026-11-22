@@ -58,8 +58,11 @@ function pdmValidar(object $p): array
 function pdmListar(Database $db, string $donde = '', array $params = []): array
 {
     $db->query("SELECT p.*, p.peticion_fecha::text AS peticion_fecha,
-                       s.nombre_completo AS solicitante_nombre, s.persona_doc_identidad AS solicitante_cc, s.puesto_nombre AS solicitante_puesto,
-                       a.nombre_completo AS autoriza_nombre, a.persona_doc_identidad AS autoriza_cc, a.puesto_nombre AS autoriza_puesto,
+                       -- solo apellidos y nombres (nombre_completo de la vista incluye el puesto); el cargo se imprime aparte
+                       NULLIF(trim(concat_ws(' ', s.persona_apellidos, s.persona_nombres)), '') AS solicitante_nombre,
+                       s.persona_doc_identidad AS solicitante_cc, s.puesto_nombre AS solicitante_puesto,
+                       NULLIF(trim(concat_ws(' ', a.persona_apellidos, a.persona_nombres)), '') AS autoriza_nombre,
+                       a.persona_doc_identidad AS autoriza_cc, a.puesto_nombre AS autoriza_puesto,
                        u.usuario_login AS usuario,
                        (SELECT count(*) FROM logistica.tb_peticionesmateriales_detalle d WHERE d.fk_peticion_id = p.peticion_id)::int AS items
                   FROM logistica.tb_peticionesmateriales p
