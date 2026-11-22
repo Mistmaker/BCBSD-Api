@@ -66,9 +66,15 @@ function apiError(Throwable $e, string $mensaje = 'Error al procesar la solicitu
     if ($e instanceof PDOException && ($e->errorInfo[0] ?? '') === '23505') {
         $detalle = 'Ya existe un registro con esos datos.';
     }
+    if ($e instanceof PDOException && ($e->errorInfo[0] ?? '') === '23503') {
+        $detalle = 'Alguno de los registros relacionados (vehículo, persona, contrato...) no existe.';
+    }
     $codigo = $e instanceof ValidacionException ? 422 : 500;
     if ($e instanceof PDOException && ($e->errorInfo[0] ?? '') === '23505') {
         $codigo = 409;
+    }
+    if ($e instanceof PDOException && ($e->errorInfo[0] ?? '') === '23503') {
+        $codigo = 422;
     }
     jsonResponse(['error' => $mensaje, 'msg' => $detalle ?? $mensaje], $codigo);
 }

@@ -52,6 +52,44 @@ CREATE TABLE IF NOT EXISTS logistica.tb_mantenimiento_recursos (
     UNIQUE (fk_mantenimiento_id, fk_recurso_id)
 );
 
+
+-- CONTRATOS DE MANTENIMIENTO -------------------------------------------------
+-- Contrato general anual del parque automotor y contratos por vigencia tecnológica (vehículos nuevos).
+-- Cada contrato tiene un tope por rubro (partida presupuestaria) que no se puede superar.
+CREATE TABLE IF NOT EXISTS logistica.tb_contratosmantenimiento (
+    contrato_id SERIAL NOT NULL PRIMARY KEY,
+    contrato_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    contrato_estado text NOT NULL DEFAULT 'VIGENTE'::text,             -- VIGENTE | FINALIZADO | ANULADO
+    fk_usuario_id integer REFERENCES admin.tb_usuarios(usuario_id),
+    contrato_codigo text NOT NULL,                                     -- código del proceso, ej. CB-GADM-SD-DA-2025-0008-OC
+    contrato_tipo text NOT NULL DEFAULT 'GENERAL'::text,               -- GENERAL | VIGENCIA TECNOLÓGICA
+    contrato_objeto text,
+    contrato_fecha_inicio date,
+    contrato_fecha_fin date,
+    contrato_taller text NOT NULL,                                     -- taller / contratista
+    contrato_ruc text,
+    contrato_representante_legal text,
+    administrador_contrato integer REFERENCES tthh.tb_personal_puestos(ppersonal_id),
+    contrato_monto numeric(12,2) NOT NULL DEFAULT 0 CHECK (contrato_monto >= 0)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_contratosmantenimiento_codigo ON logistica.tb_contratosmantenimiento (upper(contrato_codigo));
+
+CREATE TABLE IF NOT EXISTS logistica.tb_contratosmantenimiento_partidas (
+    partida_id SERIAL NOT NULL PRIMARY KEY,
+    fk_contrato_id integer NOT NULL REFERENCES logistica.tb_contratosmantenimiento(contrato_id) ON DELETE CASCADE,
+    partida_rubro text NOT NULL,                                       -- MANO DE OBRA | REPUESTOS | ACEITES Y LUBRICANTES
+    partida_codigo text,                                               -- partida presupuestaria
+    partida_monto numeric(12,2) NOT NULL CHECK (partida_monto >= 0),
+    UNIQUE (fk_contrato_id, partida_rubro)
+);
+
+-- Vehículos cubiertos (contratos por vigencia tecnológica). Sin filas = cubre a todos los vehículos.
+CREATE TABLE IF NOT EXISTS logistica.tb_contratosmantenimiento_vehiculos (
+    fk_contrato_id integer NOT NULL REFERENCES logistica.tb_contratosmantenimiento(contrato_id) ON DELETE CASCADE,
+    fk_vehiculo_id integer NOT NULL REFERENCES administrativo.tb_vehiculos(vehiculo_id),
+    PRIMARY KEY (fk_contrato_id, fk_vehiculo_id)
+);
+
 ALTER TABLE administrativo.tb_vehiculos
     ADD COLUMN IF NOT EXISTS fk_plan_id integer REFERENCES logistica.tb_planesmantenimiento(plan_id);
 
@@ -59,7 +97,7 @@ ALTER TABLE administrativo.tb_vehiculos
 CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmantenimiento (
     orden_id SERIAL NOT NULL PRIMARY KEY,
     orden_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
-    orden_estado text DEFAULT 'MANTENIMIENTO'::text,          -- MANTENIMIENTO | FINALIZADA | ANULADA
+    orden_estado text DEFAULT 'MANTENIMIENTO'::text,          -- MANTENIMIENTO (en taller) | RECIBIDO (valores) | ENTREGADO (acta) | ANULADA
     fk_usuario_id integer NOT NULL REFERENCES admin.tb_usuarios(usuario_id),
     fk_vehiculo_id integer NOT NULL REFERENCES administrativo.tb_vehiculos(vehiculo_id),
     personal_solicita integer NOT NULL REFERENCES tthh.tb_personal_puestos(ppersonal_id),
@@ -67,7 +105,7 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmantenimiento (
     tecnico_servicios integer NOT NULL REFERENCES tthh.tb_personal_puestos(ppersonal_id),
     tecnico_puesto text,
     orden_codigo text NOT NULL UNIQUE,                          -- SIGLAS + año + ODM + serie (CBSD26ODM00010)
-    orden_serie integer NOT NULL DEFAULT 0,                     -- número de informe individual ("No. 005")
+    orden_serie integer NOT NULL DEFAULT 0,                     -- número de orden ("ORDEN DE MANTENIMIENTO No. 005")
     orden_tipomantenimiento text DEFAULT 'CORRECTIVO'::text,  -- CORRECTIVO | PREVENTIVO | PREVENTIVO Y CORRECTIVO
     orden_fecha_mantenimiento_tipo text DEFAULT 'SISTEMA'::text,
     orden_fecha_mantenimiento timestamp without time zone NOT NULL,
@@ -81,7 +119,11 @@ CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmantenimiento (
     orden_quien_recepcion text,
     orden_cargo_recepcion text
 );
-ALTER TABLE logistica.tb_ordenesmantenimiento ADD COLUMN IF NOT EXISTS orden_taller text;   -- taller / contratista
+ALTER TABLE logistica.tb_ordenesmantenimiento ADD COLUMN IF NOT EXISTS orden_taller text;   -- taller (órdenes del sistema anterior; las nuevas usan el contrato)
+ALTER TABLE logistica.tb_ordenesmantenimiento ADD COLUMN IF NOT EXISTS fk_contrato_id integer REFERENCES logistica.tb_contratosmantenimiento(contrato_id);
+ALTER TABLE logistica.tb_ordenesmantenimiento ADD COLUMN IF NOT EXISTS orden_informe_numero text;            -- número del informe de pago
+ALTER TABLE logistica.tb_ordenesmantenimiento ADD COLUMN IF NOT EXISTS orden_informe_serie integer NOT NULL DEFAULT 0;
+UPDATE logistica.tb_ordenesmantenimiento SET orden_estado = 'ENTREGADO' WHERE orden_estado = 'FINALIZADA';
 CREATE INDEX IF NOT EXISTS ix_ordenesmantenimiento_vehiculo ON logistica.tb_ordenesmantenimiento (fk_vehiculo_id, orden_fecha_mantenimiento DESC);
 
 CREATE TABLE IF NOT EXISTS logistica.tb_mantenimiento_trabajos (     -- trabajos a realizar (novedades reportadas por el custodio)
@@ -140,6 +182,7 @@ CREATE TABLE IF NOT EXISTS logistica.tb_informemantenimiento (
 );
 
 ALTER TABLE logistica.tb_informemantenimiento ADD COLUMN IF NOT EXISTS informe_serie integer NOT NULL DEFAULT 0;
+ALTER TABLE logistica.tb_informemantenimiento ADD COLUMN IF NOT EXISTS fk_contrato_id integer REFERENCES logistica.tb_contratosmantenimiento(contrato_id);
 CREATE INDEX IF NOT EXISTS ix_informemantenimiento_numero ON logistica.tb_informemantenimiento (upper(informe_numero));
 
 CREATE TABLE IF NOT EXISTS logistica.tb_informe_ordenesmantenimiento (
@@ -182,9 +225,11 @@ SELECT o.*,
             SELECT f.factura_tipo, sum(COALESCE(f.factura_valor, 0)) AS total FROM logistica.tb_mantenimiento_facturas f
              WHERE f.fk_orden_id = o.orden_id AND f.factura_estado = 'ACTIVO' GROUP BY f.factura_tipo) r) AS totales_rubro,
        inf.informe_id, inf.informe_numero, inf.informe_fecha,
+       c.contrato_codigo, c.contrato_tipo, COALESCE(c.contrato_taller, o.orden_taller) AS taller,
        u.usuario_login AS usuario
 FROM logistica.tb_ordenesmantenimiento o
 JOIN administrativo.tb_vehiculos v ON v.vehiculo_id = o.fk_vehiculo_id
+LEFT JOIN logistica.tb_contratosmantenimiento c ON c.contrato_id = o.fk_contrato_id
 LEFT JOIN tthh.vw_personal_simple s ON s.ppersonal_id = o.personal_solicita
 LEFT JOIN tthh.vw_personal_simple da ON da.ppersonal_id = o.director_administrativo
 LEFT JOIN tthh.vw_personal_simple t ON t.ppersonal_id = o.tecnico_servicios
@@ -211,6 +256,18 @@ LEFT JOIN tthh.vw_personal_simple t ON t.ppersonal_id = i.tecnico_servicios
 LEFT JOIN tthh.vw_personal_simple da ON da.ppersonal_id = i.director_administrativo
 LEFT JOIN admin.tb_usuarios u ON u.usuario_id = i.fk_usuario_id;
 
+-- SALDO DE CADA CONTRATO POR RUBRO --------------------------------------------
+-- consumido = valores registrados en órdenes no anuladas del contrato
+DROP VIEW IF EXISTS logistica.vw_contratosmantenimiento_saldo;
+CREATE VIEW logistica.vw_contratosmantenimiento_saldo AS
+SELECT p.fk_contrato_id AS contrato_id, p.partida_id, p.partida_rubro, p.partida_codigo, p.partida_monto AS asignado,
+       COALESCE(sum(f.factura_valor) FILTER (WHERE o.orden_id IS NOT NULL), 0)::numeric(12,2) AS consumido,
+       (p.partida_monto - COALESCE(sum(f.factura_valor) FILTER (WHERE o.orden_id IS NOT NULL), 0))::numeric(12,2) AS saldo
+FROM logistica.tb_contratosmantenimiento_partidas p
+LEFT JOIN logistica.tb_ordenesmantenimiento o ON o.fk_contrato_id = p.fk_contrato_id AND o.orden_estado <> 'ANULADA'
+LEFT JOIN logistica.tb_mantenimiento_facturas f ON f.fk_orden_id = o.orden_id AND f.factura_estado = 'ACTIVO' AND f.factura_tipo = p.partida_rubro
+GROUP BY p.fk_contrato_id, p.partida_id, p.partida_rubro, p.partida_codigo, p.partida_monto;
+
 -- MENÚ (Dir. Administrativa = modulo_id 2 en script-2.sql) ---------------------
 INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre)
 SELECT 2, 'Mantenimiento vehicular'
@@ -221,7 +278,8 @@ SELECT r.nombre, r.descripcion, s.submodulo_id, r.path
 FROM admin.tb_submodulos s,
      (VALUES ('Ordenes de Mantenimiento', 'Administrar ordenes de mantenimiento vehicular', '/admin/ordenes-mantenimiento'),
              ('Informes de Mantenimiento', 'Administrar informes de mantenimiento', '/admin/informes-mantenimiento'),
-             ('Planes de Mantenimiento', 'Planes preventivos y catalogo de recursos', '/admin/planes-mantenimiento')) AS r(nombre, descripcion, path)
+             ('Planes de Mantenimiento', 'Planes preventivos y catalogo de recursos', '/admin/planes-mantenimiento'),
+             ('Contratos de Mantenimiento', 'Contratos, partidas presupuestarias y saldos', '/admin/contratos-mantenimiento')) AS r(nombre, descripcion, path)
 WHERE s.submodulo_nombre = 'Mantenimiento vehicular'
   AND NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path = r.path);
 -- Asignar los roles a los usuarios desde la administración de perfiles/usuarios.

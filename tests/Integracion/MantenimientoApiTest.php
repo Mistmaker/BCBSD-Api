@@ -20,6 +20,7 @@ final class MantenimientoApiTest extends TestCase
     private const VEHICULO = 9001;
 
     private static ?PDO $pdo = null;
+    private static int $contrato = 0;
     /** @var resource|null */
     private static $servidor = null;
     private static int $puerto = 0;
@@ -38,7 +39,7 @@ final class MantenimientoApiTest extends TestCase
             INSERT INTO admin.tb_usuarios (usuario_id, fk_persona_id, fk_perfil_id, usuario_login, usuario_pass) VALUES (9001, 1, 1, 'prueba_mant', 'x');
             INSERT INTO tthh.tb_personal_puestos (ppersonal_id, fk_personal_id, fk_puesto_id) VALUES (9001, 1, 1);
             INSERT INTO administrativo.tb_vehiculos (vehiculo_id, fk_usuario_id, fk_marca_id, vehiculo_placa, vehiculo_tipo, vehiculo_combustible, vehiculo_sigla)
-                 VALUES (9001, 9001, 1, 'TST-9001', 'CAMIONETA', 'DIESEL', 'PRUEBA-1');
+                 VALUES (9001, 9001, 1, 'TST-9001', 'CAMIONETA', 'DIESEL', 'PRUEBA-1'), (9002, 9001, 1, 'TST-9002', 'CAMIONETA', 'DIESEL', 'PRUEBA-2');
             INSERT INTO logistica.tb_ordenesabastecimiento (orden_id, fk_usuario_id, fk_unidad_id, orden_kilometraje, orden_codigo, orden_serie, orden_codigo_serie,
                  director_administrativo, personal_solicita, operador_id, orden_codigo_institucion)
                  VALUES (9001, 9001, 9001, 31500, 'TST-ABS-9001', 0, 0, 9001, 9001, 9001, 'TST');
@@ -77,11 +78,13 @@ final class MantenimientoApiTest extends TestCase
             DELETE FROM logistica.tb_informe_ordenesmantenimiento WHERE fk_orden_id IN (SELECT orden_id FROM logistica.tb_ordenesmantenimiento WHERE fk_vehiculo_id = 9001);
             DELETE FROM logistica.tb_informemantenimiento WHERE fk_usuario_id = 9001 OR informe_numero LIKE 'PRUEBA-%';
             DELETE FROM logistica.tb_ordenesmantenimiento WHERE fk_vehiculo_id = 9001;
+            DELETE FROM logistica.tb_contratosmantenimiento WHERE contrato_codigo LIKE 'PRUEBA-%';
             UPDATE administrativo.tb_vehiculos SET fk_plan_id = NULL WHERE vehiculo_id = 9001;
             DELETE FROM logistica.tb_planesmantenimiento WHERE plan_modelo LIKE 'PRUEBA %';
             DELETE FROM logistica.tb_recursosmantenimiento WHERE recurso_descripcion LIKE 'PRUEBA %';
             DELETE FROM logistica.tb_ordenesabastecimiento WHERE orden_id = 9001;
-            DELETE FROM administrativo.tb_vehiculos WHERE vehiculo_id = 9001;
+            DELETE FROM logistica.tb_contratosmantenimiento_vehiculos WHERE fk_vehiculo_id IN (9001, 9002);
+            DELETE FROM administrativo.tb_vehiculos WHERE vehiculo_id IN (9001, 9002);
             DELETE FROM tthh.tb_personal_puestos WHERE ppersonal_id = 9001;
             DELETE FROM admin.tb_usuarios WHERE usuario_id = 9001;");
     }
@@ -91,6 +94,23 @@ final class MantenimientoApiTest extends TestCase
         if (!self::$pdo) {
             $this->markTestSkipped('Defina BCBSD_TEST_DB_NAME para ejecutar las pruebas de integración');
         }
+    }
+
+    /** Crea (una vez) un contrato de prueba con partidas y devuelve su id. */
+    private function contrato(): int
+    {
+        if (!self::$contrato) {
+            [$st, $r] = $this->api('POST', 'administrativo/mantenimiento/setContrato.php', [
+                'contrato_codigo' => 'PRUEBA-CONTRATO-01', 'contrato_tipo' => 'GENERAL', 'contrato_taller' => 'TALLER DE PRUEBA',
+                'contrato_representante_legal' => 'Representante', 'contrato_monto' => 1000,
+                'partidas' => [['partida_rubro' => 'MANO DE OBRA', 'partida_codigo' => '73.04.05', 'partida_monto' => 300],
+                               ['partida_rubro' => 'REPUESTOS', 'partida_monto' => 600],
+                               ['partida_rubro' => 'ACEITES Y LUBRICANTES', 'partida_monto' => 100]],
+            ]);
+            $this->assertSame(201, $st, json_encode($r));
+            self::$contrato = $r['id'];
+        }
+        return self::$contrato;
     }
 
     private function api(string $metodo, string $ruta, $cuerpo = null, string $tipo = 'usuario'): array
@@ -140,7 +160,7 @@ final class MantenimientoApiTest extends TestCase
         $orden = [
             'fk_vehiculo_id' => self::VEHICULO, 'personal_solicita' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
             'tecnico_servicios' => self::PERSONAL, 'orden_fecha_mantenimiento' => '2026-11-20 09:00', 'orden_km_mantenimiento' => 34500,
-            'orden_tipomantenimiento' => 'PREVENTIVO',
+            'orden_tipomantenimiento' => 'PREVENTIVO', 'fk_contrato_id' => $this->contrato(),
             'trabajos' => [['trabajo_descripcion' => 'Cambio de aceite y filtro']],
             'sugeridos' => [['trabajo_descripcion' => 'Revisar frenos']],
             'facturas' => [['factura_tipo' => 'MANO DE OBRA', 'factura_descripcion' => '001-001-123', 'factura_valor' => '51.10'],
@@ -172,13 +192,17 @@ final class MantenimientoApiTest extends TestCase
         // 4. Edición: reemplaza trabajos, conserva lo no enviado
         $o['trabajos'] = [['trabajo_descripcion' => 'Cambio de aceite'], ['trabajo_descripcion' => 'Cambio de filtro de aire']];
         unset($o['facturas']);
-        $o['orden_estado'] = 'FINALIZADA';
+        $o['orden_estado'] = 'ENTREGADO';
+        [$st, $r] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', $o);
+        $this->assertSame(422, $st, 'De MANTENIMIENTO no se pasa directo a ENTREGADO');
+        $o['orden_estado'] = 'RECIBIDO';
         [$st, $r] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', $o);
         $this->assertSame(200, $st, json_encode($r));
         [, $o2] = $this->api('GET', $base . "getOrdenesMantenimiento.php?id=$ordenId");
         $this->assertCount(2, $o2['trabajos']);
         $this->assertCount(3, $o2['facturas'], 'Las facturas no enviadas se conservan');
-        $this->assertSame('FINALIZADA', $o2['orden_estado']);
+        $this->assertSame('RECIBIDO', $o2['orden_estado']);
+        $this->assertSame('TALLER DE PRUEBA', $o2['taller'], 'El taller sale del contrato');
 
         // 5. Informe con la orden; la orden ya no aparece como disponible
         $informe = ['tecnico_servicios' => self::PERSONAL, 'director_administrativo' => self::PERSONAL, 'informe_taller' => 'Taller de prueba', 'ordenes' => [$ordenId]];
@@ -217,7 +241,8 @@ final class MantenimientoApiTest extends TestCase
         $orden = [
             'fk_vehiculo_id' => self::VEHICULO, 'personal_solicita' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
             'tecnico_servicios' => self::PERSONAL, 'orden_fecha_mantenimiento' => '2026-11-21 10:00', 'orden_km_mantenimiento' => 36000,
-            'orden_tipomantenimiento' => 'PREVENTIVO Y CORRECTIVO', 'orden_serie' => $sig['orden_serie'], 'orden_taller' => 'TALLER DE PRUEBA',
+            'orden_tipomantenimiento' => 'PREVENTIVO Y CORRECTIVO', 'orden_serie' => $sig['orden_serie'], 'fk_contrato_id' => $this->contrato(),
+            'orden_informe_numero' => 'PRUEBA-INF-007', 'orden_informe_serie' => 7,
             'orden_fecha_recepcion' => '2026-12-01',
             'trabajos' => [['trabajo_descripcion' => 'Revisión de frenos']],
             'sugeridos' => [['trabajo_descripcion' => 'Cambio de pastillas']],
@@ -228,8 +253,24 @@ final class MantenimientoApiTest extends TestCase
         $this->assertMatchesRegularExpression('/^[A-Z]+\d{2}ODM\d{5}$/', $r['orden_codigo']);
         [, $o] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?id=' . $r['id']);
         $this->assertSame($sig['orden_serie'], $o['orden_serie']);
-        $this->assertSame('TALLER DE PRUEBA', $o['orden_taller']);
+        $this->assertSame('TALLER DE PRUEBA', $o['taller']);
+        $this->assertSame('PRUEBA-INF-007', $o['orden_informe_numero']);
         $this->assertSame('2026-12-01', $o['orden_fecha_recepcion']);
+        [$st, $si] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?siguiente_informe=1');
+        $this->assertSame(200, $st);
+        $this->assertArrayHasKey('orden_informe_numero', $si);
+
+        // A la bitácora solo entran órdenes RECIBIDO o ENTREGADO
+        [$st, $err] = $this->api('POST', $base . 'setInformeMantenimiento.php', [
+            'informe_numero' => 'PRUEBA-BITACORA-00', 'tecnico_servicios' => self::PERSONAL, 'director_administrativo' => self::PERSONAL, 'ordenes' => [$r['id']]]);
+        $this->assertSame(422, $st);
+        $this->assertStringContainsString('RECIBIDO', $err['msg']);
+        $o['orden_estado'] = 'RECIBIDO';
+        [$st] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', $o);
+        $this->assertSame(200, $st);
+        $o['orden_estado'] = 'ENTREGADO';
+        [$st, $rr] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', $o);
+        $this->assertSame(200, $st, json_encode($rr));
 
         [$st, $sig2] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?siguiente_serie=1');
         $this->assertSame($sig['orden_serie'] + 1, $sig2['orden_serie']);
@@ -237,7 +278,7 @@ final class MantenimientoApiTest extends TestCase
         // Bitácora con la orden y los cuatro PDF
         [$st, $inf] = $this->api('POST', $base . 'setInformeMantenimiento.php', [
             'informe_numero' => 'PRUEBA-BITACORA-01', 'tecnico_servicios' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
-            'informe_taller' => 'TALLER DE PRUEBA', 'ordenes' => [$r['id']],
+            'fk_contrato_id' => $this->contrato(), 'ordenes' => [$r['id']],
         ]);
         $this->assertSame(201, $st, json_encode($inf));
         foreach (['orden', 'informe', 'acta'] as $doc) {
@@ -252,6 +293,58 @@ final class MantenimientoApiTest extends TestCase
         $this->assertSame(400, $st);
     }
 
+    public function testContratoSaldoYTope(): void
+    {
+        $base = 'administrativo/mantenimiento/';
+        $contrato = $this->contrato();
+        // La suma de partidas no puede superar el monto
+        [$st, $r] = $this->api('POST', $base . 'setContrato.php', ['contrato_codigo' => 'PRUEBA-CONTRATO-02', 'contrato_taller' => 'X', 'contrato_monto' => 10,
+            'partidas' => [['partida_rubro' => 'REPUESTOS', 'partida_monto' => 11]]]);
+        $this->assertSame(422, $st);
+        [$st, $r] = $this->api('POST', $base . 'setContrato.php', ['contrato_codigo' => 'PRUEBA-CONTRATO-03', 'contrato_taller' => 'X', 'contrato_monto' => 10,
+            'vehiculos' => [999999999]]);
+        $this->assertSame(422, $st, 'Vehículo inexistente');
+
+        // Contrato de vigencia tecnológica que no cubre al vehículo de prueba
+        [$st, $vt] = $this->api('POST', $base . 'setContrato.php', ['contrato_codigo' => 'PRUEBA-CONTRATO-VT', 'contrato_tipo' => 'VIGENCIA TECNOLÓGICA',
+            'contrato_taller' => 'CONCESIONARIO', 'contrato_monto' => 500, 'partidas' => [['partida_rubro' => 'REPUESTOS', 'partida_monto' => 500]], 'vehiculos' => [9002]]);
+        $this->assertSame(201, $st, json_encode($vt));
+        [, $aplicables] = $this->api('GET', $base . 'getContratos.php?vigentes=1&vehiculo_id=' . self::VEHICULO);
+        $codigos = array_column($aplicables, 'contrato_codigo');
+        $this->assertContains('PRUEBA-CONTRATO-01', $codigos);
+        $this->assertNotContains('PRUEBA-CONTRATO-VT', $codigos);
+
+        $orden = ['fk_vehiculo_id' => self::VEHICULO, 'personal_solicita' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
+            'tecnico_servicios' => self::PERSONAL, 'orden_fecha_mantenimiento' => '2026-11-22 10:00', 'orden_km_mantenimiento' => 37000];
+        [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', array_merge($orden, ['fk_contrato_id' => $vt['id']]));
+        $this->assertSame(422, $st, 'El contrato de vigencia tecnológica no cubre a este vehículo');
+
+        [, $antes] = $this->api('GET', $base . "getContratos.php?id=$contrato");
+        $saldo = array_column($antes['partidas'], 'saldo', 'partida_rubro');
+        // Supera el saldo de mano de obra
+        [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', array_merge($orden, ['fk_contrato_id' => $contrato,
+            'facturas' => [['factura_tipo' => 'MANO DE OBRA', 'factura_valor' => (float) $saldo['MANO DE OBRA'] + 0.01]]]));
+        $this->assertSame(422, $st);
+        $this->assertStringContainsString('supera el saldo', $r['msg']);
+        // Justo el saldo disponible: se acepta y el saldo queda en 0
+        [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', array_merge($orden, ['fk_contrato_id' => $contrato,
+            'facturas' => [['factura_tipo' => 'MANO DE OBRA', 'factura_valor' => $saldo['MANO DE OBRA']]]]));
+        $this->assertSame(201, $st, json_encode($r));
+        [, $despues] = $this->api('GET', $base . "getContratos.php?id=$contrato");
+        $this->assertEquals(0, array_column($despues['partidas'], 'saldo', 'partida_rubro')['MANO DE OBRA']);
+        // No se puede bajar la partida por debajo de lo consumido
+        [$st, $r2] = $this->api('PUT', $base . 'setContrato.php', ['contrato_id' => $contrato, 'contrato_codigo' => 'PRUEBA-CONTRATO-01',
+            'contrato_taller' => 'TALLER DE PRUEBA', 'contrato_monto' => 1000, 'partidas' => [['partida_rubro' => 'MANO DE OBRA', 'partida_monto' => 1]]]);
+        $this->assertSame(422, $st);
+        $this->assertStringContainsString('consumidos', $r2['msg']);
+        // Anular la orden libera el saldo
+        [, $o] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?id=' . $r['id']);
+        [$st] = $this->api('PUT', $base . 'setOrdenMantenimiento.php', array_merge($o, ['orden_estado' => 'ANULADA']));
+        $this->assertSame(200, $st);
+        [, $liberado] = $this->api('GET', $base . "getContratos.php?id=$contrato");
+        $this->assertEquals($saldo['MANO DE OBRA'], array_column($liberado['partidas'], 'saldo', 'partida_rubro')['MANO DE OBRA']);
+    }
+
     public function testValidacionesYPermisos(): void
     {
         $base = 'administrativo/mantenimiento/';
@@ -260,6 +353,13 @@ final class MantenimientoApiTest extends TestCase
 
         [$st, $r] = $this->api('POST', $base . 'setOrdenMantenimiento.php', ['fk_vehiculo_id' => self::VEHICULO]);
         $this->assertSame(422, $st);
+
+        // Sin contrato no se crea la orden
+        $sinContrato = ['fk_vehiculo_id' => self::VEHICULO, 'personal_solicita' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
+            'tecnico_servicios' => self::PERSONAL, 'orden_fecha_mantenimiento' => '2026-11-21 10:00', 'orden_km_mantenimiento' => 1];
+        [$st, $r2] = $this->api('POST', $base . 'setOrdenMantenimiento.php', $sinContrato);
+        $this->assertSame(422, $st);
+        $this->assertStringContainsString('contrato', $r2['msg']);
         $this->assertStringContainsString('Falta el campo', $r['msg']);
 
         [$st] = $this->api('GET', $base . 'getOrdenesMantenimiento.php?id=abc');

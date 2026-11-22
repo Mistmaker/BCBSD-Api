@@ -89,6 +89,57 @@ final class MantenimientoTest extends TestCase
         ];
     }
 
+    public function testTransicionesDeEstado(): void
+    {
+        $o = (object) ['orden_fecha_recepcion' => '2026-06-01'];
+        foreach ([['MANTENIMIENTO', 'RECIBIDO'], ['RECIBIDO', 'ENTREGADO'], ['RECIBIDO', 'MANTENIMIENTO'], ['ENTREGADO', 'RECIBIDO'],
+                  ['MANTENIMIENTO', 'ANULADA'], ['RECIBIDO', 'ANULADA'], ['RECIBIDO', 'RECIBIDO']] as [$de, $a]) {
+            mantValidarTransicion($de, $a, $o);
+        }
+        $this->addToAssertionCount(7);
+
+        foreach ([['MANTENIMIENTO', 'ENTREGADO'], ['ENTREGADO', 'ANULADA'], ['ANULADA', 'MANTENIMIENTO'], ['ANULADA', 'ANULADA'], ['ENTREGADO', 'MANTENIMIENTO']] as [$de, $a]) {
+            try {
+                mantValidarTransicion($de, $a, $o);
+                $this->fail("Debió rechazar $de -> $a");
+            } catch (ValidacionException $e) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    public function testEntregadoExigeFechaDelActa(): void
+    {
+        $this->expectException(ValidacionException::class);
+        $this->expectExceptionMessage('fecha');
+        mantValidarTransicion('RECIBIDO', 'ENTREGADO', (object) ['orden_fecha_recepcion' => '']);
+    }
+
+    public function testTopeDelContrato(): void
+    {
+        $saldo = ['MANO DE OBRA' => 100.0, 'REPUESTOS' => 50.0];
+        $this->assertNull(mantExcesoContrato($saldo, ['MANO DE OBRA' => 100.0, 'REPUESTOS' => 49.99]));
+        $this->assertNull(mantExcesoContrato($saldo, ['ACEITES Y LUBRICANTES' => 0.0]), 'un rubro en cero no consume');
+        $this->assertStringContainsString('supera el saldo', mantExcesoContrato($saldo, ['REPUESTOS' => 50.01]));
+        $this->assertStringContainsString('no tiene partida', mantExcesoContrato($saldo, ['ACEITES Y LUBRICANTES' => 5]));
+    }
+
+    public function testTotalesRubro(): void
+    {
+        $this->assertEquals(['MANO DE OBRA' => 61.1, 'REPUESTOS' => 415.0], mantTotalesRubro([
+            (object) ['factura_tipo' => 'MANO DE OBRA', 'factura_valor' => '51.10'],
+            ['factura_tipo' => 'MANO DE OBRA', 'factura_valor' => 10],
+            ['factura_tipo' => 'REPUESTOS', 'factura_valor' => '415'],
+            ['factura_tipo' => 'REPUESTOS', 'factura_valor' => ''],
+        ]));
+    }
+
+    public function testFormatoInforme(): void
+    {
+        $this->assertSame('CBSD-26-RUPIF-007-M', mantFormatoInforme('{SIGLAS}-{AA}-RUPIF-{NNN}-M', 'cbsd', 7, 2026));
+        $this->assertSame('INF 12/2027', mantFormatoInforme('INF {N}/{AAAA}', 'X', 12, 2027));
+    }
+
     public function testTiposPreventivos(): void
     {
         $this->assertTrue(mantEsPreventivo('PREVENTIVO'));
@@ -137,7 +188,7 @@ final class MantenimientoTest extends TestCase
             'trabajo vacío' => [fn($o) => $o->trabajos[] = (object) ['trabajo_descripcion' => '  '], 'trabajos'],
             'factura sin rubro' => [fn($o) => $o->facturas[0]->factura_tipo = '', 'rubro'],
             'factura negativa' => [fn($o) => $o->facturas[0]->factura_valor = -1, 'valor'],
-            'número de informe no entero' => [fn($o) => $o->orden_serie = 'A5', 'número de informe'],
+            'número de orden no entero' => [fn($o) => $o->orden_serie = 'A5', 'número de orden'],
         ];
     }
 }

@@ -78,8 +78,14 @@ psql -d db_bcbsd -v legacy_conn="dbname=db_cbsd host=localhost user=postgres pas
 - `03` importa institución, parámetros, planes, recursos, órdenes e informes desde `db_cbsd`, convirtiendo
   la unidad antigua (`logistica.tb_unidades`) en el vehículo nuevo. Al final muestra cuántos registros se omitieron
   (vehículo, personal o usuario inexistente en la base nueva).
-- Parámetros del módulo (`admin.tb_params`): `MANT_TOLERANCIA_KM` (anticipación de la alerta, 1000 km),
-  `MANT_TECNICO_PUESTO`, `MANT_INFORME_CARGO`.
+- Parámetros del módulo (`admin.tb_params`, módulo MANTENIMIENTO): `MANT_TOLERANCIA_KM` (anticipación de la alerta),
+  `MANT_RUBROS`, `MANT_CARGOS_RESPONSABLE`, `MANT_DIRECTOR_PUESTO_ID`, `MANT_FORMATO_INFORME` (número del informe de pago,
+  con `{SIGLAS} {AA} {AAAA} {N} {NNN}`), `MANT_TIPOS_CONTRATO`, `MANT_TECNICO_PUESTO`, `MANT_INFORME_CARGO`.
+- **Contratos de mantenimiento** (`logistica.tb_contratosmantenimiento`, partidas y vehículos): cada orden nueva se
+  registra bajo un contrato vigente que cubra al vehículo; los valores por rubro no pueden superar el saldo de la partida
+  (`logistica.vw_contratosmantenimiento_saldo`).
+- **Estados de la orden**: MANTENIMIENTO (en el taller) → RECIBIDO (valores y facturas) → ENTREGADO (acta generada); ANULADA.
+- **Formatos PDF** editables en `reportes/formatos/mantenimiento/` (ver `LEEME.md` de esa carpeta).
 
 ## Pruebas
 

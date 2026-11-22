@@ -86,7 +86,82 @@ function mantLista(?string $valor): array
     return array_values(array_filter(array_map('trim', explode('|', (string) $valor)), fn($x) => $x !== ''));
 }
 
-const MANT_ESTADOS_ORDEN = ['MANTENIMIENTO', 'FINALIZADA', 'ANULADA'];
+/**
+ * Flujo de la orden:
+ *   MANTENIMIENTO -> el vehículo se envía al taller
+ *   RECIBIDO      -> el taller devuelve el vehículo con la documentación; se registran valores y facturas
+ *   ENTREGADO     -> se generó el acta entrega-recepción
+ *   ANULADA
+ */
+const MANT_ESTADOS_ORDEN = ['MANTENIMIENTO', 'RECIBIDO', 'ENTREGADO', 'ANULADA'];
+const MANT_TRANSICIONES = [
+    'MANTENIMIENTO' => ['RECIBIDO', 'ANULADA'],
+    'RECIBIDO' => ['ENTREGADO', 'MANTENIMIENTO', 'ANULADA'],
+    'ENTREGADO' => ['RECIBIDO'],
+    'ANULADA' => [],
+];
+
+/** Lanza ValidacionException si no se puede pasar de $actual a $nuevo. */
+function mantValidarTransicion(string $actual, string $nuevo, object $orden): void
+{
+    if ($actual === $nuevo) {
+        if ($actual === 'ANULADA') {
+            throw new ValidacionException('Una orden anulada no se puede modificar');
+        }
+        return;
+    }
+    if (!in_array($nuevo, MANT_TRANSICIONES[$actual] ?? MANT_ESTADOS_ORDEN, true)) {
+        throw new ValidacionException("No se puede pasar una orden de $actual a $nuevo");
+    }
+    if ($nuevo === 'ENTREGADO' && empty($orden->orden_fecha_recepcion)) {
+        throw new ValidacionException('Para generar el acta (ENTREGADO) registre la fecha de entrega del acta');
+    }
+}
+
+/**
+ * Verifica que los valores de la orden no superen el saldo del contrato.
+ * $saldoSinEstaOrden: [rubro => saldo disponible sin contar esta orden]; $totalesOrden: [rubro => total de esta orden].
+ * Devuelve el mensaje de error o null.
+ */
+function mantExcesoContrato(array $saldoSinEstaOrden, array $totalesOrden): ?string
+{
+    foreach ($totalesOrden as $rubro => $total) {
+        if ($total <= 0) {
+            continue;
+        }
+        if (!array_key_exists($rubro, $saldoSinEstaOrden)) {
+            return "El contrato no tiene partida para el rubro $rubro";
+        }
+        if (round($total, 2) > round((float) $saldoSinEstaOrden[$rubro], 2)) {
+            return sprintf('El rubro %s supera el saldo del contrato: disponible $%s, registrado $%s',
+                $rubro, number_format((float) $saldoSinEstaOrden[$rubro], 2), number_format($total, 2));
+        }
+    }
+    return null;
+}
+
+/** Totales por rubro de una lista de facturas (objetos o arreglos). */
+function mantTotalesRubro(array $facturas): array
+{
+    $totales = [];
+    foreach ($facturas as $f) {
+        $f = (array) $f;
+        $valor = $f['factura_valor'] ?? null;
+        if ($valor === null || $valor === '' || !is_numeric($valor)) {
+            continue;
+        }
+        $totales[$f['factura_tipo']] = ($totales[$f['factura_tipo']] ?? 0) + (float) $valor;
+    }
+    return $totales;
+}
+
+/** Número de informe de pago según el formato configurado: {SIGLAS} {AA} {AAAA} {N} {NNN} */
+function mantFormatoInforme(string $formato, string $siglas, int $n, ?int $anio = null): string
+{
+    $anio = $anio ?? (int) date('Y');
+    return strtr($formato, ['{SIGLAS}' => strtoupper($siglas), '{AAAA}' => (string) $anio, '{AA}' => substr((string) $anio, -2),
+        '{NNN}' => str_pad((string) $n, 3, '0', STR_PAD_LEFT), '{N}' => (string) $n]);
+}
 const MANT_TIPOS_ORDEN = ['CORRECTIVO', 'PREVENTIVO', 'PREVENTIVO Y CORRECTIVO'];
 /** Tipos que cuentan como mantenimiento preventivo para el plan por kilometraje. */
 const MANT_TIPOS_PREVENTIVOS = ['PREVENTIVO', 'PREVENTIVO Y CORRECTIVO'];
@@ -114,7 +189,7 @@ function mantValidarOrden(object $o): void
     }
     if (isset($o->orden_serie) && $o->orden_serie !== '' && $o->orden_serie !== null
         && (filter_var($o->orden_serie, FILTER_VALIDATE_INT) === false || (int) $o->orden_serie < 0)) {
-        throw new ValidacionException('El número de informe debe ser un número entero');
+        throw new ValidacionException('El número de orden debe ser un número entero');
     }
     if (isset($o->orden_estado) && !in_array($o->orden_estado, MANT_ESTADOS_ORDEN, true)) {
         throw new ValidacionException('Estado de orden inválido');

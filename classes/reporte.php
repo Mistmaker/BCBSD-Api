@@ -152,20 +152,6 @@ function reporteHtml(array $inst, array $lineasCabecera, string $cuerpo): string
     return strtr($html, $reemplazos);
 }
 
-/** Título central "DIRECCIÓN ADMINISTRATIVA / slogan". */
-function reporteTituloArea(array $inst, string $area = 'DIRECCIÓN ADMINISTRATIVA'): string
-{
-    return '<div class="title-single" style="text-align:center;margin-top:5mm;">' . e($area) . '</div>'
-        . '<div style="text-align:center;font-size:10px;margin-bottom:6mm;"><b><i>' . e($inst['sistema_slogan']) . '</i></b></div>';
-}
-
-/** Bloque de firma: nombre, C.I., cargo y rol. */
-function reporteFirma(?string $nombre, ?string $cedula, ?string $cargo, string $rol = ''): string
-{
-    return '<div class="firma">' . e($nombre) . '<br>C.I.: ' . e($cedula) . '<br><b>' . e($cargo) . '</b>'
-        . ($rol ? '<br><b>' . e($rol) . '</b>' : '') . '</div>';
-}
-
 /** Tabla "FACTURAS GENERADAS" con total y monto en letras. */
 function reporteTablaFacturas(array $facturas): string
 {
