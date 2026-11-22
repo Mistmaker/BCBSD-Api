@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
  * Bitácora del vehículo contra una base PostgreSQL real (mismas condiciones que MantenimientoApiTest).
  * Requiere 05-bitacora.sql. Datos de prueba con IDs 9100-9199, borrados al terminar.
  *
- * Escenario (período 2026-01-01 a 2026-06-30), tres camionetas TOYOTA HILUX 2018:
+ * Escenario (período 2026-01-01 a 2026-06-30), tres camionetas TOYOTA HILUX-PRUEBA 2018 (modelo exclusivo de la prueba):
  *  - 9101: carga de referencia en diciembre (10000 km) y tres cargas en el período: 900 km con 37 gal (24.32 km/gal);
  *          dos cambios de motor de arranque en 3 meses (trabajo repetido), una movilización y una emergencia.
  *  - 9102: 900 km con 30 gal (30 km/gal). 9103: sin datos.
@@ -35,10 +35,10 @@ final class BitacoraApiTest extends TestCase
             INSERT INTO admin.tb_usuarios (usuario_id, fk_persona_id, fk_perfil_id, usuario_login, usuario_pass) VALUES (9101, 1, 1, 'prueba_bit', 'x'), (9102, 1, 1, 'prueba_bit2', 'x');
             INSERT INTO administrativo.tb_vehiculos (vehiculo_id, fk_usuario_id, fk_marca_id, vehiculo_placa, vehiculo_tipo, vehiculo_combustible, vehiculo_sigla,
                  vehiculo_marca, vehiculo_modelo, vehiculo_anio, vehiculo_estado)
-                 VALUES (9101, 9101, 1, 'TST-9101', 'CAMIONETA', 'DIESEL', 'PRUEBA-B1', 'TOYOTA', 'HILUX', 2018, 'ACTIVO'),
-                        (9102, 9101, 1, 'TST-9102', 'CAMIONETA', 'DIESEL', 'PRUEBA-B2', 'Toyota ', 'hilux', 2018, 'ACTIVO'),
-                        (9103, 9101, 1, 'TST-9103', 'CAMIONETA', 'DIESEL', 'PRUEBA-B3', 'TOYOTA', 'HILUX', 2018, 'ACTIVO'),
-                        (9104, 9101, 1, 'TST-9104', 'CAMIONETA', 'DIESEL', 'PRUEBA-B4', 'TOYOTA', 'HILUX', 2020, 'ACTIVO');
+                 VALUES (9101, 9101, 1, 'TST-9101', 'CAMIONETA', 'DIESEL', 'PRUEBA-B1', 'TOYOTA', 'HILUX-PRUEBA', 2018, 'ACTIVO'),
+                        (9102, 9101, 1, 'TST-9102', 'CAMIONETA', 'DIESEL', 'PRUEBA-B2', 'Toyota ', 'hilux-prueba', 2018, 'ACTIVO'),
+                        (9103, 9101, 1, 'TST-9103', 'CAMIONETA', 'DIESEL', 'PRUEBA-B3', 'TOYOTA', 'HILUX-PRUEBA', 2018, 'ACTIVO'),
+                        (9104, 9101, 1, 'TST-9104', 'CAMIONETA', 'DIESEL', 'PRUEBA-B4', 'TOYOTA', 'HILUX-PRUEBA', 2020, 'ACTIVO');
             INSERT INTO logistica.tb_ordenesabastecimiento (orden_id, fk_usuario_id, fk_unidad_id, orden_fecha, orden_kilometraje, orden_cantidad_galones, orden_precio_total,
                  orden_tipo_combustible, orden_estado, orden_codigo, orden_serie, orden_codigo_serie, director_administrativo, personal_solicita, operador_id, orden_codigo_institucion)
                  VALUES " . implode(',', [
