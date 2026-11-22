@@ -4,10 +4,14 @@ $auth = requireAuth();
 require_once __DIR__ . '/../../classes/usuarios.php';
 // GET -> perfiles con número de usuarios y de privilegios
 // GET ?id=N -> perfil y árbol de privilegios con los del perfil marcados (asignado = true)
+// GET ?arbol=1 -> árbol de privilegios sin marcar (para un perfil nuevo)
 apiMetodo(['GET']);
 try {
     $db = new Database();
     requirePermiso($db, 'SIS_PERFILES', 'SIS_PERFIL_GESTIONAR', 'SIS_USUARIOS', 'SIS_USUARIO_GESTIONAR');
+    if (!empty($_GET['arbol'])) {
+        jsonResponse(usrArbolPrivilegios($db));
+    }
     $id = apiParamId();
     $db->query("SELECT p.perfil_id, p.perfil_nombre, p.perfil_descripcion, COALESCE(p.perfil_estado, 'ACTIVO') AS perfil_estado,
                        (SELECT count(*) FROM admin.tb_usuarios u WHERE u.fk_perfil_id = p.perfil_id)::int AS usuarios,
