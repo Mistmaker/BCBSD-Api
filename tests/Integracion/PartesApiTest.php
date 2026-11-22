@@ -167,6 +167,19 @@ final class PartesApiTest extends TestCase
         $this->assertCount(2, $lista);
         $this->assertSame('R-98', $lista[0]['vehiculos']);
 
+        // PDF para imprimir: con OPE_PARTES (también solo consulta); 404 si no existe
+        $ctx = fn(int $u) => stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 60,
+            'header' => 'Authorization: Bearer ' . jwtEmitir(['sub' => $u, 'tipo' => 'usuario'], 600, self::SECRETO)]]);
+        $pdf = file_get_contents('http://127.0.0.1:' . self::$puerto . "/reportes/operaciones/parte.php?id=$id", false, $ctx(9803));
+        $this->assertStringContainsString('200', $http_response_header[0]);
+        $this->assertStringStartsWith('%PDF', $pdf);
+        file_get_contents('http://127.0.0.1:' . self::$puerto . '/reportes/operaciones/parte.php?id=999999', false, $ctx(9803));
+        $this->assertStringContainsString('404', $http_response_header[0]);
+        $sinPermiso = self::$pdo->query("SELECT 1 FROM admin.tb_usuarios WHERE usuario_id = 9804")->fetchColumn();
+        $this->assertFalse($sinPermiso);
+        file_get_contents('http://127.0.0.1:' . self::$puerto . "/reportes/operaciones/parte.php?id=$id", false, $ctx(9804));
+        $this->assertStringContainsString('403', $http_response_header[0]);
+
         // La bitácora del vehículo muestra la emergencia con sus km
         [$st, $b, $t] = $this->api('GET', 'administrativo/bitacora/getBitacoraVehiculo.php?id=9801&desde=2025-03-01&hasta=2025-03-31');
         $this->assertSame(200, $st, $t);

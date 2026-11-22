@@ -1,0 +1,82 @@
+{{anulado_html}}
+<table style="width:100%;margin-bottom:2mm;">
+    <tr>
+        <td style="width:60%;font-size:15px;font-weight:bold;">{{titulo}}</td>
+        <td style="width:40%;text-align:right;font-size:11px;"><b>N.º {{numero}}</b><br><span style="font-size:8px;">{{estacion}} · Estado: {{estado}}</span></td>
+    </tr>
+</table>
+<table class="t">
+    <tr><td style="width:18%;"><b>Fecha:</b></td><td style="width:42%;">{{fecha_texto}}</td>
+        <td style="width:18%;"><b>Clase de día:</b></td><td style="width:22%;">{{tipo_dia}}</td></tr>
+    <tr><td><b>Código de salida:</b></td><td>{{codigo_salida}}</td><td><b>Pelotón:</b></td><td>{{grupo}}</td></tr>
+</table>
+
+<div class="seccion">DATOS GENERALES</div>
+<table class="t">
+    <tr><td style="width:22%;"><b>Forma de aviso a central:</b></td><td style="width:28%;">{{forma_aviso}}</td>
+        <td style="width:20%;"><b>Provincia:</b></td><td style="width:30%;">{{provincia}}</td></tr>
+    <tr><td><b>Responsable de despacho:</b></td><td>{{despacho}}</td><td><b>Cantón:</b></td><td>{{canton}}</td></tr>
+    <tr><td><b>Fecha y hora del aviso:</b></td><td>{{aviso}}</td><td><b>Zona:</b></td><td>{{zona}}</td></tr>
+    <tr><td><b>Transferencia del ECU:</b></td><td>{{transferencia}}</td><td><b>Parroquia:</b></td><td>{{parroquia}}</td></tr>
+    <tr><td><b>Información del alertante:</b></td><td>{{alertante}}</td><td><b>Calle principal:</b></td><td>{{calle_principal}}</td></tr>
+    <tr><td><b>Apoyo requerido:</b></td><td>{{apoyo}}</td><td><b>Calle secundaria:</b></td><td>{{calle_secundaria}}</td></tr>
+    <tr><td><b>Tiempo de respuesta:</b></td><td>{{respuesta}}</td><td><b>Número / sector:</b></td><td>{{numero_sector}}</td></tr>
+    <tr><td colspan="2"></td><td><b>Punto de referencia:</b></td><td>{{referencia}}</td></tr>
+</table>
+
+<nobreak><div class="seccion">PERSONAL QUE ATENDIÓ LA EMERGENCIA</div>
+{{personal_html}}</nobreak>
+
+<nobreak><div class="seccion">RECURSOS</div>
+{{vehiculos_html}}</nobreak>
+
+<nobreak><div class="seccion">TIPO DE AUXILIO</div>
+{{auxilio_html}}</nobreak>
+
+<nobreak><div class="seccion">POSIBLES CAUSAS</div>
+{{causas_html}}</nobreak>
+
+{{recursos_html}}
+
+<nobreak><div class="seccion">PERSONAS / INSTITUCIONES ASISTIDAS</div>
+{{asistidas_html}}</nobreak>
+
+<nobreak><div class="seccion">VÍCTIMAS</div>
+{{victimas_html}}</nobreak>
+
+<nobreak><div class="seccion">FALLECIDOS</div>
+{{fallecidos_html}}</nobreak>
+
+{{incendio_html}}
+
+<nobreak><div class="seccion">DAÑOS MATERIALES</div>
+<div class="caja">{{danios}}</div></nobreak>
+
+<div class="seccion">DESCRIPCIÓN DE OPERACIONES</div>
+<div class="caja" style="text-align:justify;">{{descripcion}}</div>
+
+<nobreak><div class="seccion">CROQUIS Y NOVEDADES</div>
+<table class="t">
+    <tr>
+        <td style="width:45%;vertical-align:top;">
+            <b>Latitud:</b> {{latitud}} &nbsp;&nbsp; <b>Longitud:</b> {{longitud}}<br>
+            {{mapa_html}}
+        </td>
+        <td style="width:55%;vertical-align:top;"><b>Novedades (personal, vehículos, equipo, material):</b><br>{{novedades}}
+            <br><br><b>Solicita visita de inspectores:</b> {{inspectores}}</td>
+    </tr>
+</table></nobreak>
+
+<nobreak><table class="t" style="margin-top:4mm;">
+    <tr><th style="width:33%;">Elaborado por:</th><th style="width:34%;">Revisado por:</th><th style="width:33%;">Aprobado por:</th></tr>
+    <tr><td style="width:33%;height:18mm;"></td><td style="width:34%;"></td><td style="width:33%;"></td></tr>
+    <tr><td style="width:33%;text-align:center;font-size:8px;">{{elaborado}}</td><td style="width:34%;text-align:center;font-size:8px;">{{revisado}}</td>
+        <td style="width:33%;text-align:center;font-size:8px;">{{aprobado}}</td></tr>
+</table>
+
+<div class="seccion" style="background:#d0d0d0;">PARTE ENTREGADO A:</div>
+<table class="t">
+    <tr><th style="width:40%;">Apellidos y nombres</th><th style="width:22%;">Cédula de ciudadanía</th><th style="width:16%;">Fecha</th><th style="width:22%;">Firma</th></tr>
+    <tr><td style="width:40%;height:12mm;">{{entregado_a}}</td><td style="width:22%;">{{entregado_cedula}}</td><td style="width:16%;">{{entregado_fecha}}</td><td style="width:22%;"></td></tr>
+</table>
+</nobreak>
