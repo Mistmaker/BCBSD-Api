@@ -1,81 +1,63 @@
 <?php
 require_once __DIR__ . '/../../classes/auth.php';
 $auth = requireAuth();
-// DB configuration
-include_once("../../classes/dbconfig.php");
-include_once '../../classes/database.class.php';
-
-// DEFINIR LA ZONA HORARIA
-date_default_timezone_set('America/Guayaquil');
-
-// Retorna un json
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-
+require_once __DIR__ . '/../../classes/partes.php';
+// GET ?id=N -> parte completo con detalles.
+// GET [?desde=AAAA-MM-DD&hasta=AAAA-MM-DD&estacion=N&tipo=AUXILIO|INCENDIO&estado=...&q=texto] -> listado (máx. 500, más recientes primero).
+// Privilegio: OPE_PARTES.
+apiMetodo(['GET']);
 try {
-    $requestMethod = $_SERVER["REQUEST_METHOD"];
-    
-    if (strtoupper($requestMethod) != 'GET') {
-        // Cambiado a 'err' => true por coherencia de error
-        $respuesta = json_encode(array('err' => true, 'mensaje' => 'Metodo no soportado'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        echo $respuesta;
-        exit;
+    $db = new Database();
+    requirePermiso($db, 'OPE_PARTES', 'OPE_PARTES_ESTADISTICAS');
+    $id = apiParamId();
+    if ($id !== null) {
+        $parte = parteObtener($db, $id);
+        $parte ? jsonResponse($parte) : jsonResponse(['error' => 'Parte no encontrado'], 404);
     }
-
-    $database = new Database();
-
-    if (!isset($_GET['id'])) {
-        // GET general: Listado de todos los partes. 
-        // Seleccionamos solo las columnas más importantes para no saturar la red en el listado inicial.
-        $sqlGetAll = "
-            SELECT 
-                p.*,
-                e.estacion_nombre 
-            FROM operaciones.tb_partes p
-            LEFT JOIN operaciones.tb_estaciones e ON p.fk_estacion_id = e.estacion_id
-            ORDER BY p.parte_id DESC
-        ";
-        
-        $database->query($sqlGetAll);
-        $rows = $database->resultset();
-        
-    } else {
-        // GET por ID: Retorna todo el registro completo de la cabecera
-        $id = htmlentities($_GET['id']);
-        
-        $sqlGetById = "
-            SELECT 
-                p.*, 
-                e.estacion_nombre 
-            FROM operaciones.tb_partes p
-            LEFT JOIN operaciones.tb_estaciones e ON p.fk_estacion_id = e.estacion_id
-            WHERE p.parte_id = :id
-        ";
-        
-        $database->query($sqlGetById);
-        $database->bind('id', $id);
-        $rows = $database->single();
-        
-        /* 
-         * OPCIONAL: Si necesitas que el JSON devuelva también las unidades, 
-         * el personal y los detalles en una sola petición, puedes hacer las consultas
-         * aquí y adjuntarlas al array principal antes de codificarlo a JSON.
-         * 
-         * Ejemplo:
-         * $database->query("SELECT * FROM operaciones.tb_parte_unidades WHERE fk_parte_id = :id");
-         * $database->bind('id', $id);
-         * $rows['unidades'] = $database->resultset();
-         */
+    $donde = [];
+    $params = [];
+    foreach (['desde' => '>=', 'hasta' => '<='] as $k => $op) {
+        if (!empty($_GET[$k])) {
+            $donde[] = "p.parte_fecha $op :$k";
+            $params[":$k"] = parteFecha($_GET[$k], $k);
+        }
     }
-    
-    $database->closeConnection();
-    
-    // Devolver la respuesta en JSON
-    echo json_encode($rows, JSON_UNESCAPED_UNICODE);
-
-} catch (Throwable $th) {
-    // Es más seguro imprimir $th->getMessage() que el objeto completo $th
-    $respuesta = json_encode(array('err' => true, 'mensaje' => $th->getMessage()), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    echo $respuesta;
+    if ($e = apiParamId('estacion')) {
+        $donde[] = 'p.fk_estacion_id = :e';
+        $params[':e'] = $e;
+    }
+    if (!empty($_GET['tipo'])) {
+        $donde[] = 'p.parte_tipo = :t';
+        $params[':t'] = strtoupper($_GET['tipo']);
+    }
+    if (!empty($_GET['estado'])) {
+        $donde[] = 'p.parte_estado = :s';
+        $params[':s'] = strtoupper($_GET['estado']);
+    }
+    if (!empty($_GET['q'])) {
+        $donde[] = "(p.parte_numero ILIKE :q OR p.parte_direccion ILIKE :q OR p.parte_sector ILIKE :q OR p.parte_codigo_salida ILIKE :q
+                     OR EXISTS (SELECT 1 FROM operaciones.tb_partes_tipos_auxilio ta WHERE ta.fk_parte_id = p.parte_id
+                                AND concat_ws(' ', ta.parte_auxilio_clasificacion, ta.parte_auxilio_subclasificacion) ILIKE :q))";
+        $params[':q'] = '%' . trim($_GET['q']) . '%';
+    }
+    $db->query("SELECT p.parte_id, p.parte_numero, p.parte_tipo, p.parte_estado, p.parte_fecha::text AS parte_fecha,
+                       to_char(p.parte_hora_aviso, 'HH24:MI') AS parte_hora_aviso, p.fk_estacion_id, e.estacion_nombre,
+                       COALESCE(p.parte_direccion, p.parte_sector) AS parte_direccion, p.parte_sector, p.parte_total_heridos, p.parte_total_muertos,
+                       (SELECT string_agg(DISTINCT concat_ws(' / ', ta.parte_auxilio_clasificacion, ta.parte_auxilio_subclasificacion), ', ')
+                          FROM operaciones.tb_partes_tipos_auxilio ta WHERE ta.fk_parte_id = p.parte_id) AS tipos_auxilio,
+                       (SELECT string_agg(COALESCE(pv.parte_vehiculo_siglas, pv.parte_vehiculo_placa), ', ' ORDER BY pv.parte_vehiculo_id)
+                          FROM operaciones.tb_partes_vehiculos pv WHERE pv.fk_parte_id = p.parte_id) AS vehiculos,
+                       concat_ws(' ', pe.persona_apellidos, pe.persona_nombres) AS al_mando
+                  FROM operaciones.tb_partes p
+                  LEFT JOIN operaciones.tb_estaciones e ON e.estacion_id = p.fk_estacion_id
+                  LEFT JOIN tthh.tb_personal t ON t.personal_id = p.fk_personal_id
+                  LEFT JOIN resources.tb_personas pe ON pe.persona_id = t.fk_persona_id"
+        . ($donde ? ' WHERE ' . implode(' AND ', $donde) : '') . '
+                 ORDER BY p.parte_fecha DESC, p.parte_id DESC LIMIT 500');
+    foreach ($params as $k => $v) {
+        $db->bind($k, $v);
+    }
+    jsonResponse($db->resultset());
+} catch (Throwable $e) {
+    apiError($e, 'Error al consultar los partes de servicio');
 }
-?>

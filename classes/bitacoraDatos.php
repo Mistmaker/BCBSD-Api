@@ -103,9 +103,10 @@ function bitCargarDatos(Database $db, ?array $ids, string $desde, string $hasta)
                       FROM logistica.tb_ordenesmovilizacion WHERE orden_estado <> 'ORDEN ANULADA'
                     UNION ALL SELECT fk_unidad_id, orden_kilometraje_entrada, COALESCE(orden_hora_entrada, orden_hora_salida)::date
                       FROM logistica.tb_ordenesmovilizacion WHERE orden_estado <> 'ORDEN ANULADA'
-                    UNION ALL SELECT fk_vehiculo_id, parte_unidad_kilometraje_salida, parte_unidad_despacho::date FROM operaciones.tb_parte_unidades
-                    UNION ALL SELECT fk_vehiculo_id, parte_unidad_kilometraje_ingreso, COALESCE(parte_unidad_fin_operaciones, parte_unidad_despacho)::date
-                      FROM operaciones.tb_parte_unidades
+                    UNION ALL SELECT pv.fk_vehiculo_id, pv.parte_vehiculo_km_salida, COALESCE(pv.parte_vehiculo_hora_salida::date, p.parte_fecha)
+                      FROM operaciones.tb_partes_vehiculos pv JOIN operaciones.tb_partes p ON p.parte_id = pv.fk_parte_id WHERE p.parte_estado <> 'ANULADO'
+                    UNION ALL SELECT pv.fk_vehiculo_id, pv.parte_vehiculo_km_retorno, COALESCE(pv.parte_vehiculo_hora_fin_operaciones::date, p.parte_fecha)
+                      FROM operaciones.tb_partes_vehiculos pv JOIN operaciones.tb_partes p ON p.parte_id = pv.fk_parte_id WHERE p.parte_estado <> 'ANULADO'
                 ) x WHERE v IS NOT NULL AND km > 0 AND f BETWEEN :d AND :h" . $filtro('v') . " GROUP BY v");
     $db->bind(':d', $desde);
     $db->bind(':h', $hasta);

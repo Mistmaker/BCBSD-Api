@@ -59,10 +59,14 @@ try {
     $db->bind(':d', $desde);
     $db->bind(':h', $hasta);
     $movilizaciones = $db->resultset();
-    $db->query("SELECT p.parte_id AS id, p.parte_codigo AS codigo, pu.parte_unidad_despacho::date::text AS fecha, pu.parte_unidad_despacho::text AS fecha_hora,
-                       pu.parte_unidad_kilometraje_salida AS km, pu.parte_unidad_kilometraje_ingreso AS km_fin, p.parte_tipo AS tipo, pu.parte_unidad_funcion AS funcion
-                  FROM operaciones.tb_parte_unidades pu JOIN operaciones.tb_parte p ON p.parte_id = pu.fk_parte_id
-                 WHERE pu.fk_vehiculo_id = :id AND pu.parte_unidad_despacho::date BETWEEN :d AND :h");
+    $db->query("SELECT p.parte_id AS id, p.parte_numero AS codigo, COALESCE(pv.parte_vehiculo_hora_salida::date, p.parte_fecha)::text AS fecha,
+                       COALESCE(pv.parte_vehiculo_hora_salida, p.parte_fecha + p.parte_hora_aviso)::text AS fecha_hora,
+                       pv.parte_vehiculo_km_salida AS km, pv.parte_vehiculo_km_retorno AS km_fin, p.parte_tipo AS tipo,
+                       (SELECT string_agg(DISTINCT concat_ws(' / ', ta.parte_auxilio_clasificacion, ta.parte_auxilio_subclasificacion), ', ')
+                          FROM operaciones.tb_partes_tipos_auxilio ta WHERE ta.fk_parte_id = p.parte_id) AS funcion
+                  FROM operaciones.tb_partes_vehiculos pv JOIN operaciones.tb_partes p ON p.parte_id = pv.fk_parte_id
+                 WHERE pv.fk_vehiculo_id = :id AND p.parte_estado <> 'ANULADO'
+                   AND COALESCE(pv.parte_vehiculo_hora_salida::date, p.parte_fecha) BETWEEN :d AND :h");
     $db->bind(':id', $id);
     $db->bind(':d', $desde);
     $db->bind(':h', $hasta);

@@ -168,6 +168,23 @@ para registrar y editar). Un operador es un funcionario, operativo o administrat
   (SI/NO).
 - El catálogo `resources.tb_licenciasdeconducir` se carga con las categorías de Ecuador solo si está vacío.
 
+### Partes de servicio (`migrations/operaciones/01-partes-servicio.sql`)
+
+- Usa el esquema del formulario (`operaciones.tb_partes` y sus detalles, creados por `script_sbj_temp.sql`). Las tablas
+  antiguas (`tb_parte`, `tb_parte_unidades`, `tb_parte_personal`) quedan solo como histórico.
+- Número automático como el formato del área operativa: `{SIGLAS}-PA-X1-2026-0001` (PA auxilio, PI incendio),
+  secuencia por año, estación y tipo. No cambia al editar.
+- Catálogos con las listas del Excel del área operativa: tipos de auxilio (clasificación → subclasificación → usos),
+  posibles causas, formas de aviso y apoyos. Equipos, herramientas, material e insumos van al catálogo
+  `tb_partes_catalogo_recursos` (lo que se escribe nuevo se agrega solo).
+- Cada vehículo, bombero y recurso queda enlazado a su registro (`fk_vehiculo_id`, `fk_personal_id`, `fk_recurso_id`)
+  para la estadística (`/operaciones/partes-estadisticas`). El kilometraje de los partes alimenta la bitácora y el
+  mantenimiento (`administrativo.vw_vehiculos_kilometraje`).
+- Parámetros (módulo OPERACIONES): `OPE_PARTE_RANGOS`, `OPE_PARTE_PELOTONES`, `OPE_PARTE_CLAVES` (listas separadas
+  por `|`) y `OPE_PARTE_PARROQUIA_ID` (ubicación por defecto del formulario).
+- Privilegios: `OPE_PARTES` (listado), `OPE_PARTES_ESTADISTICAS` (estadística), `OPE_PARTE_REGISTRAR` (registrar y
+  editar) y `OPE_PARTE_ANULAR` (anular con motivo y corregir partes finalizados).
+
 ### Bitácora del vehículo (`migrations/mantenimiento/05-bitacora.sql`)
 
 Pantalla **Unidades > Bitácora de vehículos** (privilegio `ADM_BITACORA_VEHICULOS`). Endpoints
