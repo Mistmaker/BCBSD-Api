@@ -16,6 +16,8 @@ final class OperadoresApiTest extends TestCase
     private static $servidor = null;
     private static int $puerto = 0;
     private static int $puesto = 0;
+    private static string $docs = '';
+    private const PDF = "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\nLicencia de prueba escaneada............................";
 
     public static function setUpBeforeClass(): void
     {
@@ -40,7 +42,9 @@ final class OperadoresApiTest extends TestCase
         $socket = stream_socket_server('tcp://127.0.0.1:0');
         self::$puerto = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
         fclose($socket);
+        self::$docs = sys_get_temp_dir() . '/bcbsd-docs-integracion-' . getmypid();
         $env = array_merge(getenv(), [
+            'BCBSD_DOCS_DIR' => self::$docs,
             'BCBSD_JWT_SECRET' => self::SECRETO, 'BCBSD_DB_HOST' => $host, 'BCBSD_DB_PORT' => $port,
             'BCBSD_DB_NAME' => getenv('BCBSD_TEST_DB_NAME'), 'BCBSD_DB_USER' => getenv('BCBSD_TEST_DB_USER') ?: 'postgres',
             'BCBSD_DB_PASS' => getenv('BCBSD_TEST_DB_PASS') ?: '',
@@ -60,6 +64,9 @@ final class OperadoresApiTest extends TestCase
         }
         if (self::$pdo) {
             self::limpiar();
+        }
+        if (self::$docs) {
+            exec('rm -rf ' . escapeshellarg(self::$docs));
         }
     }
 
@@ -94,6 +101,22 @@ final class OperadoresApiTest extends TestCase
         return [(int) explode(' ', $http_response_header[0])[1], json_decode($texto, true), $texto];
     }
 
+    /** POST multipart: 'datos' (JSON) y opcionalmente 'licencia_pdf' */
+    private function multipart(string $ruta, array $datos, ?string $pdf = null, string $nombre = 'licencia.pdf', int $usuario = 9301): array
+    {
+        $limite = '----bcbsd' . bin2hex(random_bytes(8));
+        $cuerpo = "--$limite\r\nContent-Disposition: form-data; name=\"datos\"\r\n\r\n" . json_encode($datos) . "\r\n";
+        if ($pdf !== null) {
+            $cuerpo .= "--$limite\r\nContent-Disposition: form-data; name=\"licencia_pdf\"; filename=\"$nombre\"\r\nContent-Type: application/pdf\r\n\r\n$pdf\r\n";
+        }
+        $cuerpo .= "--$limite--\r\n";
+        $token = jwtEmitir(['sub' => $usuario, 'tipo' => 'usuario'], 600, self::SECRETO);
+        $ctx = stream_context_create(['http' => ['method' => 'POST', 'ignore_errors' => true, 'timeout' => 15,
+            'header' => "Authorization: Bearer $token\r\nContent-Type: multipart/form-data; boundary=$limite", 'content' => $cuerpo]]);
+        $texto = file_get_contents('http://127.0.0.1:' . self::$puerto . '/servicios/' . $ruta, false, $ctx);
+        return [(int) explode(' ', $http_response_header[0])[1], json_decode($texto, true), $texto, $http_response_header];
+    }
+
     private function licencia(string $categoria): int
     {
         $st = self::$pdo->prepare('SELECT licencia_id FROM resources.tb_licenciasdeconducir WHERE licencia_categoria = ? ORDER BY licencia_id LIMIT 1');
@@ -117,26 +140,40 @@ final class OperadoresApiTest extends TestCase
         $this->assertNotNull($b['persona']['ppersonal_id']);
         $this->assertNull($b['operador']);
         $licencia = ['fk_licencia_id' => $this->licencia('C'), 'conductor_licencia_emision' => '2024-01-10', 'conductor_licencia_validez' => '2029-01-10'];
-        [$st, $r, $t] = $this->api('POST', $base . 'setOperador.php', ['persona_doc_identidad' => self::CED_FUNCIONARIO] + $licencia);
+        // el PDF de la licencia es obligatorio y debe ser un PDF
+        [$st, $r] = $this->multipart($base . 'setOperador.php', ['persona_doc_identidad' => self::CED_FUNCIONARIO] + $licencia);
+        $this->assertSame(422, $st);
+        $this->assertStringContainsString('PDF', $r['msg']);
+        [$st, $r] = $this->multipart($base . 'setOperador.php', ['persona_doc_identidad' => self::CED_FUNCIONARIO] + $licencia, str_repeat("\xFF\xD8 jpg ", 30), 'foto.pdf');
+        $this->assertSame(422, $st);
+        $this->assertStringContainsString('debe ser un PDF', $r['msg']);
+        [$st, $r, $t] = $this->multipart($base . 'setOperador.php', ['persona_doc_identidad' => self::CED_FUNCIONARIO] + $licencia, self::PDF, 'escaneo licencia.pdf');
         $this->assertSame(201, $st, $t);
         $id = $r['id'];
+        $this->assertSame('licencias/LIC-C-' . self::CED_FUNCIONARIO . '.pdf', $r['conductor_pdf']);
+        $this->assertFileExists(self::$docs . '/licencias/LIC-C-' . self::CED_FUNCIONARIO . '.pdf');
+        // descarga solo por el API
+        [$st, , $pdf] = $this->api('GET', $base . 'getLicenciaPdf.php?id=' . $id);
+        $this->assertSame(200, $st);
+        $this->assertSame(self::PDF, $pdf);
         // no duplica: 409 con el id existente
-        [$st, $r] = $this->api('POST', $base . 'setOperador.php', ['persona_doc_identidad' => self::CED_FUNCIONARIO] + $licencia);
+        [$st, $r] = $this->multipart($base . 'setOperador.php', ['persona_doc_identidad' => self::CED_FUNCIONARIO] + $licencia, self::PDF);
         $this->assertSame(409, $st);
         $this->assertSame($id, $r['id']);
 
         // 2. Persona nueva: crea persona, personal y puesto; exige el puesto
         $nuevo = ['persona_doc_identidad' => self::CED_NUEVA, 'persona_nombres' => ' juan  carlos ', 'persona_apellidos' => 'operador prueba'] + $licencia;
-        [$st, $r] = $this->api('POST', $base . 'setOperador.php', $nuevo);
+        [$st, $r] = $this->multipart($base . 'setOperador.php', $nuevo, self::PDF);
         $this->assertSame(422, $st);
         $this->assertStringContainsString('puesto', $r['msg']);
-        [$st, $r, $t] = $this->api('POST', $base . 'setOperador.php', $nuevo + ['fk_puesto_id' => self::$puesto]);
+        [$st, $r, $t] = $this->multipart($base . 'setOperador.php', $nuevo + ['fk_puesto_id' => self::$puesto], self::PDF);
         $this->assertSame(201, $st, $t);
         [$st, $o] = $this->api('GET', $base . 'getOperadores.php?id=' . $r['id']);
         $this->assertSame('JUAN CARLOS', $o['persona_nombres']);
         $this->assertSame('OPERADOR PRUEBA', $o['persona_apellidos']);
         $this->assertSame('VIGENTE', $o['licencia_vigencia']);
         $this->assertTrue($o['habilitado']);
+        $this->assertTrue($o['tiene_sustento']);
 
         // 3. Validaciones
         foreach ([
@@ -150,10 +187,19 @@ final class OperadoresApiTest extends TestCase
             $this->assertStringContainsString($texto, $r['msg']);
         }
 
-        // 4. Licencia vencida: el selector lo muestra deshabilitado y movilización no lo acepta
-        [$st] = $this->api('PUT', $base . 'setOperador.php', ['conductor_id' => $id, 'fk_licencia_id' => $this->licencia('B'),
-            'conductor_licencia_emision' => '2019-01-10', 'conductor_licencia_validez' => '2024-01-10']);
-        $this->assertSame(200, $st);
+        // 4. Cambiar la licencia exige un PDF nuevo; solo el estado, no
+        $vencida = ['conductor_id' => $id, 'fk_licencia_id' => $this->licencia('B'), 'conductor_licencia_emision' => '2019-01-10', 'conductor_licencia_validez' => '2024-01-10'];
+        [$st, $r] = $this->api('PUT', $base . 'setOperador.php', $vencida);
+        $this->assertSame(422, $st);
+        $this->assertStringContainsString('PDF', $r['msg']);
+        [$st, $r, $t] = $this->api('PUT', $base . 'setOperador.php', ['conductor_id' => $id, 'conductor_estado' => 'ACTIVO'] + $licencia);
+        $this->assertSame(200, $st, $t);
+        // Licencia vencida (con su PDF): el selector lo muestra deshabilitado y movilización no lo acepta; el PDF anterior va al histórico
+        [$st, $r, $t] = $this->multipart($base . 'setOperador.php', $vencida, self::PDF . 'B');
+        $this->assertSame(200, $st, $t);
+        $this->assertSame('licencias/LIC-B-' . self::CED_FUNCIONARIO . '.pdf', $r['conductor_pdf']);
+        $this->assertFileDoesNotExist(self::$docs . '/licencias/LIC-C-' . self::CED_FUNCIONARIO . '.pdf');
+        $this->assertCount(1, glob(self::$docs . '/historico/licencias/LIC-C-' . self::CED_FUNCIONARIO . '_*.pdf'));
         [, $o] = $this->api('GET', $base . 'getOperadores.php?id=' . $id);
         $this->assertSame('VENCIDA', $o['licencia_vigencia']);
         $this->assertSame('B', $o['licencia_categoria']);
@@ -166,9 +212,9 @@ final class OperadoresApiTest extends TestCase
         $this->assertSame(422, $st, json_encode($r));
         $this->assertStringContainsString('venció', $r['msg']);
 
-        // 5. Renovada: vuelve a estar habilitada
-        [$st] = $this->api('PUT', $base . 'setOperador.php', ['conductor_id' => $id] + $licencia);
-        $this->assertSame(200, $st);
+        // 5. Renovada (POST con conductor_id y PDF): vuelve a estar habilitada
+        [$st, , $t] = $this->multipart($base . 'setOperador.php', ['conductor_id' => $id] + $licencia, self::PDF);
+        $this->assertSame(200, $st, $t);
         [, $conductores] = $this->api('GET', 'tthh/getConductores.php');
         $fila = array_values(array_filter($conductores, fn($c) => $c['conductor_id'] === $id))[0];
         $this->assertFalse($fila['disabled']);

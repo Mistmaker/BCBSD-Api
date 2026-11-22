@@ -2,14 +2,31 @@
 require_once __DIR__ . '/../../../classes/auth.php';
 $auth = requireAuth();
 require_once __DIR__ . '/../../../classes/operadores.php';
+require_once __DIR__ . '/../../../classes/documentos.php';
+// Formato: multipart/form-data con 'datos' (JSON) y 'licencia_pdf' (PDF escaneado de la licencia), o JSON sin archivo.
+// El PDF se guarda en documentos/licencias/LIC-{CATEGORÍA}-{CÉDULA}.pdf; el anterior pasa a documentos/historico/licencias/.
+// Es obligatorio (parámetro OPER_EXIGIR_PDF_LICENCIA) al registrar y al cambiar tipo, emisión o validez de la licencia.
 // POST -> ingreso rápido de un operador:
 //   { persona_doc_identidad, persona_nombres, persona_apellidos, fk_licencia_id, conductor_licencia_emision, conductor_licencia_validez,
 //     fk_puesto_id (solo si la persona aún no tiene un puesto EN FUNCIONES) }
 //   Si la cédula ya existe se reutiliza la persona (sus datos los mantiene Talento Humano); si ya es operador -> 409.
-// PUT  -> actualiza solo la licencia: { conductor_id, fk_licencia_id, conductor_licencia_emision, conductor_licencia_validez, conductor_estado }
+// PUT o POST con conductor_id -> actualiza solo la licencia: { conductor_id, fk_licencia_id, conductor_licencia_emision,
+//      conductor_licencia_validez, conductor_estado } (+ licencia_pdf). Con archivo debe ser POST (PHP no procesa archivos en PUT).
 $metodo = apiMetodo(['POST', 'PUT']);
-$o = apiCuerpoJson();
+$multipart = str_starts_with(strtolower($_SERVER['CONTENT_TYPE'] ?? ''), 'multipart/form-data');
+if ($multipart) {
+    $o = json_decode($_POST['datos'] ?? '');
+    if (!is_object($o)) {
+        jsonResponse(['error' => 'Datos inválidos', 'msg' => 'Falta el campo datos (JSON)'], 400);
+    }
+} else {
+    $o = apiCuerpoJson();
+}
+$archivo = $_FILES['licencia_pdf'] ?? null;
+$hayArchivo = $archivo && ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+$esEdicion = $metodo === 'PUT' || prop($o, 'conductor_id');
 $db = null;
+$guardado = null;
 try {
     $usuario = authUsuarioId();
     if ($usuario === null) {
@@ -38,26 +55,56 @@ try {
 
     $db = new Database();
     requirePermiso($db, 'ADM_OPERADOR_GESTIONAR');
-    $db->query("SELECT 1 FROM resources.tb_licenciasdeconducir WHERE licencia_id = :l");
+    // Parámetros antes de preparar otras sentencias (comparten la conexión)
+    $exigirPdf = strtoupper((string) parametro($db, 'OPER_EXIGIR_PDF_LICENCIA', 'SI')) === 'SI';
+    $maxMb = (int) parametro($db, 'OPER_PDF_MAX_MB', 5);
+    if ($hayArchivo) {
+        docValidarPdf($archivo, $maxMb);
+    }
+    $db->query("SELECT licencia_categoria FROM resources.tb_licenciasdeconducir WHERE licencia_id = :l");
     $db->bind(':l', (int) $o->fk_licencia_id);
-    if (!$db->single()) {
+    $categoria = $db->single()['licencia_categoria'] ?? null;
+    if ($categoria === null) {
         throw new ValidacionException('El tipo de licencia no existe');
     }
 
-    if ($metodo === 'PUT') {
+    if ($esEdicion) {
         $id = (int) prop($o, 'conductor_id', 0);
-        $db->query('UPDATE tthh.tb_conductores SET fk_licencia_id = :l, conductor_licencia_emision = :e, conductor_licencia_validez = :v, conductor_estado = :s
+        $db->beginTransaction();
+        $db->query("SELECT c.fk_licencia_id, c.conductor_licencia_emision::text AS emision, c.conductor_licencia_validez::text AS validez, c.conductor_pdf,
+                           pe.persona_doc_identidad
+                      FROM tthh.tb_conductores c JOIN tthh.tb_personal p ON p.personal_id = c.fk_personal_id
+                      JOIN resources.tb_personas pe ON pe.persona_id = p.fk_persona_id
+                     WHERE c.conductor_id = :id FOR UPDATE OF c");
+        $db->bind(':id', $id);
+        $actual = $db->single();
+        if (!$actual) {
+            $db->cancelTransaction();
+            jsonResponse(['error' => 'Operador no encontrado'], 404);
+        }
+        $cambiaLicencia = (int) $actual['fk_licencia_id'] !== (int) $o->fk_licencia_id || $actual['emision'] !== $emision || $actual['validez'] !== $validez;
+        if ($exigirPdf && $cambiaLicencia && !$hayArchivo) {
+            throw new ValidacionException('Adjunte el PDF de la licencia actualizada');
+        }
+        $pdf = $actual['conductor_pdf'];
+        if ($hayArchivo) {
+            $guardado = docGuardar($archivo['tmp_name'], 'licencias', docNombre('licencias', [$categoria, $actual['persona_doc_identidad']]), $pdf);
+            $pdf = $guardado;
+        }
+        $db->query('UPDATE tthh.tb_conductores SET fk_licencia_id = :l, conductor_licencia_emision = :e, conductor_licencia_validez = :v, conductor_estado = :s,
+                           conductor_pdf = :pdf
                      WHERE conductor_id = :id RETURNING conductor_id');
         $db->bind(':l', (int) $o->fk_licencia_id);
         $db->bind(':e', $emision);
         $db->bind(':v', $validez);
         $db->bind(':s', $estado);
+        $db->bind(':pdf', $pdf);
         $db->bind(':id', $id);
-        if (!$db->single()) {
-            jsonResponse(['error' => 'Operador no encontrado'], 404);
-        }
-        jsonResponse(['msg' => 'Licencia actualizada', 'id' => $id]);
+        $db->single();
+        $db->endTransaction();
+        jsonResponse(['msg' => 'Licencia actualizada', 'id' => $id, 'conductor_pdf' => $pdf]);
     }
+
 
     // POST: persona -> personal -> puesto -> conductor
     $cedula = trim((string) prop($o, 'persona_doc_identidad', ''));
@@ -65,6 +112,9 @@ try {
     $apellidos = mb_strtoupper(trim(preg_replace('/\s+/', ' ', (string) prop($o, 'persona_apellidos', ''))));
     if (!operCedulaValida($cedula)) {
         throw new ValidacionException('La cédula no es válida');
+    }
+    if ($exigirPdf && !$hayArchivo) {
+        throw new ValidacionException('Adjunte el PDF escaneado de la licencia');
     }
     $db->beginTransaction();
     $db->query('SELECT pg_advisory_xact_lock(hashtext(:c))');
@@ -129,9 +179,20 @@ try {
     $db->bind(':s', $estado);
     $db->bind(':u', $usuario);
     $id = (int) $db->single()['conductor_id'];
+    if ($hayArchivo) {
+        $guardado = docGuardar($archivo['tmp_name'], 'licencias', docNombre('licencias', [$categoria, $cedula]));
+        $db->query('UPDATE tthh.tb_conductores SET conductor_pdf = :pdf WHERE conductor_id = :id');
+        $db->bind(':pdf', $guardado);
+        $db->bind(':id', $id);
+        $db->execute();
+    }
     $db->endTransaction();
-    jsonResponse(['msg' => 'Operador registrado', 'id' => $id], 201);
+    jsonResponse(['msg' => 'Operador registrado', 'id' => $id, 'conductor_pdf' => $guardado], 201);
 } catch (Throwable $e) {
     $db?->cancelTransaction();
+    // Si el archivo se guardó pero el registro no, no dejarlo huérfano
+    if ($guardado && docExiste($guardado)) {
+        @unlink(docRutaAbsoluta($guardado));
+    }
     apiError($e, 'Error al guardar el operador');
 }

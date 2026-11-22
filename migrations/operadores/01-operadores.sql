@@ -5,6 +5,7 @@
 --   tthh.tb_conductores (licencia: categoría, emisión, validez, estado) -> resources.tb_licenciasdeconducir
 -- Solo los operadores ACTIVOS, en funciones y con licencia vigente pueden asignarse en órdenes de movilización
 -- y de combustible (parámetro OPER_BLOQUEAR_LICENCIA_VENCIDA).
+-- Sustento: PDF escaneado de la licencia en documentos/licencias/LIC-{CATEGORÍA}-{CÉDULA}.pdf (tb_conductores.conductor_pdf).
 -- =============================================================================
 
 -- 1. Catálogo de licencias (Ecuador). Solo se carga si el catálogo está vacío: en una base migrada se usan las existentes.
@@ -32,7 +33,10 @@ CREATE INDEX IF NOT EXISTS ix_personas_doc_identidad ON resources.tb_personas (p
 -- 3. Parámetros
 INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
     ('OPER_DIAS_AVISO_LICENCIA', '30', 'integer', 'Operadores: días antes del vencimiento en que la licencia se marca POR VENCER', 'OPERADORES'),
-    ('OPER_BLOQUEAR_LICENCIA_VENCIDA', 'SI', 'text', 'Operadores: SI = no se puede asignar en movilización/combustible un operador con licencia vencida o inactivo', 'OPERADORES')
+    ('OPER_BLOQUEAR_LICENCIA_VENCIDA', 'SI', 'text', 'Operadores: SI = no se puede asignar en movilización/combustible un operador con licencia vencida o inactivo', 'OPERADORES'),
+    ('OPER_EXIGIR_PDF_LICENCIA', 'SI', 'text', 'Operadores: SI = el PDF escaneado de la licencia es obligatorio al registrar y al actualizar la licencia', 'OPERADORES'),
+    ('OPER_PDF_MAX_MB', '5', 'integer', 'Operadores: tamaño máximo del PDF de la licencia en MB (también limitado por upload_max_filesize de PHP)', 'OPERADORES'),
+    ('OPER_BLOQUEAR_SIN_SUSTENTO', 'NO', 'text', 'Operadores: SI = tampoco se puede asignar en órdenes a un operador sin el PDF de su licencia (activar cuando todos lo tengan cargado)', 'OPERADORES')
 ON CONFLICT (param_key) DO NOTHING;
 
 -- 4. Menú y privilegios en la Dirección Administrativa

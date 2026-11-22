@@ -3,6 +3,7 @@
  * Operadores: funcionarios (operativos o administrativos) con licencia de conducir registrada en tthh.tb_conductores.
  */
 require_once __DIR__ . '/api.php';
+require_once __DIR__ . '/documentos.php';
 
 /** Cédula ecuatoriana: 10 dígitos, provincia 01-24 o 30 y dígito verificador (módulo 10). */
 function operCedulaValida(string $cedula): bool
@@ -40,7 +41,7 @@ function operListar(Database $db, string $donde = '', array $params = []): array
 {
     $db->query("SELECT DISTINCT ON (c.conductor_id)
                        c.conductor_id, c.conductor_estado, c.fk_licencia_id, c.conductor_licencia_emision::text AS conductor_licencia_emision,
-                       c.conductor_licencia_validez::text AS conductor_licencia_validez, c.conductor_registro,
+                       c.conductor_licencia_validez::text AS conductor_licencia_validez, c.conductor_registro, c.conductor_pdf,
                        l.licencia_tipo, l.licencia_categoria, l.licencia_descripcion,
                        p.personal_id, p.personal_estado, pe.persona_id, pe.persona_doc_identidad, pe.persona_nombres, pe.persona_apellidos,
                        pp.ppersonal_id, pp.ppersonal_estado, pu.puesto_nombre, pu.puesto_modalidad
@@ -60,12 +61,17 @@ function operListar(Database $db, string $donde = '', array $params = []): array
     return $filas;
 }
 
-/** Agrega vigencia y si puede conducir (activo, en funciones y licencia no vencida). */
-function operCompletar(array $o, int $diasAviso, ?string $hoy = null): array
+/**
+ * Agrega vigencia, si tiene el PDF de sustento y si puede conducir (activo, en funciones, licencia no vencida y,
+ * si $exigirSustento, con el PDF de la licencia).
+ */
+function operCompletar(array $o, int $diasAviso, ?string $hoy = null, bool $exigirSustento = false): array
 {
     $o['licencia_vigencia'] = operVigencia($o['conductor_licencia_validez'], $diasAviso, $hoy);
     $o['en_funciones'] = $o['ppersonal_estado'] === 'EN FUNCIONES';
-    $o['habilitado'] = $o['conductor_estado'] === 'ACTIVO' && $o['en_funciones'] && $o['licencia_vigencia'] !== 'VENCIDA';
+    $o['tiene_sustento'] = docExiste($o['conductor_pdf'] ?? null);
+    $o['habilitado'] = $o['conductor_estado'] === 'ACTIVO' && $o['en_funciones'] && $o['licencia_vigencia'] !== 'VENCIDA'
+        && (!$exigirSustento || $o['tiene_sustento']);
     $o['nombre_completo'] = trim($o['persona_apellidos'] . ' ' . $o['persona_nombres']);
     return $o;
 }
@@ -79,6 +85,7 @@ function operMotivoNoHabilitado(Database $db, $conductorId): ?string
     if (strtoupper((string) parametro($db, 'OPER_BLOQUEAR_LICENCIA_VENCIDA', 'SI')) !== 'SI') {
         return null;
     }
+    $exigirSustento = strtoupper((string) parametro($db, 'OPER_BLOQUEAR_SIN_SUSTENTO', 'NO')) === 'SI';
     if (!$conductorId) {
         return 'Seleccione el operador';
     }
@@ -96,6 +103,9 @@ function operMotivoNoHabilitado(Database $db, $conductorId): ?string
     }
     if ($o['licencia_vigencia'] === 'VENCIDA') {
         return "La licencia de $nombre venció el {$o['conductor_licencia_validez']}; actualícela en Operadores antes de asignarlo";
+    }
+    if ($exigirSustento && !$o['tiene_sustento']) {
+        return "Falta el PDF de la licencia de $nombre; cárguelo en Operadores antes de asignarlo";
     }
     return null;
 }

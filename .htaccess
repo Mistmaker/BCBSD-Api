@@ -24,4 +24,6 @@ Options -Indexes
 # 3. Bloquear dependencias de Composer (vendor/ no se versiona, por eso no lleva su propio .htaccess).
 <IfModule mod_alias.c>
     RedirectMatch 403 /vendor/
+    # 4. Documentos personales (licencias, cédulas...): solo se descargan con el API. documentos/ tiene además su .htaccess.
+    RedirectMatch 403 /documentos/
 </IfModule>

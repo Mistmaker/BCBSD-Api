@@ -5,7 +5,7 @@
 | Componente | Versión / módulo | Motivo |
 |---|---|---|
 | PHP | **8.1 o superior** (recomendado 8.2/8.3) | `firebase/php-jwt` v7 exige PHP ≥ 8.0; 8.0 ya no recibe parches de seguridad. Las pruebas (PHPUnit 10) requieren 8.1. |
-| Extensiones PHP | `pdo_pgsql`, `mbstring`, `gd`, `curl`, `json` | Base de datos PostgreSQL; `spipu/html2pdf` (gd, mbstring) y `tecnickcom/tcpdf` (curl) para los PDF. |
+| Extensiones PHP | `pdo_pgsql`, `mbstring`, `gd`, `curl`, `json`, `fileinfo` | Base de datos PostgreSQL; `spipu/html2pdf` (gd, mbstring) y `tecnickcom/tcpdf` (curl) para los PDF; `fileinfo` valida los PDF subidos. |
 | Apache | 2.4 con `mod_rewrite`, `mod_setenvif`, `mod_alias` | Pasar el encabezado `Authorization` a PHP y bloquear carpetas internas (`.htaccess`). |
 | Apache | `AllowOverride All` (o al menos `FileInfo Limit Options`) en la carpeta del API | Para que se apliquen los `.htaccess` del proyecto. |
 | PostgreSQL | la versión actual de producción | — |
@@ -34,6 +34,30 @@ SetEnv BCBSD_DB_NAME db_bcbsd
 SetEnv BCBSD_JWT_SECRET "..."
 SetEnv BCBSD_JWT_EXP_SECONDS 28800
 ```
+
+## Documentos subidos (licencias, cédulas, certificados)
+
+Los PDF que suben los usuarios (por ahora, la licencia de los operadores) se guardan en `documentos/` con subcarpetas por
+tipo y un histórico de las versiones reemplazadas (ver `documentos/LEEME.md`). **Nunca se sirven directamente**: se
+descargan con el API, que exige sesión y privilegio (`documentos/.htaccess` y el `.htaccess` raíz bloquean el acceso).
+
+1. **Ubicación** (recomendado fuera de la carpeta pública):
+   ```apache
+   SetEnv BCBSD_DOCS_DIR /var/lib/bcbsd/documentos
+   ```
+   o `define('DOCS_DIR', '/var/lib/bcbsd/documentos');` en `classes/config.local.php`. Sin configurarla se usa
+   `documentos/` dentro del API.
+2. **Permisos**: el usuario de Apache debe poder escribir (las subcarpetas se crean solas):
+   ```bash
+   sudo mkdir -p /var/lib/bcbsd/documentos && sudo chown -R www-data:www-data /var/lib/bcbsd/documentos && sudo chmod -R 750 /var/lib/bcbsd/documentos
+   ```
+3. **Tamaño de subida**: PHP permite 2 MB por defecto. Para el máximo del parámetro `OPER_PDF_MAX_MB` (5 MB), en
+   `php.ini` (o el `.user.ini` del API con PHP-FPM):
+   ```ini
+   upload_max_filesize = 8M
+   post_max_size = 10M
+   ```
+4. **Respaldo**: incluir la carpeta de documentos en los respaldos junto con la base de datos.
 
 ## JSON Web Token
 
@@ -89,7 +113,12 @@ para registrar y editar). Un operador es un funcionario, operativo o administrat
 - **Ingreso rápido** (`servicios/administrativo/operadores/setOperador.php`, POST): cédula, nombres, apellidos, tipo de
   licencia, emisión y validez. Si la cédula ya existe se reutiliza la persona (sus datos los mantiene Talento Humano). Si
   aún no tiene un puesto EN FUNCIONES se pide el puesto. Si ya es operador responde 409 con su id para editarlo.
-- **Edición** (PUT): solo la licencia (tipo, emisión, validez) y el estado ACTIVO/INACTIVO.
+- **Edición** (PUT, o POST con `conductor_id` cuando lleva archivo): solo la licencia (tipo, emisión, validez) y el estado.
+- **Sustento**: el PDF escaneado de la licencia (`multipart/form-data`: `datos` en JSON + `licencia_pdf`) es obligatorio
+  al registrar y al cambiar tipo, emisión o validez (`OPER_EXIGIR_PDF_LICENCIA`). Se guarda como
+  `documentos/licencias/LIC-{CATEGORÍA}-{CÉDULA}.pdf` y el anterior pasa a `documentos/historico/licencias/`. Se consulta
+  con `getLicenciaPdf.php?id=`. Tamaño máximo: `OPER_PDF_MAX_MB` (5). `OPER_BLOQUEAR_SIN_SUSTENTO` (NO por defecto)
+  impide además asignar en órdenes a quien no tenga el PDF cargado: activarlo cuando todos los operadores lo tengan.
 - `servicios/tthh/getConductores.php` (selectores de movilización y combustible) muestra la licencia en el nombre y marca
   `disabled` a quien no puede conducir. Al emitir movilización o asignar el operador en combustible, el API rechaza a un
   operador inactivo, sin puesto en funciones o con licencia vencida.
