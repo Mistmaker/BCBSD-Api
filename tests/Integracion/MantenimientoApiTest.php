@@ -101,7 +101,7 @@ final class MantenimientoApiTest extends TestCase
     {
         if (!self::$contrato) {
             [$st, $r] = $this->api('POST', 'administrativo/mantenimiento/setContrato.php', [
-                'contrato_codigo' => 'PRUEBA-CONTRATO-01', 'contrato_tipo' => 'GENERAL', 'contrato_taller' => 'TALLER DE PRUEBA',
+                'contrato_codigo' => 'PRUEBA-CONTRATO-01', 'contrato_nombre_corto' => 'Mantenimiento motocicletas', 'contrato_tipo' => 'GENERAL', 'contrato_taller' => 'TALLER DE PRUEBA',
                 'contrato_representante_legal' => 'Representante', 'contrato_monto' => 1000,
                 'partidas' => [['partida_rubro' => 'MANO DE OBRA', 'partida_codigo' => '73.04.05', 'partida_monto' => 300],
                                ['partida_rubro' => 'REPUESTOS', 'partida_monto' => 600],
@@ -276,6 +276,8 @@ final class MantenimientoApiTest extends TestCase
         $this->assertSame($sig['orden_serie'] + 1, $sig2['orden_serie']);
 
         // Bitácora con la orden y los cuatro PDF
+        [$st, $sb] = $this->api('GET', $base . 'getInformesMantenimiento.php?siguiente=1&contrato_id=' . $this->contrato());
+        $this->assertSame('BITÁCORA 01-MANTENIMIENTO MOTOCICLETAS PRUEBA-CONTRATO-01', $sb['informe_numero']);
         [$st, $inf] = $this->api('POST', $base . 'setInformeMantenimiento.php', [
             'informe_numero' => 'PRUEBA-BITACORA-01', 'tecnico_servicios' => self::PERSONAL, 'director_administrativo' => self::PERSONAL,
             'fk_contrato_id' => $this->contrato(), 'ordenes' => [$r['id']],

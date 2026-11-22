@@ -4,7 +4,7 @@ $auth = requireAuth();
 require_once __DIR__ . '/../../../classes/api.php';
 require_once __DIR__ . '/../../../classes/mantenimiento.php';
 // POST -> crea un contrato; PUT (con contrato_id) -> lo actualiza.
-// Cuerpo: { contrato_codigo, contrato_tipo, contrato_objeto, contrato_fecha_inicio, contrato_fecha_fin, contrato_taller, contrato_ruc,
+// Cuerpo: { contrato_codigo, contrato_nombre_corto, contrato_tipo, contrato_objeto, contrato_fecha_inicio, contrato_fecha_fin, contrato_taller, contrato_ruc,
 //           contrato_representante_legal, administrador_contrato, contrato_monto, contrato_estado,
 //           partidas: [{ partida_rubro, partida_codigo, partida_monto }], vehiculos: [vehiculo_id, ...] }
 // Reglas: la suma de partidas no supera el monto; una partida no puede quedar por debajo de lo ya consumido.
@@ -59,8 +59,8 @@ try {
     $db->beginTransaction();
     if ($metodo === 'POST') {
         $db->query('INSERT INTO logistica.tb_contratosmantenimiento (fk_usuario_id, contrato_codigo, contrato_tipo, contrato_objeto, contrato_fecha_inicio,
-                        contrato_fecha_fin, contrato_taller, contrato_ruc, contrato_representante_legal, administrador_contrato, contrato_monto, contrato_estado)
-                    VALUES (:u, :codigo, :tipo, :objeto, :inicio, :fin, :taller, :ruc, :rep, :adm, :monto, :estado) RETURNING contrato_id');
+                        contrato_fecha_fin, contrato_taller, contrato_ruc, contrato_representante_legal, administrador_contrato, contrato_monto, contrato_estado, contrato_nombre_corto)
+                    VALUES (:u, :codigo, :tipo, :objeto, :inicio, :fin, :taller, :ruc, :rep, :adm, :monto, :estado, :corto) RETURNING contrato_id');
         $db->bind(':u', $usuario);
     } else {
         if (!prop($c, 'contrato_id')) {
@@ -68,7 +68,8 @@ try {
         }
         $db->query('UPDATE logistica.tb_contratosmantenimiento SET contrato_codigo = :codigo, contrato_tipo = :tipo, contrato_objeto = :objeto,
                         contrato_fecha_inicio = :inicio, contrato_fecha_fin = :fin, contrato_taller = :taller, contrato_ruc = :ruc,
-                        contrato_representante_legal = :rep, administrador_contrato = :adm, contrato_monto = :monto, contrato_estado = :estado
+                        contrato_representante_legal = :rep, administrador_contrato = :adm, contrato_monto = :monto, contrato_estado = :estado,
+                        contrato_nombre_corto = :corto
                     WHERE contrato_id = :id RETURNING contrato_id');
         $db->bind(':id', (int) $c->contrato_id);
     }
@@ -83,6 +84,7 @@ try {
     $db->bind(':adm', prop($c, 'administrador_contrato') ? (int) $c->administrador_contrato : null);
     $db->bind(':monto', (string) $monto);
     $db->bind(':estado', $estado);
+    $db->bind(':corto', trim((string) prop($c, 'contrato_nombre_corto', '')) !== '' ? mb_strtoupper(trim($c->contrato_nombre_corto)) : null);
     $fila = $db->single();
     if (!$fila) {
         $db->cancelTransaction();

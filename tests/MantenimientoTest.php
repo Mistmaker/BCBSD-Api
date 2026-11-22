@@ -134,6 +134,14 @@ final class MantenimientoTest extends TestCase
         ]));
     }
 
+    public function testFormatoBitacora(): void
+    {
+        $f = 'BITÁCORA {NN}-{NOMBRE} {CONTRATO}';
+        $this->assertSame('BITÁCORA 03-MANTENIMIENTO MOTOCICLETAS CB-GADM-SD-DA-2025-0008-OC',
+            mantFormatoBitacora($f, 3, 'Mantenimiento motocicletas', 'CB-GADM-SD-DA-2025-0008-OC'));
+        $this->assertSame('BITÁCORA 12 CB-0008-OC', mantFormatoBitacora($f, 12, null, 'CB-0008-OC'), 'sin nombre corto');
+    }
+
     public function testFormatoInforme(): void
     {
         $this->assertSame('CBSD-26-RUPIF-007-M', mantFormatoInforme('{SIGLAS}-{AA}-RUPIF-{NNN}-M', 'cbsd', 7, 2026));

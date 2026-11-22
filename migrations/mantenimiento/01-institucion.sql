@@ -54,6 +54,7 @@ INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, par
     ('MANT_RUBROS', 'MANO DE OBRA|REPUESTOS|ACEITES Y LUBRICANTES', 'list', 'Rubros presupuestarios del desglose de pago (separados por |)', 'MANTENIMIENTO'),
     ('MANT_CARGOS_RESPONSABLE', 'ADMINISTRADOR DE LA ORDEN DE COMPRA|PROFESIONAL TÉCNICO EN SERVICIOS GENERALES|ADMINISTRADOR DE CONTRATO', 'list', 'Cargos posibles del responsable del registro (separados por |)', 'MANTENIMIENTO'),
     ('MANT_FORMATO_INFORME', '{SIGLAS}-{AA}-RUPIF-{NNN}-M', 'text', 'Formato del número de informe de pago de la orden ({SIGLAS} {AA} {AAAA} {N} {NNN})', 'MANTENIMIENTO'),
+    ('MANT_FORMATO_BITACORA', 'BITÁCORA {NN}-{NOMBRE} {CONTRATO}', 'text', 'Número sugerido de bitácora ({NN} correlativo del contrato, {NOMBRE} nombre corto, {CONTRATO} código)', 'MANTENIMIENTO'),
     ('MANT_TIPOS_CONTRATO', 'GENERAL|VIGENCIA TECNOLÓGICA', 'list', 'Tipos de contrato de mantenimiento (separados por |)', 'MANTENIMIENTO'),
     ('MANT_DIRECTOR_PUESTO_ID', '4', 'integer', 'Puesto (tthh.tb_puestos) del director administrativo que se precarga en las órdenes', 'MANTENIMIENTO')
 ON CONFLICT (param_key) DO NOTHING;

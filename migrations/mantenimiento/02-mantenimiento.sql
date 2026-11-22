@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS logistica.tb_contratosmantenimiento (
     administrador_contrato integer REFERENCES tthh.tb_personal_puestos(ppersonal_id),
     contrato_monto numeric(12,2) NOT NULL DEFAULT 0 CHECK (contrato_monto >= 0)
 );
+ALTER TABLE logistica.tb_contratosmantenimiento ADD COLUMN IF NOT EXISTS contrato_nombre_corto text;  -- ej. MANTENIMIENTO MOTOCICLETAS (número de bitácora)
 CREATE UNIQUE INDEX IF NOT EXISTS ux_contratosmantenimiento_codigo ON logistica.tb_contratosmantenimiento (upper(contrato_codigo));
 
 CREATE TABLE IF NOT EXISTS logistica.tb_contratosmantenimiento_partidas (

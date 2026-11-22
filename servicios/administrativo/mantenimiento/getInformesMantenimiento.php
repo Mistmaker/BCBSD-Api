@@ -6,19 +6,20 @@ require_once __DIR__ . '/../../../classes/mantenimiento.php';
 // GET          -> listado de informes
 // GET ?id=N    -> informe con sus órdenes (incluye trabajos de cada orden)
 // GET ?siguiente=1 -> siguiente número de informe sugerido (botón +1)
-// GET ?siguiente=1&contrato_id=N -> "BITÁCORA NN - CODIGO DEL CONTRATO" (NN = bitácoras del contrato + 1)
+// GET ?siguiente=1&contrato_id=N -> número según MANT_FORMATO_BITACORA (ej. BITÁCORA 03-MANTENIMIENTO MOTOCICLETAS CB-...-0008-OC)
 apiMetodo(['GET']);
 try {
     $db = new Database();
     $contrato = apiParamId('contrato_id');
     if (!empty($_GET['siguiente']) && $contrato !== null) {
-        $db->query("SELECT c.contrato_codigo, (SELECT count(*) FROM logistica.tb_informemantenimiento i
+        $formato = parametro($db, 'MANT_FORMATO_BITACORA', 'BITÁCORA {NN}-{NOMBRE} {CONTRATO}');
+        $db->query("SELECT c.contrato_codigo, c.contrato_nombre_corto, (SELECT count(*) FROM logistica.tb_informemantenimiento i
                        WHERE i.fk_contrato_id = c.contrato_id AND i.informe_estado <> 'ANULADO') + 1 AS n
                       FROM logistica.tb_contratosmantenimiento c WHERE c.contrato_id = :c");
         $db->bind(':c', $contrato);
         $f = $db->single();
         if ($f) {
-            jsonResponse(['informe_numero' => sprintf('BITÁCORA %02d - %s', $f['n'], $f['contrato_codigo']), 'informe_serie' => 0]);
+            jsonResponse(['informe_numero' => mantFormatoBitacora($formato, (int) $f['n'], $f['contrato_nombre_corto'], $f['contrato_codigo']), 'informe_serie' => 0]);
         }
     }
     if (!empty($_GET['siguiente'])) {

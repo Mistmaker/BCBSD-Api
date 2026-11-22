@@ -155,6 +155,16 @@ function mantTotalesRubro(array $facturas): array
     return $totales;
 }
 
+/** Número sugerido de bitácora: {NN} correlativo del contrato, {NOMBRE} nombre corto, {CONTRATO} código. */
+function mantFormatoBitacora(string $formato, int $n, ?string $nombreCorto, string $codigoContrato): string
+{
+    $texto = strtr($formato, ['{NN}' => str_pad((string) $n, 2, '0', STR_PAD_LEFT), '{N}' => (string) $n,
+        '{NOMBRE}' => mb_strtoupper(trim((string) $nombreCorto)), '{CONTRATO}' => mb_strtoupper($codigoContrato)]);
+    // sin nombre corto: "BITÁCORA 12- CB-..." -> "BITÁCORA 12 CB-..."
+    $texto = preg_replace('/-\s+/', ' ', $texto);
+    return trim(preg_replace('/\s{2,}/', ' ', $texto));
+}
+
 /** Número de informe de pago según el formato configurado: {SIGLAS} {AA} {AAAA} {N} {NNN} */
 function mantFormatoInforme(string $formato, string $siglas, int $n, ?int $anio = null): string
 {
