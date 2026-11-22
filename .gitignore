@@ -2,3 +2,9 @@
 /servicios/no_usar
 /classes/config.local.php
 /.phpunit.cache
+# Documentos subidos: solo se versiona la estructura
+/documentos/**
+!/documentos/*/
+!/documentos/**/.gitkeep
+!/documentos/.htaccess
+!/documentos/LEEME.md

@@ -34,3 +34,7 @@ defined('DB_NAME') || define('DB_NAME', bcbsdEnv('BCBSD_DB_NAME', 'db_bcbsd'));
 defined('JWT_SECPWD') || define('JWT_SECPWD', bcbsdEnv('BCBSD_JWT_SECRET', ''));
 // Duración de la sesión en segundos. Por defecto 8 horas (28800).
 defined('JWT_EXP_SECONDS') || define('JWT_EXP_SECONDS', (int) bcbsdEnv('BCBSD_JWT_EXP_SECONDS', 28800));
+
+// Carpeta de documentos subidos (licencias, cédulas, certificados...). Por defecto documentos/ dentro del API,
+// protegida con .htaccess; en producción se recomienda una ruta fuera de la carpeta pública (BCBSD_DOCS_DIR).
+defined('DOCS_DIR') || define('DOCS_DIR', bcbsdEnv('BCBSD_DOCS_DIR', dirname(__DIR__) . '/documentos'));

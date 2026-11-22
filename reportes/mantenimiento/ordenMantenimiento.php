@@ -33,7 +33,8 @@ try {
     } elseif ($doc === 'informe') {
         $cuerpo = mantPlantilla('informe.html', $v);
         $cabecera = ['DIRECCIÓN ADMINISTRATIVA', 'MANTENIMIENTO VEHICULAR', 'INFORME DE MANTENIMIENTO', $orden['orden_codigo']];
-        $titulo = 'Informe de mantenimiento ' . ($orden['orden_informe_numero'] ?: mantNumero($orden['orden_serie']));
+        // Lleva el número de serie de la orden para que ambos documentos queden vinculados (el número del informe de pago es aparte)
+        $titulo = 'Informe de mantenimiento No. ' . mantNumero($orden['orden_serie']);
     } else {
         $cuerpo = mantPlantilla('acta.html', $v);
         $cabecera = ['DIRECCIÓN ADMINISTRATIVA', 'SERVICIOS GENERALES', 'ACTA ENTREGA RECEPCIÓN DE SATISFACCIÓN VEHICULAR', $orden['orden_codigo']];

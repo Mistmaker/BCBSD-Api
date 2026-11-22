@@ -15,3 +15,6 @@ define('JWT_SECPWD', 'CAMBIAR_POR_UNA_CLAVE_ALEATORIA_DE_64_CARACTERES_HEX');
 
 // Duración de la sesión en segundos (8 horas = 28800).
 define('JWT_EXP_SECONDS', 28800);
+
+// Carpeta de documentos subidos (licencias, cédulas...). Recomendado fuera de la carpeta pública de Apache.
+// define('DOCS_DIR', '/var/lib/bcbsd/documentos');

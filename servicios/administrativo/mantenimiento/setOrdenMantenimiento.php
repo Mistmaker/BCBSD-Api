@@ -33,9 +33,13 @@ try {
         requirePermiso($db, mantPermisoOrden($estadoActual, prop($o, 'orden_estado', $estadoActual) ?? 'MANTENIMIENTO'));
     }
     // Parámetros e institución se leen antes de preparar las sentencias (comparten la conexión)
-    $tecnicoPuesto = prop($o, 'tecnico_puesto') ?: parametro($db, 'MANT_TECNICO_PUESTO', 'PROFESIONAL TÉCNICO EN SERVICIOS GENERALES');
+    $tecnicoPuesto = prop($o, 'tecnico_puesto') ?: parametro($db, 'MANT_TECNICO_PUESTO', 'ANALISTA DE SERVICIOS GENERALES');
     $tolerancia = (int) parametro($db, 'MANT_TOLERANCIA_KM', 1000);
     $siglas = institucion($db)['sistema_siglas'];
+    // Director administrativo: en una orden nueva, quien ocupa el puesto EN FUNCIONES; en una existente se conserva el que firmó
+    if ($metodo === 'POST') {
+        $o->director_administrativo = mantDirectorObligatorio($db);
+    }
     $db->beginTransaction();
 
     // Contrato: vigente, cubre al vehículo; se bloquea para validar el saldo sin carreras
@@ -101,6 +105,7 @@ try {
         $db->bind(':ftipo', in_array(prop($o, 'orden_fecha_mantenimiento_tipo'), ['SISTEMA', 'USUARIO'], true) ? $o->orden_fecha_mantenimiento_tipo : 'SISTEMA');
         $db->bind(':ukm', $ultimo['orden_km_mantenimiento']);
         $db->bind(':ufecha', $ultimo['fecha']);
+        $db->bind(':da', (int) $o->director_administrativo);
     } else {
         if (!prop($o, 'orden_id')) {
             throw new ValidacionException('Falta orden_id');
@@ -123,7 +128,7 @@ try {
             }
         }
         $db->query('UPDATE logistica.tb_ordenesmantenimiento SET
-                personal_solicita = :s, director_administrativo = :da, tecnico_servicios = :t, tecnico_puesto = :tp,
+                personal_solicita = :s, tecnico_servicios = :t, tecnico_puesto = :tp,
                 orden_tipomantenimiento = :tipo, orden_fecha_mantenimiento = :fecha, orden_km_mantenimiento = :km,
                 orden_fecha_entrega = :entrega, orden_observaciones = :obs, orden_estado = :estado, orden_serie = :serie,
                 orden_fecha_recepcion = :frec, orden_quien_recepcion = :qrec, orden_cargo_recepcion = :crec, orden_taller = :taller,
@@ -135,7 +140,6 @@ try {
     }
 
     $db->bind(':s', (int) $o->personal_solicita);
-    $db->bind(':da', (int) $o->director_administrativo);
     $db->bind(':t', (int) $o->tecnico_servicios);
     $db->bind(':tp', $tecnicoPuesto);
     $db->bind(':tipo', $o->orden_tipomantenimiento);

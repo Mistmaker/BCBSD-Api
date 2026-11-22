@@ -200,10 +200,38 @@ function mantEsPreventivo(?string $tipo): bool
     return in_array(strtoupper((string) $tipo), MANT_TIPOS_PREVENTIVOS, true);
 }
 
+/**
+ * Director administrativo vigente: la persona con el puesto del parámetro MANT_DIRECTOR_PUESTO_ID (tthh.tb_puestos.puesto_id)
+ * en estado EN FUNCIONES. Si el titular sale de vacaciones y se subroga el puesto, el subrogante es quien queda EN FUNCIONES.
+ * Devuelve [ppersonal_id, nombre_completo, puesto_nombre] o null si no hay nadie EN FUNCIONES en ese puesto.
+ */
+function mantDirectorAdministrativo(Database $db): ?array
+{
+    $puesto = (int) parametro($db, 'MANT_DIRECTOR_PUESTO_ID', 4);
+    $db->query("SELECT pp.ppersonal_id, vps.nombre_completo, vps.puesto_nombre
+                  FROM tthh.tb_personal_puestos pp JOIN tthh.vw_personal_simple vps USING (ppersonal_id)
+                 WHERE pp.fk_puesto_id = :p AND pp.ppersonal_estado = 'EN FUNCIONES' ORDER BY pp.ppersonal_id DESC LIMIT 1");
+    $db->bind(':p', $puesto);
+    $fila = $db->single();
+    return $fila ? ['ppersonal_id' => (int) $fila['ppersonal_id'], 'nombre_completo' => $fila['nombre_completo'], 'puesto_nombre' => $fila['puesto_nombre']] : null;
+}
+
+/** Director vigente o error para el usuario si no hay nadie EN FUNCIONES en el puesto configurado. */
+function mantDirectorObligatorio(Database $db): int
+{
+    $director = mantDirectorAdministrativo($db);
+    if (!$director) {
+        throw new ValidacionException('No hay un director administrativo EN FUNCIONES con el puesto configurado (parámetro MANT_DIRECTOR_PUESTO_ID). '
+            . 'Revise el puesto en Talento Humano o el parámetro.');
+    }
+    return $director['ppersonal_id'];
+}
+
 /** Valida y normaliza los datos de una orden. Lanza ValidacionException con un mensaje para el usuario. */
 function mantValidarOrden(object $o): void
 {
-    foreach (['fk_vehiculo_id' => 'vehículo', 'personal_solicita' => 'quien solicita', 'director_administrativo' => 'director administrativo',
+    // El director administrativo no lo envía el cliente: lo asigna el servidor (mantDirectorAdministrativo)
+    foreach (['fk_vehiculo_id' => 'vehículo', 'personal_solicita' => 'quien solicita',
               'tecnico_servicios' => 'técnico de servicios', 'orden_fecha_mantenimiento' => 'fecha de mantenimiento'] as $campo => $nombre) {
         if (empty($o->$campo)) {
             throw new ValidacionException("Falta el campo: $nombre");
