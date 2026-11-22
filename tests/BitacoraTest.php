@@ -111,6 +111,7 @@ final class BitacoraTest extends TestCase
             $this->orden(2, '2026-04-20', 11050, [], ['CAMBIO MOTOR DE ARRANQUE']),
             $this->orden(3, '2026-12-20', 20000, [], ['Cambio de aceite', 'cambio de aceite']), // duplicado en la misma orden cuenta una vez
         ];
+        $ordenes[] = $this->orden(4, '2026-02-01', 10500, [], ['Cambio de aceite'], 'PREVENTIVO'); // las preventivas no cuentan
         $r = bitTrabajosRepetidos($ordenes, 180);
         $this->assertCount(2, $r);
         $this->assertSame('CAMBIO MOTOR ARRANQUE', $r[0]['clave']); // primero los que caen en la ventana

@@ -93,7 +93,8 @@ defecto los últimos 12 meses). Junta por vehículo, ordenado por fecha y kilome
   y su combustible se suma al siguiente tramo válido. Para que el cálculo sea fiable las cargas deben ser a tanque lleno.
 - **Km recorridos**: mayor menos menor lectura del período entre todas las fuentes.
 - **Trabajos repetidos**: compara los trabajos a realizar de las órdenes (sin tildes, mayúsculas, sin artículos ni
-  preposiciones: "Cambio de motor de arranque" = "CAMBIO MOTOR ARRANQUE").
+  preposiciones: "Cambio de motor de arranque" = "CAMBIO MOTOR ARRANQUE"). No cuentan las órdenes
+  preventivas, cuyos trabajos se repiten por plan.
 - **Comparación**: con los vehículos de la misma marca, modelo y año (sin distinguir mayúsculas ni espacios).
 - Parámetros (`admin.tb_params`): `BIT_VENTANA_REPETICION_DIAS` (180: un trabajo repetido dentro de este plazo genera
   alerta), `BIT_ALERTA_RENDIMIENTO_PCT` (15: alerta si rinde ese % menos que los iguales), `BIT_ALERTA_COSTO_PCT`

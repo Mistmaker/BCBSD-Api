@@ -153,12 +153,16 @@ function bitNormalizarTrabajo(string $texto): string
 
 /**
  * Trabajos que se repiten en órdenes distintas. en_ventana = alguna repetición ocurrió dentro de $ventanaDias.
+ * Las órdenes PREVENTIVAS no cuentan: sus trabajos (cambio de aceite, filtros...) se repiten por plan.
  * Devuelve [['trabajo', 'veces', 'dias_min', 'km_min', 'en_ventana', 'ocurrencias' => [[codigo, fecha, km, texto]]]]
  */
 function bitTrabajosRepetidos(array $ordenes, int $ventanaDias): array
 {
     $grupos = [];
     foreach (bitOrdenar($ordenes) as $o) {
+        if (str_starts_with(mb_strtoupper((string) ($o['tipo'] ?? '')), 'PREVENTIV')) {
+            continue;
+        }
         foreach (array_unique(array_map('bitNormalizarTrabajo', $o['trabajos'])) as $clave) {
             if ($clave === '') {
                 continue;
@@ -287,7 +291,7 @@ function bitAlertas(array $ind, array $compRendimiento, array $compCostoMant, in
     }
     if ($ind['combustible']['inconsistencias'] > 0) {
         $alertas[] = ['tipo' => 'LECTURAS_KM', 'nivel' => 'warning',
-            'mensaje' => sprintf('%d carga(s) de combustible con kilometraje faltante o menor al anterior; no se usan en el rendimiento.',
+            'mensaje' => sprintf('%d carga(s) de combustible con kilometraje faltante o menor al anterior: no tienen rendimiento propio y su combustible se suma a la carga siguiente.',
                 $ind['combustible']['inconsistencias'])];
     }
     return $alertas;
