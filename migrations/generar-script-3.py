@@ -54,9 +54,11 @@ secciones = [
     ("2. PARAMETRIZACIÓN DE LA INSTITUCIÓN (admin.tb_sistema, admin.tb_params)", leer('migrations/mantenimiento/01-institucion.sql')),
     ("3. MANTENIMIENTO VEHICULAR (planes, contratos, órdenes, bitácoras, vistas)", leer('migrations/mantenimiento/02-mantenimiento.sql')),
     ("4. MENÚS Y PRIVILEGIOS (admin.tb_roles con rol_codigo)", leer('migrations/mantenimiento/04-privilegios.sql')),
-    ("5. IMPORTACIÓN DESDE EL SISTEMA ANTERIOR (db_cbsd) - opcional",
+    ("5. BITÁCORA DEL VEHÍCULO (galones con decimales, índices, parámetros de alertas, privilegio)",
+     leer('migrations/mantenimiento/05-bitacora.sql')),
+    ("6. IMPORTACIÓN DESDE EL SISTEMA ANTERIOR (db_cbsd) - opcional",
      importacion_como_bloque(leer('migrations/mantenimiento/03-importacion-db_cbsd.sql'))),
-    ("6. REGISTRO INICIAL DE LA INSTITUCIÓN (solo si no se importó ni existe)", """INSERT INTO admin.tb_sistema (sistema_nombre, sistema_siglas, sistema_slogan, sistema_ciudad, sistema_direccion,
+    ("7. REGISTRO INICIAL DE LA INSTITUCIÓN (solo si no se importó ni existe)", """INSERT INTO admin.tb_sistema (sistema_nombre, sistema_siglas, sistema_slogan, sistema_ciudad, sistema_direccion,
                               sistema_telefono, sistema_correo, sistema_sitioweb, sistema_facebook, sistema_twitter)
 SELECT 'CUERPO DE BOMBEROS SANTO DOMINGO', 'CBSD', 'Juntos hacia el crecimiento institucional', 'Santo Domingo',
        'Av. Jacinto Cortez y Jorge Icaza', '(02) 3959-340', 'info@cbsd.gob.ec', 'http://bomberosantodomingo.gob.ec',
@@ -71,12 +73,12 @@ UPDATE admin.tb_sistema SET sistema_slogan = COALESCE(sistema_slogan, 'Juntos ha
 
 encabezado = """-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 -- SCRIPT 3: cambios posteriores a script.sql, script-2.sql y script_sbj_temp.sql
---   combustible, institución, mantenimiento vehicular, contratos, menús y privilegios, importación de db_cbsd.
+--   combustible, institución, mantenimiento vehicular, contratos, menús y privilegios, bitácora del vehículo, importación de db_cbsd.
 --
 -- CÓMO USARLO (pgAdmin): abra el Query Tool sobre la base NUEVA (db_bcbsd), pegue TODO el archivo y ejecútelo.
 --   * Se puede ejecutar varias veces: no borra tablas ni datos; lo que ya existe se omite.
 --   * No toca operaciones.tb_estaciones.
---   * La importación (sección 5) solo corre si edita la línea "conexion" con la clave de la base anterior.
+--   * La importación (sección 6) solo corre si edita la línea "conexion" con la clave de la base anterior.
 --   * Después: asigne los privilegios nuevos a los usuarios en Administración > Usuarios > Privilegios.
 --
 -- ARCHIVO GENERADO por migrations/generar-script-3.py a partir de migrations/. No lo edite a mano:
