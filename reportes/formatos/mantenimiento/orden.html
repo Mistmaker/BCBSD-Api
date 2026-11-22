@@ -1,0 +1,23 @@
+<div class="title-single" style="text-align:center;margin:4mm 0 6mm;">ORDEN DE MANTENIMIENTO No. {{numero_orden}}</div>
+<table class="datos">
+    <tr><td colspan="4"><b>DATOS DE MANTENIMIENTO A REALIZAR</b></td></tr>
+    <tr><td class="lbl">VEHICULO:</td><td class="val">{{vehiculo_sigla}}</td><td class="lbl">PLACAS:</td><td class="val">{{vehiculo_placa}}</td></tr>
+    <tr><td class="lbl">NO. MOTOR:</td><td class="val">{{vehiculo_motor}}</td><td class="lbl">NO. CHASIS:</td><td class="val">{{vehiculo_chasis}}</td></tr>
+    <tr><td class="lbl">KM. ACTUAL:</td><td class="val">{{km}}</td><td class="lbl">FECHA:</td><td class="val">{{fecha}}</td></tr>
+    <tr><td class="lbl">TIPO MANTENIMIENTO:</td><td class="val">{{tipo}}</td><td class="lbl">KM. PRÓXIMO MTO. PREVENTIVO:</td><td class="val">{{km_proximo}}</td></tr>
+    <tr><td class="lbl">CONTRATO:</td><td class="val">{{contrato_codigo}}</td><td class="lbl">TALLER:</td><td class="val">{{taller}}</td></tr>
+    <tr><td class="lbl">SOLICITADO POR:</td><td colspan="3">{{solicita_nombre}}<br><b>{{solicita_puesto}}</b></td></tr>
+    <tr><td colspan="4"><b>DATOS DE ÚLTIMO MANTENIMIENTO REALIZADO</b></td></tr>
+    <tr><td class="lbl">KM. ÚLTIMO MANTENIMIENTO:</td><td class="val">{{ultimo_km}}</td><td class="lbl">FECHA ÚLTIMO MANTENIMIENTO:</td><td class="val">{{ultimo_fecha}}</td></tr>
+</table>
+{{trabajos_html}}
+{{sugeridos_html}}
+{{anexos_html}}
+<table class="t" style="margin-top:4mm;"><tr><td style="width:100%;"><b>OBSERVACIONES:</b></td></tr><tr><td>{{observaciones}}</td></tr></table>
+<div style="font-size:9px;margin-top:2mm;">Firmas de Responsabilidad:</div>
+<table style="width:100%;margin-top:22mm;">
+    <tr>
+        <td style="width:50%;"><div class="firma">{{tecnico_nombre}}<br>C.I.: {{tecnico_cc}}<br><b>{{tecnico_cargo}}</b><br><b>ELABORADO POR</b></div></td>
+        <td style="width:50%;"><div class="firma">{{director_nombre}}<br>C.I.: {{director_cc}}<br><b>{{director_puesto}}</b><br><b>AUTORIZADO POR</b></div></td>
+    </tr>
+</table>

@@ -5,9 +5,30 @@ require_once __DIR__ . '/../../../classes/api.php';
 require_once __DIR__ . '/../../../classes/mantenimiento.php';
 // GET          -> listado de informes
 // GET ?id=N    -> informe con sus órdenes (incluye trabajos de cada orden)
+// GET ?siguiente=1 -> siguiente número de informe sugerido (botón +1)
+// GET ?siguiente=1&contrato_id=N -> número según MANT_FORMATO_BITACORA (ej. BITÁCORA 03-MANTENIMIENTO MOTOCICLETAS CB-...-0008-OC)
 apiMetodo(['GET']);
 try {
     $db = new Database();
+    $contrato = apiParamId('contrato_id');
+    if (!empty($_GET['siguiente']) && $contrato !== null) {
+        $formato = parametro($db, 'MANT_FORMATO_BITACORA', 'BITÁCORA {NN}-{NOMBRE} {CONTRATO}');
+        $db->query("SELECT c.contrato_codigo, c.contrato_nombre_corto, (SELECT count(*) FROM logistica.tb_informemantenimiento i
+                       WHERE i.fk_contrato_id = c.contrato_id AND i.informe_estado <> 'ANULADO') + 1 AS n
+                      FROM logistica.tb_contratosmantenimiento c WHERE c.contrato_id = :c");
+        $db->bind(':c', $contrato);
+        $f = $db->single();
+        if ($f) {
+            jsonResponse(['informe_numero' => mantFormatoBitacora($formato, (int) $f['n'], $f['contrato_nombre_corto'], $f['contrato_codigo']), 'informe_serie' => 0]);
+        }
+    }
+    if (!empty($_GET['siguiente'])) {
+        $siglas = institucion($db)['sistema_siglas'];
+        $db->query("SELECT COALESCE(MAX(informe_serie), 0) + 1 AS serie FROM logistica.tb_informemantenimiento
+                     WHERE date_part('year', informe_registro) = date_part('year', CURRENT_DATE)");
+        $serie = (int) $db->single()['serie'];
+        jsonResponse(['informe_numero' => mantCodigo($siglas, 'INF', $serie), 'informe_serie' => $serie]);
+    }
     $id = apiParamId();
     if ($id === null) {
         $db->query('SELECT * FROM logistica.vw_informemantenimiento ORDER BY informe_id DESC');

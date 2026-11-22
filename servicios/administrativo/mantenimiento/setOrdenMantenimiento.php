@@ -7,8 +7,13 @@ require_once __DIR__ . '/../../../classes/mantenimiento.php';
 // PUT  -> actualiza una orden (con orden_id). Para anular: orden_estado = 'ANULADA'.
 // Cuerpo: campos de logistica.tb_ordenesmantenimiento más los arreglos
 //   trabajos [{trabajo_descripcion}], sugeridos [{trabajo_descripcion}],
-//   facturas [{factura_tipo, factura_numero, factura_valor, factura_descripcion}], anexos [{anexo_descripcion}]
+//   facturas [{factura_tipo (rubro), factura_numero, factura_valor, factura_descripcion}], anexos [{anexo_descripcion}]
 // Los arreglos que se envían reemplazan a los existentes; los que no se envían no se tocan.
+// orden_serie es el número de orden ("No. 005"; si no se envía, se asigna el siguiente del año);
+// orden_codigo se genera (SIGLAS + año + ODM + serie); orden_informe_numero/orden_informe_serie = informe de pago.
+// fk_contrato_id: contrato de mantenimiento (obligatorio en órdenes nuevas); los valores por rubro no pueden superar su saldo.
+// Estados: MANTENIMIENTO -> RECIBIDO -> ENTREGADO (requiere fecha del acta); ANULADA. Ver mantValidarTransicion().
+// La agrupación en bitácoras se hace con setInformeMantenimiento.php.
 $metodo = apiMetodo(['POST', 'PUT']);
 $o = apiCuerpoJson();
 $db = null;
@@ -19,20 +24,63 @@ try {
     }
     mantValidarOrden($o);
     $db = new Database();
+    if ($metodo === 'POST') {
+        requirePermiso($db, 'MANT_ORDEN_CREAR');
+    } else {
+        $db->query('SELECT orden_estado FROM logistica.tb_ordenesmantenimiento WHERE orden_id = :id');
+        $db->bind(':id', (int) prop($o, 'orden_id', 0));
+        $estadoActual = $db->single()['orden_estado'] ?? null;
+        requirePermiso($db, mantPermisoOrden($estadoActual, prop($o, 'orden_estado', $estadoActual) ?? 'MANTENIMIENTO'));
+    }
     // Parámetros e institución se leen antes de preparar las sentencias (comparten la conexión)
     $tecnicoPuesto = prop($o, 'tecnico_puesto') ?: parametro($db, 'MANT_TECNICO_PUESTO', 'PROFESIONAL TÉCNICO EN SERVICIOS GENERALES');
     $tolerancia = (int) parametro($db, 'MANT_TOLERANCIA_KM', 1000);
     $siglas = institucion($db)['sistema_siglas'];
     $db->beginTransaction();
 
+    // Contrato: vigente, cubre al vehículo; se bloquea para validar el saldo sin carreras
+    $contratoId = prop($o, 'fk_contrato_id') ? (int) $o->fk_contrato_id : null;
+    if ($metodo === 'POST' && !$contratoId) {
+        throw new ValidacionException('Seleccione el contrato de mantenimiento');
+    }
+    if ($contratoId) {
+        $db->query("SELECT contrato_estado,
+                           (NOT EXISTS (SELECT 1 FROM logistica.tb_contratosmantenimiento_vehiculos cv WHERE cv.fk_contrato_id = c.contrato_id)
+                            OR EXISTS (SELECT 1 FROM logistica.tb_contratosmantenimiento_vehiculos cv WHERE cv.fk_contrato_id = c.contrato_id
+                                        AND cv.fk_vehiculo_id = COALESCE(CAST(:v AS integer), (SELECT fk_vehiculo_id FROM logistica.tb_ordenesmantenimiento WHERE orden_id = :o)))) AS cubre
+                      FROM logistica.tb_contratosmantenimiento c WHERE c.contrato_id = :c FOR UPDATE");
+        $db->bind(':c', $contratoId);
+        $db->bind(':v', $metodo === 'POST' ? (int) $o->fk_vehiculo_id : null);
+        $db->bind(':o', (int) prop($o, 'orden_id', 0));
+        $contrato = $db->single();
+        if (!$contrato) {
+            throw new ValidacionException('El contrato seleccionado no existe');
+        }
+        if (!$contrato['cubre']) {
+            throw new ValidacionException('El contrato seleccionado no cubre a este vehículo');
+        }
+        if ($metodo === 'POST' && $contrato['contrato_estado'] !== 'VIGENTE') {
+            throw new ValidacionException('El contrato seleccionado no está vigente');
+        }
+    }
+
     if ($metodo === 'POST') {
         // Serie anual por institución; el bloqueo evita series repetidas con dos usuarios a la vez
         $db->query("SELECT pg_advisory_xact_lock(hashtext('logistica.tb_ordenesmantenimiento.serie'))");
         $db->execute();
-        $db->query("SELECT COALESCE(MAX(orden_serie), 0) + 1 AS serie FROM logistica.tb_ordenesmantenimiento
-                     WHERE date_part('year', orden_registro) = date_part('year', CURRENT_DATE)");
-        $serie = (int) $db->single()['serie'];
-        $codigo = mantCodigo($siglas, 'MAN', $serie);
+        // Serie del código: mayor código del año con el mismo prefijo (incluye órdenes importadas y anuladas)
+        $prefijo = mantCodigo($siglas, 'ODM', 0);
+        $prefijo = substr($prefijo, 0, -5);
+        $db->query("SELECT COALESCE(MAX(substring(orden_codigo FROM '(\\d{5})$')::int), 0) + 1 AS serie
+                      FROM logistica.tb_ordenesmantenimiento WHERE orden_codigo LIKE :p");
+        $db->bind(':p', $prefijo . '%');
+        $codigo = mantCodigo($siglas, 'ODM', (int) $db->single()['serie']);
+        if (!prop($o, 'orden_serie')) {
+            $db->query("SELECT COALESCE(MAX(orden_serie), 0) + 1 AS serie FROM logistica.tb_ordenesmantenimiento
+                         WHERE orden_estado <> 'ANULADA' AND date_part('year', orden_registro) = date_part('year', CURRENT_DATE)");
+            $o->orden_serie = (int) $db->single()['serie'];
+        }
+        $o->orden_estado = 'MANTENIMIENTO';
 
         $db->query("SELECT orden_km_mantenimiento, orden_fecha_mantenimiento::date AS fecha FROM logistica.tb_ordenesmantenimiento
                      WHERE fk_vehiculo_id = :v AND orden_estado <> 'ANULADA' ORDER BY orden_fecha_mantenimiento DESC LIMIT 1");
@@ -42,14 +90,15 @@ try {
         $db->query("INSERT INTO logistica.tb_ordenesmantenimiento (
                 fk_usuario_id, fk_vehiculo_id, personal_solicita, director_administrativo, tecnico_servicios, tecnico_puesto,
                 orden_codigo, orden_serie, orden_tipomantenimiento, orden_fecha_mantenimiento_tipo, orden_fecha_mantenimiento,
-                orden_km_mantenimiento, ultimo_km_mantenimiento, ultimo_fecha_mantenimiento, orden_fecha_entrega, orden_observaciones)
-            VALUES (:u, :v, :s, :da, :t, :tp, :codigo, :serie, :tipo, :ftipo, :fecha, :km, :ukm, :ufecha, :entrega, :obs)
+                orden_km_mantenimiento, ultimo_km_mantenimiento, ultimo_fecha_mantenimiento, orden_fecha_entrega, orden_observaciones,
+                orden_fecha_recepcion, orden_quien_recepcion, orden_cargo_recepcion, orden_taller, fk_contrato_id, orden_informe_numero, orden_informe_serie)
+            VALUES (:u, :v, :s, :da, :t, :tp, :codigo, :serie, :tipo, :ftipo, :fecha, :km, :ukm, :ufecha, :entrega, :obs, :frec, :qrec, :crec, :taller,
+                    :contrato, :inumero, :iserie)
             RETURNING orden_id");
         $db->bind(':u', $usuario);
         $db->bind(':v', (int) $o->fk_vehiculo_id);
         $db->bind(':codigo', $codigo);
-        $db->bind(':serie', $serie);
-        $db->bind(':ftipo', prop($o, 'orden_fecha_mantenimiento_tipo', 'SISTEMA'));
+        $db->bind(':ftipo', in_array(prop($o, 'orden_fecha_mantenimiento_tipo'), ['SISTEMA', 'USUARIO'], true) ? $o->orden_fecha_mantenimiento_tipo : 'SISTEMA');
         $db->bind(':ukm', $ultimo['orden_km_mantenimiento']);
         $db->bind(':ufecha', $ultimo['fecha']);
     } else {
@@ -63,30 +112,28 @@ try {
             $db->cancelTransaction();
             jsonResponse(['error' => 'Orden no encontrada'], 404);
         }
-        if ($actual['orden_estado'] === 'ANULADA') {
-            throw new ValidacionException('Una orden anulada no se puede modificar');
-        }
-        if (prop($o, 'orden_estado') === 'ANULADA') {
+        $nuevoEstado = prop($o, 'orden_estado', $actual['orden_estado']);
+        mantValidarTransicion($actual['orden_estado'], $nuevoEstado, $o);
+        if ($nuevoEstado === 'ANULADA') {
             $db->query("SELECT 1 FROM logistica.tb_informe_ordenesmantenimiento io JOIN logistica.tb_informemantenimiento i ON i.informe_id = io.fk_informe_id
                          WHERE io.fk_orden_id = :id AND i.informe_estado <> 'ANULADO'");
             $db->bind(':id', (int) $o->orden_id);
             if ($db->single()) {
-                throw new ValidacionException('La orden está incluida en un informe; anule o modifique primero el informe');
+                throw new ValidacionException('La orden está incluida en una bitácora; quítela primero de la bitácora');
             }
         }
         $db->query('UPDATE logistica.tb_ordenesmantenimiento SET
                 personal_solicita = :s, director_administrativo = :da, tecnico_servicios = :t, tecnico_puesto = :tp,
                 orden_tipomantenimiento = :tipo, orden_fecha_mantenimiento = :fecha, orden_km_mantenimiento = :km,
-                orden_fecha_entrega = :entrega, orden_observaciones = :obs, orden_estado = :estado,
-                orden_fecha_recepcion = :frec, orden_quien_recepcion = :qrec, orden_cargo_recepcion = :crec
+                orden_fecha_entrega = :entrega, orden_observaciones = :obs, orden_estado = :estado, orden_serie = :serie,
+                orden_fecha_recepcion = :frec, orden_quien_recepcion = :qrec, orden_cargo_recepcion = :crec, orden_taller = :taller,
+                fk_contrato_id = :contrato, orden_informe_numero = :inumero, orden_informe_serie = :iserie
             WHERE orden_id = :id RETURNING orden_id');
         $db->bind(':id', (int) $o->orden_id);
-        $db->bind(':estado', prop($o, 'orden_estado', $actual['orden_estado']));
-        $db->bind(':frec', prop($o, 'orden_fecha_recepcion') ?: null);
-        $db->bind(':qrec', prop($o, 'orden_quien_recepcion'));
-        $db->bind(':crec', prop($o, 'orden_cargo_recepcion'));
+        $db->bind(':estado', $nuevoEstado);
         $o->fk_vehiculo_id = $actual['fk_vehiculo_id']; // el vehículo no se cambia en una orden existente
     }
+
     $db->bind(':s', (int) $o->personal_solicita);
     $db->bind(':da', (int) $o->director_administrativo);
     $db->bind(':t', (int) $o->tecnico_servicios);
@@ -96,6 +143,14 @@ try {
     $db->bind(':km', (string) $o->orden_km_mantenimiento);
     $db->bind(':entrega', prop($o, 'orden_fecha_entrega') ?: null);
     $db->bind(':obs', prop($o, 'orden_observaciones'));
+    $db->bind(':serie', (int) (prop($o, 'orden_serie') ?: 0));
+    $db->bind(':frec', prop($o, 'orden_fecha_recepcion') ?: null);
+    $db->bind(':qrec', prop($o, 'orden_quien_recepcion'));
+    $db->bind(':crec', prop($o, 'orden_cargo_recepcion'));
+    $db->bind(':taller', trim((string) prop($o, 'orden_taller', '')) ?: null);
+    $db->bind(':contrato', $contratoId);
+    $db->bind(':inumero', trim((string) prop($o, 'orden_informe_numero', '')) ?: null);
+    $db->bind(':iserie', (int) (prop($o, 'orden_informe_serie') ?: 0));
     $ordenId = (int) $db->single()['orden_id'];
 
     // Próximo mantenimiento según el plan del vehículo (si tiene)
@@ -105,7 +160,7 @@ try {
     $db->bind(':v', (int) $o->fk_vehiculo_id);
     $reglas = $db->resultset();
     $km = (float) $o->orden_km_mantenimiento;
-    $proximo = $reglas ? mantEvaluarPlan($km, $reglas, $o->orden_tipomantenimiento === 'PREVENTIVO' ? $km : null, $tolerancia) : null;
+    $proximo = $reglas ? mantEvaluarPlan($km, $reglas, mantEsPreventivo($o->orden_tipomantenimiento) ? $km : null, $tolerancia) : null;
     $db->query('UPDATE logistica.tb_ordenesmantenimiento SET orden_proximomantenimiento = :p WHERE orden_id = :id');
     $db->bind(':p', $proximo ? (string) $proximo['km_proximo'] : null);
     $db->bind(':id', $ordenId);
@@ -137,6 +192,26 @@ try {
                 $db->bind(":$c", ($valor === '' || $valor === null) ? null : (string) $valor);
             }
             $db->execute();
+        }
+    }
+
+    // Tope del contrato por rubro (con los valores ya guardados de esta orden)
+    if ($contratoId) {
+        $db->query('SELECT partida_rubro, saldo FROM logistica.vw_contratosmantenimiento_saldo WHERE contrato_id = :c');
+        $db->bind(':c', $contratoId);
+        $saldos = array_column($db->resultset(), 'saldo', 'partida_rubro');
+        $db->query("SELECT factura_tipo, factura_valor FROM logistica.tb_mantenimiento_facturas WHERE fk_orden_id = :o AND factura_estado = 'ACTIVO'");
+        $db->bind(':o', $ordenId);
+        $totales = mantTotalesRubro($db->resultset());
+        $orden_estado_final = $metodo === 'POST' ? 'MANTENIMIENTO' : $nuevoEstado;
+        if ($orden_estado_final !== 'ANULADA') {
+            $sinEstaOrden = [];
+            foreach ($saldos as $rubro => $saldo) {
+                $sinEstaOrden[$rubro] = (float) $saldo + ($totales[$rubro] ?? 0);
+            }
+            if ($error = mantExcesoContrato($sinEstaOrden, $totales)) {
+                throw new ValidacionException($error);
+            }
         }
     }
 

@@ -30,6 +30,12 @@ CREATE TABLE IF NOT EXISTS admin.tb_sistema (
     sistema_latitud numeric(10,6),                           -- centro por defecto de los mapas
     sistema_longitud numeric(10,6)
 );
+-- Datos usados en el encabezado y pie de los reportes PDF
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_siglas text NOT NULL DEFAULT 'CBSD';
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_facebook text;
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_twitter text;
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_latitud numeric(10,6);
+ALTER TABLE admin.tb_sistema ADD COLUMN IF NOT EXISTS sistema_longitud numeric(10,6);
 
 CREATE TABLE IF NOT EXISTS admin.tb_params (
     param_id SERIAL NOT NULL PRIMARY KEY,
@@ -44,5 +50,11 @@ CREATE TABLE IF NOT EXISTS admin.tb_params (
 INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
     ('MANT_TOLERANCIA_KM', '1000', 'integer', 'Km de anticipación para alertar un mantenimiento preventivo', 'MANTENIMIENTO'),
     ('MANT_TECNICO_PUESTO', 'PROFESIONAL TÉCNICO EN SERVICIOS GENERALES', 'text', 'Cargo del técnico que firma las órdenes de mantenimiento', 'MANTENIMIENTO'),
-    ('MANT_INFORME_CARGO', 'ADMINISTRADOR DE CONTRATO', 'text', 'Cargo de quien firma los informes de mantenimiento', 'MANTENIMIENTO')
+    ('MANT_INFORME_CARGO', 'ADMINISTRADOR DE CONTRATO', 'text', 'Cargo de quien firma los informes de mantenimiento', 'MANTENIMIENTO'),
+    ('MANT_RUBROS', 'MANO DE OBRA|REPUESTOS|ACEITES Y LUBRICANTES', 'list', 'Rubros presupuestarios del desglose de pago (separados por |)', 'MANTENIMIENTO'),
+    ('MANT_CARGOS_RESPONSABLE', 'ADMINISTRADOR DE LA ORDEN DE COMPRA|PROFESIONAL TÉCNICO EN SERVICIOS GENERALES|ADMINISTRADOR DE CONTRATO', 'list', 'Cargos posibles del responsable del registro (separados por |)', 'MANTENIMIENTO'),
+    ('MANT_FORMATO_INFORME', '{SIGLAS}-DA-{AAAA}-{NNNN}-I', 'text', 'Sugerencia (+1) del número de informe de pago: es texto libre con la secuencia documental institucional ({SIGLAS} {AA} {AAAA} {N} {NNN} {NNNN})', 'MANTENIMIENTO'),
+    ('MANT_FORMATO_BITACORA', 'BITÁCORA {NN}-{NOMBRE} {CONTRATO}', 'text', 'Número sugerido de bitácora ({NN} correlativo del contrato, {NOMBRE} nombre corto, {CONTRATO} código)', 'MANTENIMIENTO'),
+    ('MANT_TIPOS_CONTRATO', 'GENERAL|VIGENCIA TECNOLÓGICA', 'list', 'Tipos de contrato de mantenimiento (separados por |)', 'MANTENIMIENTO'),
+    ('MANT_DIRECTOR_PUESTO_ID', '4', 'integer', 'Puesto (tthh.tb_puestos) del director administrativo que se precarga en las órdenes', 'MANTENIMIENTO')
 ON CONFLICT (param_key) DO NOTHING;

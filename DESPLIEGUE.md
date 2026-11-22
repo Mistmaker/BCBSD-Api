@@ -62,11 +62,30 @@ si `AllowOverride` no lo permite, agregar en el VirtualHost:
 Orden para crear una base nueva desde cero: `script.sql`, `script-2.sql`, `script_sbj_temp.sql`,
 `migrations/ordenes-abastecimiento/*.sql` y luego las migraciones de cada módulo.
 
+### Script único para pgAdmin: `script-3.sql`
+
+Contiene, en orden, todo lo posterior a `script.sql`, `script-2.sql` y `script_sbj_temp.sql`: órdenes de combustible,
+institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, importación desde `db_cbsd`
+(opcional: edite la línea `conexion`) y el registro inicial de la institución. Se pega completo en el Query Tool,
+se puede ejecutar varias veces y no borra datos ni toca `operaciones.tb_estaciones`.
+Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos de `migrations/`.
+
+### Privilegios (`migrations/mantenimiento/04-privilegios.sql`)
+
+- Rol **con** `rol_path`: acceso a una pantalla (menú). Rol **sin** `rol_path`: permiso de acción dentro de la pantalla.
+- `rol_codigo` es la clave fija que usan el front (`AuthService.tienePermiso`) y el API (`requirePermiso`); el login
+  la devuelve en `usuario.permisos`. Los usuarios deben volver a iniciar sesión para recibir los privilegios nuevos.
+- Mantenimiento: `MANT_ORDENES`, `MANT_BITACORAS`, `MANT_PLANES`, `MANT_CONTRATOS` (pantallas) y `MANT_ORDEN_CREAR`,
+  `MANT_ORDEN_RECIBIR`, `MANT_ORDEN_ACTA`, `MANT_ORDEN_ANULAR`, `MANT_BITACORA_GESTIONAR`, `MANT_CONTRATO_GESTIONAR`,
+  `MANT_PLAN_GESTIONAR` (acciones; el API los exige). Combustible: `ADM_COMBUSTIBLE`, `ADM_COMBUSTIBLE_CREAR`.
+  Movilización: `ADM_MOVILIZACION`, `ADM_MOVILIZACION_CREAR`. Vehículos: `ADM_VEHICULOS`, `ADM_VEHICULO_CREAR`.
+
 ### Mantenimiento vehicular (`migrations/mantenimiento/`)
 
 ```bash
 psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/01-institucion.sql
 psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/02-mantenimiento.sql
+psql -d db_bcbsd -v ON_ERROR_STOP=1 -f migrations/mantenimiento/04-privilegios.sql
 # Importar datos del sistema anterior (opcional, re-ejecutable):
 psql -d db_bcbsd -v legacy_conn="dbname=db_cbsd host=localhost user=postgres password=XXXX" \
      -f migrations/mantenimiento/03-importacion-db_cbsd.sql
@@ -78,8 +97,14 @@ psql -d db_bcbsd -v legacy_conn="dbname=db_cbsd host=localhost user=postgres pas
 - `03` importa institución, parámetros, planes, recursos, órdenes e informes desde `db_cbsd`, convirtiendo
   la unidad antigua (`logistica.tb_unidades`) en el vehículo nuevo. Al final muestra cuántos registros se omitieron
   (vehículo, personal o usuario inexistente en la base nueva).
-- Parámetros del módulo (`admin.tb_params`): `MANT_TOLERANCIA_KM` (anticipación de la alerta, 1000 km),
-  `MANT_TECNICO_PUESTO`, `MANT_INFORME_CARGO`.
+- Parámetros del módulo (`admin.tb_params`, módulo MANTENIMIENTO): `MANT_TOLERANCIA_KM` (anticipación de la alerta),
+  `MANT_RUBROS`, `MANT_FORMATO_BITACORA`, `MANT_CARGOS_RESPONSABLE`, `MANT_DIRECTOR_PUESTO_ID`, `MANT_FORMATO_INFORME` (sugerencia del +1 para el número del informe de pago, que es texto libre con la secuencia documental institucional;
+  con `{SIGLAS} {AA} {AAAA} {N} {NNN}`), `MANT_TIPOS_CONTRATO`, `MANT_TECNICO_PUESTO`, `MANT_INFORME_CARGO`.
+- **Contratos de mantenimiento** (`logistica.tb_contratosmantenimiento`, partidas y vehículos): cada orden nueva se
+  registra bajo un contrato vigente que cubra al vehículo; los valores por rubro no pueden superar el saldo de la partida
+  (`logistica.vw_contratosmantenimiento_saldo`).
+- **Estados de la orden**: MANTENIMIENTO (en el taller) → RECIBIDO (valores y facturas) → ENTREGADO (acta generada); ANULADA.
+- **Formatos PDF** editables en `reportes/formatos/mantenimiento/` (ver `LEEME.md` de esa carpeta).
 
 ## Pruebas
 

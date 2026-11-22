@@ -65,6 +65,20 @@ final class MantenimientoTest extends TestCase
         $this->assertSame('CBQ27INF00001', mantCodigo('CBQ', 'inf', 1, 2027));
     }
 
+    public function testSerieDeCodigo(): void
+    {
+        $this->assertSame(12, mantSerieDeCodigo('CBSD26INF00012', 'CBSD', 'INF', 2026));
+        $this->assertSame(3, mantSerieDeCodigo(' cbsd26inf00003 ', 'CBSD', 'INF', 2026));
+        $this->assertNull(mantSerieDeCodigo('CBSD25INF00012', 'CBSD', 'INF', 2026), 'otro año');
+        $this->assertNull(mantSerieDeCodigo('CBSD-17-RUPIF-001-M', 'CBSD', 'INF', 2026), 'formato manual');
+    }
+
+    public function testLista(): void
+    {
+        $this->assertSame(['MANO DE OBRA', 'REPUESTOS', 'ACEITES Y LUBRICANTES'], mantLista('MANO DE OBRA| REPUESTOS |ACEITES Y LUBRICANTES|'));
+        $this->assertSame([], mantLista(null));
+    }
+
     private function ordenValida(): object
     {
         return (object) [
@@ -75,12 +89,97 @@ final class MantenimientoTest extends TestCase
         ];
     }
 
+    public function testTransicionesDeEstado(): void
+    {
+        $o = (object) ['orden_fecha_recepcion' => '2026-06-01'];
+        foreach ([['MANTENIMIENTO', 'RECIBIDO'], ['RECIBIDO', 'ENTREGADO'], ['RECIBIDO', 'MANTENIMIENTO'], ['ENTREGADO', 'RECIBIDO'],
+                  ['MANTENIMIENTO', 'ANULADA'], ['RECIBIDO', 'ANULADA'], ['RECIBIDO', 'RECIBIDO']] as [$de, $a]) {
+            mantValidarTransicion($de, $a, $o);
+        }
+        $this->addToAssertionCount(7);
+
+        foreach ([['MANTENIMIENTO', 'ENTREGADO'], ['ENTREGADO', 'ANULADA'], ['ANULADA', 'MANTENIMIENTO'], ['ANULADA', 'ANULADA'], ['ENTREGADO', 'MANTENIMIENTO']] as [$de, $a]) {
+            try {
+                mantValidarTransicion($de, $a, $o);
+                $this->fail("Debió rechazar $de -> $a");
+            } catch (ValidacionException $e) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    public function testPermisoSegunEstado(): void
+    {
+        $this->assertSame('MANT_ORDEN_CREAR', mantPermisoOrden(null, 'MANTENIMIENTO'));
+        $this->assertSame('MANT_ORDEN_CREAR', mantPermisoOrden('MANTENIMIENTO', 'MANTENIMIENTO'));
+        $this->assertSame('MANT_ORDEN_RECIBIR', mantPermisoOrden('MANTENIMIENTO', 'RECIBIDO'));
+        $this->assertSame('MANT_ORDEN_RECIBIR', mantPermisoOrden('RECIBIDO', 'RECIBIDO'));
+        $this->assertSame('MANT_ORDEN_ACTA', mantPermisoOrden('RECIBIDO', 'ENTREGADO'));
+        $this->assertSame('MANT_ORDEN_ACTA', mantPermisoOrden('ENTREGADO', 'RECIBIDO'));
+        $this->assertSame('MANT_ORDEN_ANULAR', mantPermisoOrden('RECIBIDO', 'ANULADA'));
+    }
+
+    public function testEntregadoExigeFechaDelActa(): void
+    {
+        $this->expectException(ValidacionException::class);
+        $this->expectExceptionMessage('fecha');
+        mantValidarTransicion('RECIBIDO', 'ENTREGADO', (object) ['orden_fecha_recepcion' => '']);
+    }
+
+    public function testTopeDelContrato(): void
+    {
+        $saldo = ['MANO DE OBRA' => 100.0, 'REPUESTOS' => 50.0];
+        $this->assertNull(mantExcesoContrato($saldo, ['MANO DE OBRA' => 100.0, 'REPUESTOS' => 49.99]));
+        $this->assertNull(mantExcesoContrato($saldo, ['ACEITES Y LUBRICANTES' => 0.0]), 'un rubro en cero no consume');
+        $this->assertStringContainsString('supera el saldo', mantExcesoContrato($saldo, ['REPUESTOS' => 50.01]));
+        $this->assertStringContainsString('no tiene partida', mantExcesoContrato($saldo, ['ACEITES Y LUBRICANTES' => 5]));
+    }
+
+    public function testTotalesRubro(): void
+    {
+        $this->assertEquals(['MANO DE OBRA' => 61.1, 'REPUESTOS' => 415.0], mantTotalesRubro([
+            (object) ['factura_tipo' => 'MANO DE OBRA', 'factura_valor' => '51.10'],
+            ['factura_tipo' => 'MANO DE OBRA', 'factura_valor' => 10],
+            ['factura_tipo' => 'REPUESTOS', 'factura_valor' => '415'],
+            ['factura_tipo' => 'REPUESTOS', 'factura_valor' => ''],
+        ]));
+    }
+
+    public function testFormatoBitacora(): void
+    {
+        $f = 'BITÁCORA {NN}-{NOMBRE} {CONTRATO}';
+        $this->assertSame('BITÁCORA 03-MANTENIMIENTO MOTOCICLETAS CB-GADM-SD-DA-2025-0008-OC',
+            mantFormatoBitacora($f, 3, 'Mantenimiento motocicletas', 'CB-GADM-SD-DA-2025-0008-OC'));
+        $this->assertSame('BITÁCORA 12 CB-0008-OC', mantFormatoBitacora($f, 12, null, 'CB-0008-OC'), 'sin nombre corto');
+    }
+
+    public function testFormatoInforme(): void
+    {
+        $this->assertSame('CBSD-26-RUPIF-007-M', mantFormatoInforme('{SIGLAS}-{AA}-RUPIF-{NNN}-M', 'cbsd', 7, 2026));
+        $this->assertSame('INF 12/2027', mantFormatoInforme('INF {N}/{AAAA}', 'X', 12, 2027));
+        $this->assertSame('CBSD-DA-2026-0207-I', mantFormatoInforme('{SIGLAS}-DA-{AAAA}-{NNNN}-I', 'CBSD', 207, 2026));
+    }
+
+    public function testTiposPreventivos(): void
+    {
+        $this->assertTrue(mantEsPreventivo('PREVENTIVO'));
+        $this->assertTrue(mantEsPreventivo('preventivo y correctivo'));
+        $this->assertFalse(mantEsPreventivo('CORRECTIVO'));
+        $this->assertFalse(mantEsPreventivo(null));
+    }
+
     public function testOrdenValidaNormalizaTipo(): void
     {
         $o = $this->ordenValida();
         $o->orden_tipomantenimiento = 'preventivo';
         mantValidarOrden($o);
         $this->assertSame('PREVENTIVO', $o->orden_tipomantenimiento);
+
+        $o3 = $this->ordenValida();
+        $o3->orden_tipomantenimiento = 'Preventivo y correctivo';
+        $o3->orden_serie = '5';
+        mantValidarOrden($o3);
+        $this->assertSame('PREVENTIVO Y CORRECTIVO', $o3->orden_tipomantenimiento);
 
         $o2 = $this->ordenValida();
         mantValidarOrden($o2);
@@ -107,8 +206,9 @@ final class MantenimientoTest extends TestCase
             'tipo inválido' => [fn($o) => $o->orden_tipomantenimiento = 'OTRO', 'Tipo'],
             'estado inválido' => [fn($o) => $o->orden_estado = 'BORRADA', 'Estado'],
             'trabajo vacío' => [fn($o) => $o->trabajos[] = (object) ['trabajo_descripcion' => '  '], 'trabajos'],
-            'factura sin tipo' => [fn($o) => $o->facturas[0]->factura_tipo = '', 'tipo'],
+            'factura sin rubro' => [fn($o) => $o->facturas[0]->factura_tipo = '', 'rubro'],
             'factura negativa' => [fn($o) => $o->facturas[0]->factura_valor = -1, 'valor'],
+            'número de orden no entero' => [fn($o) => $o->orden_serie = 'A5', 'número de orden'],
         ];
     }
 }
