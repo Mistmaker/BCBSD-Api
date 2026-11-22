@@ -178,6 +178,8 @@ UPDATE administrativo.tb_vehiculos v
    AND EXISTS (SELECT 1 FROM logistica.tb_planesmantenimiento p WHERE p.plan_id = t.fk_plan_id);
 
 -- ÓRDENES DE MANTENIMIENTO (unidad -> vehículo) ----------------------------------
+-- orden_cargo_recepcion del sistema anterior guardaba el número del informe de pago (documento institucional,
+-- texto libre); en el sistema nuevo va a orden_informe_numero.
 INSERT INTO logistica.tb_ordenesmantenimiento (
     orden_id,
     orden_registro,
@@ -201,7 +203,7 @@ INSERT INTO logistica.tb_ordenesmantenimiento (
     orden_observaciones,
     orden_fecha_recepcion,
     orden_quien_recepcion,
-    orden_cargo_recepcion
+    orden_informe_numero          -- en el sistema anterior: orden_cargo_recepcion (número del documento, ej. CBSD-DA-2026-0207-I)
 )
 SELECT t.orden_id, t.orden_registro, t.orden_estado, t.fk_usuario_id, t.fk_vehiculo_id, t.personal_solicita, t.director_administrativo, t.tecnico_servicios, t.tecnico_puesto, t.orden_codigo, t.orden_serie, t.orden_tipomantenimiento, t.orden_fecha_mantenimiento_tipo, t.orden_fecha_mantenimiento, t.orden_km_mantenimiento, t.ultimo_km_mantenimiento, t.ultimo_fecha_mantenimiento, t.orden_proximomantenimiento, t.orden_fecha_entrega, t.orden_observaciones, t.orden_fecha_recepcion, t.orden_quien_recepcion, t.orden_cargo_recepcion
 FROM dblink('legacy', $$

@@ -146,6 +146,7 @@ final class MantenimientoTest extends TestCase
     {
         $this->assertSame('CBSD-26-RUPIF-007-M', mantFormatoInforme('{SIGLAS}-{AA}-RUPIF-{NNN}-M', 'cbsd', 7, 2026));
         $this->assertSame('INF 12/2027', mantFormatoInforme('INF {N}/{AAAA}', 'X', 12, 2027));
+        $this->assertSame('CBSD-DA-2026-0207-I', mantFormatoInforme('{SIGLAS}-DA-{AAAA}-{NNNN}-I', 'CBSD', 207, 2026));
     }
 
     public function testTiposPreventivos(): void

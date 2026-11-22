@@ -165,12 +165,12 @@ function mantFormatoBitacora(string $formato, int $n, ?string $nombreCorto, stri
     return trim(preg_replace('/\s{2,}/', ' ', $texto));
 }
 
-/** Número de informe de pago según el formato configurado: {SIGLAS} {AA} {AAAA} {N} {NNN} */
+/** Número de informe de pago según el formato configurado: {SIGLAS} {AA} {AAAA} {N} {NNN} {NNNN} */
 function mantFormatoInforme(string $formato, string $siglas, int $n, ?int $anio = null): string
 {
     $anio = $anio ?? (int) date('Y');
     return strtr($formato, ['{SIGLAS}' => strtoupper($siglas), '{AAAA}' => (string) $anio, '{AA}' => substr((string) $anio, -2),
-        '{NNN}' => str_pad((string) $n, 3, '0', STR_PAD_LEFT), '{N}' => (string) $n]);
+        '{NNNN}' => str_pad((string) $n, 4, '0', STR_PAD_LEFT), '{NNN}' => str_pad((string) $n, 3, '0', STR_PAD_LEFT), '{N}' => (string) $n]);
 }
 const MANT_TIPOS_ORDEN = ['CORRECTIVO', 'PREVENTIVO', 'PREVENTIVO Y CORRECTIVO'];
 /** Tipos que cuentan como mantenimiento preventivo para el plan por kilometraje. */
