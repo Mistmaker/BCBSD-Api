@@ -19,7 +19,7 @@ try {
 
     $requestMethod = $_SERVER["REQUEST_METHOD"];
     $arrQueryStringParams = array();
-    parse_str($_SERVER['QUERY_STRING'], $arrQueryStringParams);
+    parse_str(($_SERVER['QUERY_STRING'] ?? ''), $arrQueryStringParams);
     if (strtoupper($requestMethod) != 'POST') {
         $respuesta = json_encode(array('err' => false, 'mensaje' => 'Metodo no soportado'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         echo $respuesta;

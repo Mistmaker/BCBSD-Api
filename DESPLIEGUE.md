@@ -104,6 +104,21 @@ Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos 
   `MANT_PLAN_GESTIONAR` (acciones; el API los exige). Combustible: `ADM_COMBUSTIBLE`, `ADM_COMBUSTIBLE_CREAR`.
   Movilización: `ADM_MOVILIZACION`, `ADM_MOVILIZACION_CREAR`. Vehículos: `ADM_VEHICULOS`, `ADM_VEHICULO_CREAR`.
 
+### Resumen gerencial (`migrations/servicios-generales/02-resumen-gerencial.sql`)
+
+`/admin/dashboard` (privilegio `ADM_DASHBOARD`): resumen para la dirección con flota (activos, en taller, en salida,
+mantenimiento vencido/próximo), gasto del mes y del año con tendencia de 12 meses, contratos vigentes, vehículos con
+alertas (mismos criterios de la bitácora), licencias de operadores y peticiones de materiales
+(`servicios/administrativo/getResumenGerencial.php?mes=AAAA-MM`). El detalle para analistas sigue en la bitácora.
+
+### Códigos con secuencia anual
+
+Todos los documentos numerados usan `{SIGLAS}{AA}{TIPO}…{NNNNN}` con las siglas de `admin.tb_sistema` y reinician cada
+año: movilización `MOV` y combustible `ABAS` (más el origen: dirección o estación; `classes/codigos.php`), orden de
+mantenimiento `ODM`, informe `INF` y petición de materiales `PDM`. Si cambian las siglas a mitad de año, la numeración de
+movilización y combustible continúa (antes el prefijo era `BCBSD` fijo). Para conservar el prefijo anterior basta con
+`sistema_siglas = 'BCBSD'`.
+
 ### Petición de materiales (`migrations/servicios-generales/01-peticion-materiales.sql`)
 
 Pantalla **Dir. Administrativa > Peticiones de materiales** (`ADM_PETICIONES_MATERIALES` para consultar e imprimir,

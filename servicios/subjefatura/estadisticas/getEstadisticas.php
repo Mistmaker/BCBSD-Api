@@ -17,7 +17,7 @@ try {
 
     $requestMethod = $_SERVER["REQUEST_METHOD"];
     $arrQueryStringParams = array();
-    parse_str($_SERVER['QUERY_STRING'], $arrQueryStringParams);
+    parse_str(($_SERVER['QUERY_STRING'] ?? ''), $arrQueryStringParams);
     if (strtoupper($requestMethod) != 'GET') {
         $respuesta = json_encode(array('err' => false, 'mensaje' => 'Metodo no soportado'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         echo $respuesta;
@@ -84,7 +84,8 @@ try {
     $diaCriticoRow = $database->single();
     // Convertir número a nombre
     $dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    $diaCritico = $dias[intval($diaCriticoRow['dia_semana'])];
+    // Sin intervenciones registradas no hay día, hora ni mes crítico
+    $diaCritico = $diaCriticoRow ? $dias[intval($diaCriticoRow['dia_semana'])] : null;
 
     // HORA CRITICA 
     $sqlHoraCritica = "SELECT 
@@ -96,7 +97,7 @@ try {
     LIMIT 1;";
     $database->query($sqlHoraCritica);
     $horaCriticaRow = $database->single();
-    $horaCritica = trim($horaCriticaRow['hora']);
+    $horaCritica = $horaCriticaRow ? trim($horaCriticaRow['hora']) : null;
 
     // MES CRITICO
     $sqlMesCritico = "SELECT 
@@ -124,7 +125,7 @@ try {
         11 => 'Noviembre',
         12 => 'Diciembre'
     ];
-    $mesCritico = $meses[intval($mesCriticoRow['mes_num'])];
+    $mesCritico = $mesCriticoRow ? $meses[intval($mesCriticoRow['mes_num'])] : null;
 
     // $arr_stats["estaciones"] = $rows_estaciones;
     // $arr_stats["causas"] = $rows_causas;

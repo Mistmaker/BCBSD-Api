@@ -5,7 +5,7 @@
 -- CÓMO USARLO (pgAdmin): abra el Query Tool sobre la base NUEVA (db_bcbsd), pegue TODO el archivo y ejecútelo.
 --   * Se puede ejecutar varias veces: no borra tablas ni datos; lo que ya existe se omite.
 --   * No toca operaciones.tb_estaciones.
---   * La importación (sección 9) solo corre si edita la línea "conexion" con la clave de la base anterior.
+--   * La importación (sección 10) solo corre si edita la línea "conexion" con la clave de la base anterior.
 --   * Después: asigne los privilegios nuevos a los usuarios en Administración > Usuarios > Privilegios.
 --
 -- ARCHIVO GENERADO por migrations/generar-script-3.py a partir de migrations/. No lo edite a mano:
@@ -770,7 +770,7 @@ COMMENT ON COLUMN admin.tb_usuarios.usuario_pass IS 'password_hash() de PHP; las
 
 
 -- ======================================================================================================
--- 8. PETICIÓN DE MATERIALES (servicios generales)
+-- 8. PETICIÓN DE MATERIALES Y RESUMEN GERENCIAL (servicios generales)
 -- ======================================================================================================
 -- =============================================================================
 -- PETICIÓN DE MATERIALES (Servicios generales) - re-ejecutable
@@ -850,9 +850,57 @@ SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf JOIN admin.tb_roles r ON
  WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
 ON CONFLICT DO NOTHING;
 
+-- =============================================================================
+-- RESUMEN GERENCIAL de la Dirección Administrativa (/admin/dashboard) - re-ejecutable
+-- Vista simplificada para el director: flota, gasto, contratos, alertas y licencias. El detalle para analistas sigue
+-- en la Bitácora de vehículos. Antes /admin/dashboard era la plantilla de ejemplo, sin privilegio.
+-- =============================================================================
+ALTER TABLE admin.tb_roles ADD COLUMN IF NOT EXISTS rol_codigo text;
+INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre)
+SELECT m.modulo_id, 'Servicios generales' FROM admin.tb_modulos m
+ WHERE m.modulo_nombre = 'Dir. Administrativa'
+   AND NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre = 'Servicios generales');
+
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path, rol_codigo)
+SELECT 'Resumen gerencial', 'Resumen de flota, gasto, contratos, alertas y licencias para la direccion', s.submodulo_id, '/admin/dashboard', 'ADM_DASHBOARD'
+  FROM admin.tb_submodulos s
+ WHERE s.submodulo_nombre = 'Servicios generales'
+   AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = 'ADM_DASHBOARD' OR r.rol_path = '/admin/dashboard')
+ LIMIT 1;
+-- Si ya existía un rol con esa ruta sin código, completarlo
+UPDATE admin.tb_roles SET rol_codigo = 'ADM_DASHBOARD'
+ WHERE rol_path = '/admin/dashboard' AND rol_codigo IS NULL AND NOT EXISTS (SELECT 1 FROM admin.tb_roles y WHERE y.rol_codigo = 'ADM_DASHBOARD');
+
+-- Asignación inicial: el administrador (113), el perfil ADMINISTRADOR y quienes ya ven la bitácora de vehículos
+INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
+SELECT DISTINCT u.usuario_id, d.rol_id
+  FROM admin.tb_usuarios u JOIN admin.tb_roles d ON d.rol_codigo = 'ADM_DASHBOARD'
+ WHERE (u.usuario_id = 113
+        OR EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
+                    WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo = 'ADM_BITACORA_VEHICULOS'))
+   AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = d.rol_id);
+INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
+SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf JOIN admin.tb_roles r ON r.rol_codigo = 'ADM_DASHBOARD'
+ WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
+ON CONFLICT DO NOTHING;
+
 
 -- ======================================================================================================
--- 9. IMPORTACIÓN DESDE EL SISTEMA ANTERIOR (db_cbsd) - opcional
+-- 9. REVISIÓN: borrado lógico de documentos de archivo
+-- ======================================================================================================
+-- =============================================================================
+-- REVISIÓN: borrado lógico de documentos de archivo - re-ejecutable
+-- El front ya tenía "Eliminar" pero el endpoint no existía. Un documento eliminado se conserva con su estado, quién y
+-- cuándo lo eliminó (se puede recuperar cambiando documento_estado a ACTIVO).
+-- Voluntarios, actividades y asignaciones usan sus columnas de estado existentes (valor ELIMINADO/ELIMINADA).
+-- =============================================================================
+ALTER TABLE archivo.documentos ADD COLUMN IF NOT EXISTS documento_estado text DEFAULT 'ACTIVO';
+ALTER TABLE archivo.documentos ADD COLUMN IF NOT EXISTS documento_eliminado_por integer;
+ALTER TABLE archivo.documentos ADD COLUMN IF NOT EXISTS documento_eliminado_en timestamp without time zone;
+
+
+-- ======================================================================================================
+-- 10. IMPORTACIÓN DESDE EL SISTEMA ANTERIOR (db_cbsd) - opcional
 -- ======================================================================================================
 CREATE EXTENSION IF NOT EXISTS dblink;
 
@@ -1264,7 +1312,7 @@ $importacion$;
 
 
 -- ======================================================================================================
--- 10. REGISTRO INICIAL DE LA INSTITUCIÓN (solo si no se importó ni existe)
+-- 11. REGISTRO INICIAL DE LA INSTITUCIÓN (solo si no se importó ni existe)
 -- ======================================================================================================
 INSERT INTO admin.tb_sistema (sistema_nombre, sistema_siglas, sistema_slogan, sistema_ciudad, sistema_direccion,
                               sistema_telefono, sistema_correo, sistema_sitioweb, sistema_facebook, sistema_twitter)

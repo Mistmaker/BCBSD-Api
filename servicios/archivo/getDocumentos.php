@@ -19,7 +19,7 @@ try {
 
     $requestMethod = $_SERVER["REQUEST_METHOD"];
     $arrQueryStringParams = array();
-    parse_str($_SERVER['QUERY_STRING'], $arrQueryStringParams);
+    parse_str(($_SERVER['QUERY_STRING'] ?? ''), $arrQueryStringParams);
 
     if (strtoupper($requestMethod) != 'GET') {
         $respuesta = json_encode(array('err' => false, 'mensaje' => 'Metodo no soportado'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -30,7 +30,7 @@ try {
 
     if (!isset($_GET['id'])) {
         $database = new Database();
-        $database->query("SELECT * FROM archivo.documentos");
+        $database->query("SELECT * FROM archivo.documentos WHERE COALESCE(documento_estado, 'ACTIVO') <> 'ELIMINADO' ORDER BY documento_id DESC");
         $rows = $database->resultset();
         $database->closeConnection();
     } else {

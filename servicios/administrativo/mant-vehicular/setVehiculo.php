@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 try {
 
 	// $arrQueryStringParams = array();
-	// parse_str($_SERVER['QUERY_STRING'], $arrQueryStringParams);
+	// parse_str(($_SERVER['QUERY_STRING'] ?? ''), $arrQueryStringParams);
 	$requestMethod = $_SERVER["REQUEST_METHOD"];
 	if (!in_array(strtoupper($requestMethod), array("POST", "PUT"))) {
 		jsonResponse(['error' => 'Método no permitido'], 405);

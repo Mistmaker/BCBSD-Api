@@ -268,3 +268,49 @@ function mantValidarOrden(object $o): void
         }
     }
 }
+
+/**
+ * Estado de mantenimiento de los vehículos (activos, o uno si $id): kilometraje actual, último mantenimiento, órdenes
+ * abiertas y estado del plan preventivo (AL DIA | PROXIMO | VENCIDO | SIN PLAN). Usado por getEstadoVehiculos y el
+ * resumen gerencial.
+ */
+function mantEstadoVehiculos(Database $db, int $tolerancia, ?int $id = null): array
+{
+    $sql = "SELECT v.vehiculo_id, v.vehiculo_sigla, v.vehiculo_placa, v.vehiculo_marca, v.vehiculo_modelo, v.vehiculo_tipo, v.vehiculo_estado,
+                   v.vehiculo_chasis, v.vehiculo_motor, v.vehiculo_anio, v.vehiculo_color1, v.vehiculo_combustible,
+                   v.fk_plan_id, p.plan_modelo, k.vehiculo_kilometraje,
+                   (SELECT o.orden_km_mantenimiento FROM logistica.tb_ordenesmantenimiento o WHERE o.fk_vehiculo_id = v.vehiculo_id AND o.orden_estado <> 'ANULADA'
+                     ORDER BY o.orden_fecha_mantenimiento DESC LIMIT 1) AS ultimo_km_mantenimiento,
+                   (SELECT o.orden_fecha_mantenimiento::date FROM logistica.tb_ordenesmantenimiento o WHERE o.fk_vehiculo_id = v.vehiculo_id AND o.orden_estado <> 'ANULADA'
+                     ORDER BY o.orden_fecha_mantenimiento DESC LIMIT 1) AS ultimo_fecha_mantenimiento,
+                   (SELECT max(o.orden_km_mantenimiento) FROM logistica.tb_ordenesmantenimiento o WHERE o.fk_vehiculo_id = v.vehiculo_id AND o.orden_estado <> 'ANULADA'
+                     AND o.orden_tipomantenimiento IN ('PREVENTIVO', 'PREVENTIVO Y CORRECTIVO')) AS ultimo_km_preventivo,
+                   (SELECT count(*) FROM logistica.tb_ordenesmantenimiento o WHERE o.fk_vehiculo_id = v.vehiculo_id AND o.orden_estado = 'MANTENIMIENTO') AS ordenes_abiertas
+              FROM administrativo.tb_vehiculos v
+              JOIN administrativo.vw_vehiculos_kilometraje k ON k.vehiculo_id = v.vehiculo_id
+              LEFT JOIN logistica.tb_planesmantenimiento p ON p.plan_id = v.fk_plan_id";
+    if ($id !== null) {
+        $db->query($sql . ' WHERE v.vehiculo_id = :id');
+        $db->bind(':id', $id);
+    } else {
+        $db->query($sql . " WHERE v.vehiculo_estado = 'ACTIVO' ORDER BY v.vehiculo_sigla");
+    }
+    $vehiculos = $db->resultset();
+
+    $db->query("SELECT mantenimiento_id, fk_plan_id, mantenimiento_km_inicio, mantenimiento_km_intervalo
+                  FROM logistica.tb_reglasmantenimiento WHERE mantenimiento_estado = 'ACTIVO'");
+    $reglasPorPlan = [];
+    foreach ($db->resultset() as $r) {
+        $reglasPorPlan[$r['fk_plan_id']][] = $r;
+    }
+
+    foreach ($vehiculos as &$v) {
+        $km = (float) $v['vehiculo_kilometraje'];
+        $ultimoPreventivo = $v['ultimo_km_preventivo'] !== null ? (float) $v['ultimo_km_preventivo'] : null;
+        $v['tolerancia_km'] = $tolerancia;
+        $v['proximo'] = $v['fk_plan_id'] ? mantEvaluarPlan($km, $reglasPorPlan[$v['fk_plan_id']] ?? [], $ultimoPreventivo, $tolerancia) : null;
+        $v['estado_mantenimiento'] = $v['proximo']['estado'] ?? 'SIN PLAN';
+    }
+    unset($v);
+    return $vehiculos;
+}
