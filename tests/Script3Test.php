@@ -22,7 +22,12 @@ final class Script3Test extends TestCase
         $sql = file_get_contents(dirname(__DIR__) . '/script-3.sql');
         $this->assertDoesNotMatchRegularExpression('/^\\\\/m', $sql, 'Debe poder pegarse en pgAdmin (sin comandos \\set de psql)');
         $this->assertStringNotContainsString(":'legacy_conn'", $sql);
-        $this->assertDoesNotMatchRegularExpression('/(DROP|CREATE|INSERT INTO|ALTER)\s+(TABLE\s+(IF\s+\w+\s+)*)?operaciones\.tb_estaciones/i', $sql);
+        // Estaciones: la base nueva las crea, pero el script nunca modifica, borra ni agrega filas si ya existen
+        $this->assertDoesNotMatchRegularExpression('/(DROP\s+TABLE|TRUNCATE|DELETE\s+FROM|UPDATE)\s+(IF\s+EXISTS\s+)?operaciones\.tb_estaciones\b/i', $sql);
+        $inicio = strpos($sql, 'IF NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones) THEN');
+        $this->assertNotFalse($inicio, 'las estaciones iniciales solo se cargan si la tabla está vacía');
+        $bloque = substr($sql, $inicio, strpos($sql, 'END IF;', $inicio) - $inicio);
+        $this->assertSame(substr_count($sql, 'INSERT INTO operaciones.tb_estaciones'), substr_count($bloque, 'INSERT INTO operaciones.tb_estaciones'));
         $this->assertDoesNotMatchRegularExpression('/DROP\s+TABLE/i', $sql, 'No debe borrar tablas');
     }
 }

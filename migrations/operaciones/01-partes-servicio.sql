@@ -1,6 +1,6 @@
 -- =============================================================================
 -- PARTES DE SERVICIO (Operaciones) - re-ejecutable, no borra datos
--- Esquema del formulario actual: operaciones.tb_partes + detalles (creados en script_sbj_temp.sql). Las tablas antiguas
+-- Esquema del formulario actual: operaciones.tb_partes + detalles (creados en migrations/base/01-estructura.sql). Las tablas antiguas
 -- (operaciones.tb_parte, tb_parte_unidades, tb_parte_personal) quedan solo como histórico.
 -- Para la estadística por vehículo, estación, bombero y herramienta, los detalles se enlazan a sus catálogos:
 --   vehículos -> administrativo.tb_vehiculos, personal -> tthh.tb_personal (personal_id),
@@ -152,10 +152,6 @@ SELECT '', c.clasificacion, c.subclasificacion, c.uso, c.orden FROM (VALUES
     ('Varios', 'Simulacro', '', 80)
 ) AS c(clasificacion, subclasificacion, uso, orden)
 ON CONFLICT ON CONSTRAINT tb_partes_catalogo_tipos_auxilio_uk DO NOTHING;
--- Filas de ejemplo del script original (con clave fija): quedan inactivas si ningún parte las usa
-UPDATE operaciones.tb_partes_catalogo_tipos_auxilio c SET tipo_auxilio_estado = 'INACTIVO'
- WHERE c.tipo_auxilio_clave <> ''
-   AND NOT EXISTS (SELECT 1 FROM operaciones.tb_partes_tipos_auxilio d WHERE d.fk_tipo_auxilio_id = c.tipo_auxilio_id);
 
 -- Posibles causas por clasificación (la de "Incendio" es la lista de los partes de incendio)
 CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_causas (
@@ -233,6 +229,10 @@ ALTER TABLE operaciones.tb_partes_equipos_herramientas ADD COLUMN IF NOT EXISTS 
 ALTER TABLE operaciones.tb_partes_materiales_descartables ADD COLUMN IF NOT EXISTS fk_recurso_id integer REFERENCES operaciones.tb_partes_catalogo_recursos(recurso_id);
 ALTER TABLE operaciones.tb_partes_insumos ADD COLUMN IF NOT EXISTS fk_recurso_id integer REFERENCES operaciones.tb_partes_catalogo_recursos(recurso_id);
 ALTER TABLE operaciones.tb_partes_tipos_auxilio ADD COLUMN IF NOT EXISTS fk_tipo_auxilio_id integer REFERENCES operaciones.tb_partes_catalogo_tipos_auxilio(tipo_auxilio_id);
+-- Filas de ejemplo del script original (con clave fija): quedan inactivas si ningún parte las usa
+UPDATE operaciones.tb_partes_catalogo_tipos_auxilio c SET tipo_auxilio_estado = 'INACTIVO'
+ WHERE c.tipo_auxilio_clave <> ''
+   AND NOT EXISTS (SELECT 1 FROM operaciones.tb_partes_tipos_auxilio d WHERE d.fk_tipo_auxilio_id = c.tipo_auxilio_id);
 
 CREATE INDEX IF NOT EXISTS ix_partes_vehiculos_parte ON operaciones.tb_partes_vehiculos (fk_parte_id);
 CREATE INDEX IF NOT EXISTS ix_partes_vehiculos_vehiculo ON operaciones.tb_partes_vehiculos (fk_vehiculo_id);

@@ -27,8 +27,11 @@ en Administración > Usuarios > Privilegios:
 
 ## Base de datos y migraciones
 
-- `script-3.sql` es el único archivo para pgAdmin: se GENERA con `python3 migrations/generar-script-3.py` a partir de
-  `migrations/`. Nunca editarlo a mano; `tests/Script3Test.php` verifica que esté al día.
+- `script-3.sql` es el ÚNICO script de la base (vacía o existente; reemplaza a script.sql, script-2.sql y
+  script_sbj_temp.sql): se GENERA con `python3 migrations/generar-script-3.py` a partir de `migrations/` (estructura y
+  catálogos base en `migrations/base/`). Nunca editarlo a mano; `tests/Script3Test.php` verifica que esté al día.
+- Antes de entregar un cambio de base: ejecutar `script-3.sql` dos veces sobre una base VACÍA y dos sobre una copia de
+  la base de prueba (sin errores y sin duplicar datos).
 - Migraciones re-ejecutables (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`, `WHERE NOT EXISTS`); no borran datos.
 - `Database` comparte una sola sentencia: llamar `parametro()` / `institucion()` antes de preparar otras consultas.
 

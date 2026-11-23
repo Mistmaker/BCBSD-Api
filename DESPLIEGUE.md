@@ -83,16 +83,28 @@ si `AllowOverride` no lo permite, agregar en el VirtualHost:
 
 ## Migraciones de la base de datos
 
-Orden para crear una base nueva desde cero: `script.sql`, `script-2.sql`, `script_sbj_temp.sql`,
-`migrations/ordenes-abastecimiento/*.sql` y luego las migraciones de cada módulo.
-
 ### Script único para pgAdmin: `script-3.sql`
 
-Contiene, en orden, todo lo posterior a `script.sql`, `script-2.sql` y `script_sbj_temp.sql`: órdenes de combustible,
-institución y parámetros, mantenimiento vehicular y contratos, menús y privilegios, bitácora del vehículo, operadores, usuarios y perfiles, petición de materiales, importación desde `db_cbsd`
-(opcional: edite la línea `conexion`) y el registro inicial de la institución. Se pega completo en el Query Tool,
-se puede ejecutar varias veces y no borra datos ni toca `operaciones.tb_estaciones`.
-Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos de `migrations/`.
+Es el **único** script de la base de datos: reemplaza a los antiguos `script.sql`, `script-2.sql` y
+`script_sbj_temp.sql` (que borraban y recreaban las tablas). Sirve igual para:
+
+- **Una base vacía:** crea esquemas, tablas, vistas, catálogos, parámetros, menús y privilegios, y un usuario `admin`
+  (perfil Administrador; cambiar la clave al entrar) si no se importaron usuarios.
+- **Una base existente:** solo agrega lo que falta (tablas, columnas, catálogos, privilegios). No borra ni duplica datos.
+
+Se pega completo en el Query Tool y se puede ejecutar varias veces. Secciones:
+
+| Sección | Contenido | Fuente en `migrations/` |
+|---|---|---|
+| 0 | Estructura base: esquemas, 85 tablas en orden de dependencias y vistas | `base/01-estructura.sql` |
+| 0.1 | Catálogos base: estaciones, jornadas, menús, documentos, catálogos de subjefatura y partes | `base/02-catalogos.sql` |
+| 1 a 10 | Módulos: combustible, institución, mantenimiento, privilegios, bitácora, operadores, usuarios y perfiles, servicios generales, revisión, partes | carpetas de cada módulo |
+| 11 | Importación desde el sistema anterior (`db_cbsd`): personas, personal, usuarios, vehículos, ubicaciones, CIE-10 y mantenimiento. Opcional: edite la línea `conexion` | `base/03-importacion-sistema-anterior.sql`, `mantenimiento/03-importacion-db_cbsd.sql` |
+| 12 | Registro inicial de la institución y usuario `admin` (solo si no existen) | generador |
+| 13 | Acceso total de los administradores (última) | `admin/02-acceso-administradores.sql` |
+
+Se genera con `python3 migrations/generar-script-3.py`; no se edita a mano (`tests/Script3Test.php` verifica que esté
+al día). Un cambio de base de datos nuevo se agrega como archivo en `migrations/` y en la lista del generador.
 
 ### Privilegios (`migrations/mantenimiento/04-privilegios.sql`)
 
@@ -185,7 +197,7 @@ para registrar y editar). Un operador es un funcionario, operativo o administrat
 
 ### Partes de servicio (`migrations/operaciones/01-partes-servicio.sql`)
 
-- Usa el esquema del formulario (`operaciones.tb_partes` y sus detalles, creados por `script_sbj_temp.sql`). Las tablas
+- Usa el esquema del formulario (`operaciones.tb_partes` y sus detalles, sección 0 de `script-3.sql`). Las tablas
   antiguas (`tb_parte`, `tb_parte_unidades`, `tb_parte_personal`) quedan solo como histórico.
 - Número automático como el formato del área operativa: `{SIGLAS}-PA-X1-2026-0001` (PA auxilio, PI incendio),
   secuencia por año, estación y tipo. No cambia al editar.

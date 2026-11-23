@@ -7,7 +7,7 @@ use PHPUnit\Framework\TestCase;
  *
  * Se OMITEN salvo que se defina BCBSD_TEST_DB_NAME (y opcionalmente BCBSD_TEST_DB_HOST,
  * BCBSD_TEST_DB_PORT, BCBSD_TEST_DB_USER, BCBSD_TEST_DB_PASS). Usar una base DESECHABLE con
- * script.sql, script-2.sql, script_sbj_temp.sql y las migraciones aplicadas. El usuario debe
+ * script-3.sql aplicado. El usuario debe
  * poder usar session_replication_role (superusuario) para insertar datos de prueba. Requiere 04-privilegios.sql
  * (el usuario de prueba recibe todos los privilegios MANT_*).
  * Los datos de prueba usan IDs >= 9000 y se borran al terminar.
