@@ -13,14 +13,14 @@ try {
 
     $requestMethod = $_SERVER["REQUEST_METHOD"];
     $arrQueryStringParams = array();
-    parse_str($_SERVER['QUERY_STRING'], $arrQueryStringParams);
+    parse_str(($_SERVER['QUERY_STRING'] ?? ''), $arrQueryStringParams);
     if (strtoupper($requestMethod) != 'GET') {
         $respuesta = json_encode(array('err' => false, 'mensaje' => 'Metodo no soportado'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     if (!isset($_GET['id'])) {
         $database = new Database();
-        $database->query("SELECT * FROM subjefatura.tb_voluntarios order by voluntario_id LIMIT 100");
+        $database->query("SELECT * FROM subjefatura.tb_voluntarios WHERE COALESCE(voluntario_estado, '') <> 'ELIMINADO' order by voluntario_id DESC LIMIT 100");
         $rows = $database->resultset();
         $database->closeConnection();
     } else {

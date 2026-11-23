@@ -10,7 +10,6 @@ use Spipu\Html2Pdf\Exception\ExceptionFormatter;
 // header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 date_default_timezone_set('America/Guayaquil');
-setlocale(LC_TIME, 'spanish');
 
 // Include Database
 include_once("../../../classes/dbconfig.php");
@@ -21,7 +20,8 @@ require_once '../../../vendor/autoload.php';
 $id = htmlentities($_GET['id']);
 $desde = htmlentities($_GET['desde']);
 $hasta = htmlentities($_GET['hasta']);
-$date = strftime("%d de %B del %Y", strtotime(date("m") . '/' . date("d") . '/' . date("Y")));
+$mesesEs = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+$date = date('d') . ' de ' . $mesesEs[(int) date('n') - 1] . ' del ' . date('Y'); // strftime() está obsoleta desde PHP 8.1
 
 $globalCbsdData = [
     'INSTITUTION_FULL_NAME' => 'BENEMÉRITO CUERPO DE BOMBEROS DE SANTO DOMINGO',
@@ -121,11 +121,11 @@ $tbody = '';
 foreach ($datos as $key => $value) {
     $tbody .= '<tr>';
     $tbody .= '<td>' . ($key + 1) . '</td>';
-    $tbody .= '<td>' . strftime("%d/%m/%Y %H:%M", strtotime($value['actividad_fecha_inicio'])) . '</td>';
-    $tbody .= '<td>' . strftime("%d/%m/%Y %H:%M", strtotime($value['actividad_fecha_finalizacion'])) . '</td>';
+    $tbody .= '<td>' . date("d/m/Y H:i", strtotime($value['actividad_fecha_inicio'])) . '</td>';
+    $tbody .= '<td>' . date("d/m/Y H:i", strtotime($value['actividad_fecha_finalizacion'])) . '</td>';
     $tbody .= '<td>' . $value['actividad_actividad'] . '</td>';
     $tbody .= '<td>' . $value['actividad_descripcion'] . '</td>';
-    $tbody .= '<td>' . strftime("%d/%m/%Y %H:%M", strtotime($value['actividad_registro'])) . '</td>';
+    $tbody .= '<td>' . date("d/m/Y H:i", strtotime($value['actividad_registro'])) . '</td>';
     $tbody .= '</tr>';
 
 }
@@ -134,9 +134,9 @@ foreach ($globalCbsdData as $key => $value) {
     $html = str_replace('{{' . $key . '}}', $value, $html);
 }
 
-$html = str_replace('{{voluntario_nombre_completo}}', $datosVoluntario['voluntario_nombre_completo'] , $html);
-$html = str_replace('{{jf_nombre}}', $datosResponsable['jf_nombre'] , $html);
-$html = str_replace('{{jf_definicion}}', $datosResponsable['jf_definicion'] , $html);
+$html = str_replace('{{voluntario_nombre_completo}}', ($datosVoluntario['voluntario_nombre_completo'] ?? '') , $html);
+$html = str_replace('{{jf_nombre}}', ($datosResponsable['jf_nombre'] ?? '') , $html);
+$html = str_replace('{{jf_definicion}}', ($datosResponsable['jf_definicion'] ?? '') , $html);
 $html = str_replace('{{fromDate}}', $desde , $html);
 $html = str_replace('{{toDate}}', $hasta , $html);
 $html = str_replace('{{tbody}}', $tbody , $html);

@@ -36,7 +36,7 @@ final class OperadoresApiTest extends TestCase
             INSERT INTO tthh.tb_personal (personal_id, fk_persona_id) VALUES (9301, 9301);
             INSERT INTO tthh.tb_personal_puestos (ppersonal_id, fk_personal_id, fk_puesto_id) VALUES (9301, 9301, " . self::$puesto . ");
             SET session_replication_role = origin;
-            INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9301, rol_id FROM admin.tb_roles WHERE rol_codigo IN ('ADM_OPERADORES', 'ADM_OPERADOR_GESTIONAR');
+            INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9301, rol_id FROM admin.tb_roles WHERE rol_codigo IN ('ADM_OPERADORES', 'ADM_OPERADOR_GESTIONAR', 'ADM_MOVILIZACION_CREAR');
             INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9302, rol_id FROM admin.tb_roles WHERE rol_codigo = 'ADM_OPERADORES';");
 
         $socket = stream_socket_server('tcp://127.0.0.1:0');

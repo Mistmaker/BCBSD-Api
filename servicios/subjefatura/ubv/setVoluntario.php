@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 try {
 
     // $arrQueryStringParams = array();
-    // parse_str($_SERVER['QUERY_STRING'], $arrQueryStringParams);
+    // parse_str(($_SERVER['QUERY_STRING'] ?? ''), $arrQueryStringParams);
     $requestMethod = $_SERVER["REQUEST_METHOD"];
     if (!in_array(strtoupper($requestMethod), array("POST", "PUT"))) {
         jsonResponse(['error' => 'Método no permitido'], 405);
@@ -211,53 +211,3 @@ function getFecha($formato = 'Y-m-d')
 }
 // fin de funciones utilitarias
 
-/*
-* GENERADOR DE CÓDIGO DE PROYECTOS
-*/
-function nextCodeProject($entity)
-{
-    // DEFINIR PREFIJO DE SERIE
-    $pref = "CBSD";
-    // DEFINIR AÑO EN CURSO
-    $year = date('y');
-    // DEFINIR SIGUIENTE ID DE PROYECTO
-    // $entityId = getNextId($entity);
-    // OBTENER PREFIJO DE PROYECTO
-    $project = 'MOV';
-    // CONSULTAR ÚLTIMO ID DE CÓDIGO GENERADO DEL AÑO
-    $database = new Database();
-    $database->query("SELECT MAX(orden_codigo_serie) as id FROM logistica.tb_ordenesmovilizacion WHERE (date_part('year',orden_registro)=date_part('year',CURRENT_DATE))");
-    $row = $database->single();
-    $database->closeConnection();
-    $id = ($row['id'] == null ? 0 : $row['id']) + 1;
-    // CONSULTAR ULTIMA SERIE
-    $database = new Database();
-    $database->query("SELECT MAX(orden_serie) as serie FROM logistica.tb_ordenesmovilizacion WHERE (date_part('year',orden_registro)=date_part('year',CURRENT_DATE)) AND orden_estado <> 'ORDEN ANULADA' ");
-    $row_serie = $database->single();
-    $database->closeConnection();
-    $n_serie = ($row_serie['serie'] == null ? 0 : $row_serie['serie']) + 1;
-    // FORMATEAR A 5 NÚMEROS
-    $serie = str_pad($id, 5, "0", STR_PAD_LEFT);
-    // GENERAR MODELO DE SERIE
-    // $barcode = array(
-    //     'barcode_serie' => $id,
-    //     'barcode_proyecto' => $project,
-    //     'barcode_proyecto_id' => $entityId
-    // );
-
-
-    // REGISTRAR CÓDIGO DE PROYECTOS
-    // RETORNAR CÓDIGO DE PROYECTO GENERADO
-    return array('orden_codigo_serie' => $id, 'code' => "{$pref}{$year}{$project}{$serie}", 'serie' => $n_serie);
-}
-/*
-* OBTENER SIGUIENTE ID DE ENTIDAD
-*/
-// function getNextId($tb)
-// {
-//     // PARÁMETROS DE ENTIDAD
-//     $cfg = $this->getParams($tb);
-//     // GENERAR QUERY
-//     $cfg = $this->findOne($this->getSQLSelect($this->setCustomTable($tb, "MAX({$cfg['serial']}) id", $cfg['table_schema'])));
-//     return ($cfg['id'] == null ? 0 : $cfg['id']) + 1;
-// }

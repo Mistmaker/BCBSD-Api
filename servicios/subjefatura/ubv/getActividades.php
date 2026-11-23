@@ -13,14 +13,14 @@ try {
 
     $requestMethod = $_SERVER["REQUEST_METHOD"];
     $arrQueryStringParams = array();
-    parse_str($_SERVER['QUERY_STRING'], $arrQueryStringParams);
+    parse_str(($_SERVER['QUERY_STRING'] ?? ''), $arrQueryStringParams);
     if (strtoupper($requestMethod) != 'GET') {
         $respuesta = json_encode(array('err' => false, 'mensaje' => 'Metodo no soportado'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     if (!isset($_GET['id'])) {
         $database = new Database();
-        $database->query("SELECT a.*,CONCAT(voluntario_apellidos, ' ', voluntario_nombres) AS voluntario_nombre_completo FROM subjefatura.tb_voluntarios_actividades a INNER JOIN subjefatura.tb_voluntarios v ON v.voluntario_id = a.fk_voluntario_id order by actividad_id LIMIT 100");
+        $database->query("SELECT a.*,CONCAT(voluntario_apellidos, ' ', voluntario_nombres) AS voluntario_nombre_completo FROM subjefatura.tb_voluntarios_actividades a INNER JOIN subjefatura.tb_voluntarios v ON v.voluntario_id = a.fk_voluntario_id WHERE COALESCE(a.actividad_estado, '') <> 'ELIMINADA' order by actividad_id DESC LIMIT 100");
         $rows = $database->resultset();
         $database->closeConnection();
     } else {

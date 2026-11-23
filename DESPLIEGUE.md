@@ -104,6 +104,21 @@ Se genera con `python3 migrations/generar-script-3.py` a partir de los archivos 
   `MANT_PLAN_GESTIONAR` (acciones; el API los exige). Combustible: `ADM_COMBUSTIBLE`, `ADM_COMBUSTIBLE_CREAR`.
   Movilización: `ADM_MOVILIZACION`, `ADM_MOVILIZACION_CREAR`. Vehículos: `ADM_VEHICULOS`, `ADM_VEHICULO_CREAR`.
 
+### Resumen gerencial (`migrations/servicios-generales/02-resumen-gerencial.sql`)
+
+`/admin/dashboard` (privilegio `ADM_DASHBOARD`): resumen para la dirección con flota (activos, en taller, en salida,
+mantenimiento vencido/próximo), gasto del mes y del año con tendencia de 12 meses, contratos vigentes, vehículos con
+alertas (mismos criterios de la bitácora), licencias de operadores y peticiones de materiales
+(`servicios/administrativo/getResumenGerencial.php?mes=AAAA-MM`). El detalle para analistas sigue en la bitácora.
+
+### Códigos con secuencia anual
+
+Todos los documentos numerados usan `{SIGLAS}{AA}{TIPO}…{NNNNN}` con las siglas de `admin.tb_sistema` y reinician cada
+año: movilización `MOV` y combustible `ABAS` (más el origen: dirección o estación; `classes/codigos.php`), orden de
+mantenimiento `ODM`, informe `INF` y petición de materiales `PDM`. Si cambian las siglas a mitad de año, la numeración de
+movilización y combustible continúa (antes el prefijo era `BCBSD` fijo). Para conservar el prefijo anterior basta con
+`sistema_siglas = 'BCBSD'`.
+
 ### Petición de materiales (`migrations/servicios-generales/01-peticion-materiales.sql`)
 
 Pantalla **Dir. Administrativa > Peticiones de materiales** (`ADM_PETICIONES_MATERIALES` para consultar e imprimir,
@@ -152,6 +167,23 @@ para registrar y editar). Un operador es un funcionario, operativo o administrat
 - Parámetros: `OPER_DIAS_AVISO_LICENCIA` (30: la licencia se marca POR VENCER) y `OPER_BLOQUEAR_LICENCIA_VENCIDA`
   (SI/NO).
 - El catálogo `resources.tb_licenciasdeconducir` se carga con las categorías de Ecuador solo si está vacío.
+
+### Partes de servicio (`migrations/operaciones/01-partes-servicio.sql`)
+
+- Usa el esquema del formulario (`operaciones.tb_partes` y sus detalles, creados por `script_sbj_temp.sql`). Las tablas
+  antiguas (`tb_parte`, `tb_parte_unidades`, `tb_parte_personal`) quedan solo como histórico.
+- Número automático como el formato del área operativa: `{SIGLAS}-PA-X1-2026-0001` (PA auxilio, PI incendio),
+  secuencia por año, estación y tipo. No cambia al editar.
+- Catálogos con las listas del Excel del área operativa: tipos de auxilio (clasificación → subclasificación → usos),
+  posibles causas, formas de aviso y apoyos. Equipos, herramientas, material e insumos van al catálogo
+  `tb_partes_catalogo_recursos` (lo que se escribe nuevo se agrega solo).
+- Cada vehículo, bombero y recurso queda enlazado a su registro (`fk_vehiculo_id`, `fk_personal_id`, `fk_recurso_id`)
+  para la estadística (`/operaciones/partes-estadisticas`). El kilometraje de los partes alimenta la bitácora y el
+  mantenimiento (`administrativo.vw_vehiculos_kilometraje`).
+- Parámetros (módulo OPERACIONES): `OPE_PARTE_RANGOS`, `OPE_PARTE_PELOTONES`, `OPE_PARTE_CLAVES` (listas separadas
+  por `|`) y `OPE_PARTE_PARROQUIA_ID` (ubicación por defecto del formulario).
+- Privilegios: `OPE_PARTES` (listado), `OPE_PARTES_ESTADISTICAS` (estadística), `OPE_PARTE_REGISTRAR` (registrar y
+  editar) y `OPE_PARTE_ANULAR` (anular con motivo y corregir partes finalizados).
 
 ### Bitácora del vehículo (`migrations/mantenimiento/05-bitacora.sql`)
 

@@ -82,7 +82,12 @@ $database->query($sqlOrdenes);
 $database->bind('orden_id', $id);
 $datos = $database->single();
 $database->closeConnection();
-// print_r($datos);
+if (!$datos) {
+    http_response_code(404);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Orden no encontrada']);
+    exit;
+}
 
 $datos = array_merge($datos, $globalCbsdData);
 
