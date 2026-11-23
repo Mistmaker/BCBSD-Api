@@ -139,6 +139,35 @@ CREATE TABLE IF NOT EXISTS admin.tb_params (
     param_modulo text
 );
 
+-- Administradores del sistema (parametrizable por institución): reciben todos los privilegios al ejecutar script-3.
+-- SIS_ADMINISTRADORES: usuario_id o login separados por | (p. ej. 113|jperez). SIS_PERFILES_ADMINISTRADOR: nombres de perfil.
+INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
+    ('SIS_ADMINISTRADORES', '113', 'list', 'Usuarios administradores del sistema: usuario_id o login separados por |. Reciben todos los privilegios al ejecutar script-3', 'ADMINISTRACION'),
+    ('SIS_PERFILES_ADMINISTRADOR', 'ADMINISTRADOR|ADMINISTRADOR DEL SISTEMA|ADMINISTRADOR SISTEMA|SUPER ADMINISTRADOR|SUPERADMINISTRADOR|SUPERADMIN|ADMIN',
+     'list', 'Nombres de los perfiles de administrador (separados por |): el perfil y sus usuarios reciben todos los privilegios', 'ADMINISTRACION')
+ON CONFLICT (param_key) DO NOTHING;
+
+-- ¿El perfil es de administrador? (nombre en SIS_PERFILES_ADMINISTRADOR, sin importar mayúsculas ni espacios)
+CREATE OR REPLACE FUNCTION admin.fn_perfil_es_administrador(p_perfil_id integer) RETURNS boolean LANGUAGE sql STABLE AS $f$
+    SELECT EXISTS (
+        SELECT 1 FROM admin.tb_perfiles p
+         WHERE p.perfil_id = p_perfil_id
+           AND regexp_replace(upper(trim(p.perfil_nombre)), '\s+', ' ', 'g') IN (
+               SELECT regexp_replace(upper(trim(x)), '\s+', ' ', 'g')
+                 FROM admin.tb_params, unnest(string_to_array(param_value, '|')) AS x
+                WHERE param_key = 'SIS_PERFILES_ADMINISTRADOR' AND trim(x) <> ''));
+$f$;
+-- ¿El usuario es administrador? (su id o login está en SIS_ADMINISTRADORES, o su perfil es de administrador)
+CREATE OR REPLACE FUNCTION admin.fn_es_administrador(p_usuario_id integer) RETURNS boolean LANGUAGE sql STABLE AS $f$
+    SELECT EXISTS (
+        SELECT 1 FROM admin.tb_usuarios u
+         WHERE u.usuario_id = p_usuario_id
+           AND (EXISTS (SELECT 1 FROM admin.tb_params, unnest(string_to_array(param_value, '|')) AS x
+                         WHERE param_key = 'SIS_ADMINISTRADORES'
+                           AND (trim(x) = u.usuario_id::text OR lower(trim(x)) = lower(trim(u.usuario_login))))
+                OR admin.fn_perfil_es_administrador(u.fk_perfil_id)));
+$f$;
+
 -- Parámetros usados por el módulo de mantenimiento (no se sobrescriben si ya existen)
 INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
     ('MANT_TOLERANCIA_KM', '1000', 'integer', 'Km de anticipación para alertar un mantenimiento preventivo', 'MANTENIMIENTO'),
@@ -528,13 +557,12 @@ SELECT DISTINCT ur.fk_usuario_id, n.rol_id
   JOIN admin.tb_roles n ON n.rol_codigo IN ('ADM_MOVILIZACION_CREAR', 'ADM_COMBUSTIBLE', 'ADM_COMBUSTIBLE_CREAR')
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = ur.fk_usuario_id AND x.fk_rol_id = n.rol_id);
 
--- 2. Usuario administrador (113 en el sistema actual): todos los privilegios de combustible y mantenimiento.
---    Cambie el 113 si su administrador tiene otro usuario_id.
+-- 2. Administradores (parámetro SIS_ADMINISTRADORES / perfiles de administrador): privilegios de combustible y mantenimiento.
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT u.usuario_id, r.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles r ON r.rol_codigo LIKE 'MANT_%' OR r.rol_codigo LIKE 'ADM_%'
- WHERE u.usuario_id = 113
+ WHERE admin.fn_es_administrador(u.usuario_id)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
 
 
@@ -585,12 +613,12 @@ SELECT 'Bitacora de vehiculos', 'Historial, consumo de combustible, gasto de man
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = 'ADM_BITACORA_VEHICULOS' OR r.rol_path = '/admin/bitacora-vehiculos')
  LIMIT 1;
 
--- Quien ya accede a vehículos o a órdenes de mantenimiento recibe la bitácora; también el administrador (113)
+-- Quien ya accede a vehículos o a órdenes de mantenimiento recibe la bitácora; también el administrador (parámetro SIS_ADMINISTRADORES)
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, b.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles b ON b.rol_codigo = 'ADM_BITACORA_VEHICULOS'
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                     WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo IN ('ADM_VEHICULOS', 'MANT_ORDENES')))
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = b.rol_id);
@@ -657,12 +685,12 @@ SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = v.codigo)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE v.ruta IS NOT NULL AND r.rol_path = v.ruta);
 
--- Acceso de consulta para quien ya emite órdenes de movilización o combustible; ambos privilegios para el administrador (113)
+-- Acceso de consulta para quien ya emite órdenes de movilización o combustible; ambos privilegios para el administrador (parámetro SIS_ADMINISTRADORES)
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, o.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles o ON o.rol_codigo IN ('ADM_OPERADORES', 'ADM_OPERADOR_GESTIONAR')
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR (o.rol_codigo = 'ADM_OPERADORES'
             AND EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                          WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo IN ('ADM_MOVILIZACION', 'ADM_COMBUSTIBLE'))))
@@ -732,7 +760,7 @@ SELECT u.usuario_id, pr.fk_rol_id, 'PERFIL'::text
  WHERE COALESCE(u.usuario_estado, 'ACTIVO') = 'ACTIVO';
 COMMENT ON VIEW admin.vw_usuario_privilegios IS 'Privilegios efectivos: perfil + adicionales, solo usuarios y perfiles ACTIVOS';
 
--- 3. Menú y privilegios de la administración del sistema (antes el menú estaba fijo para el usuario 113)
+-- 3. Menú y privilegios de la administración del sistema (antes el menú estaba fijo para un usuario)
 ALTER TABLE admin.tb_roles ADD COLUMN IF NOT EXISTS rol_codigo text;
 INSERT INTO admin.tb_modulos (modulo_nombre, modulo_descripcion)
 SELECT 'Administración', 'Usuarios, perfiles y privilegios del sistema'
@@ -741,6 +769,12 @@ INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre)
 SELECT m.modulo_id, 'Usuarios y perfiles' FROM admin.tb_modulos m
  WHERE m.modulo_nombre = 'Administración'
    AND NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre = 'Usuarios y perfiles');
+
+-- Si el menú anterior ya tenía estas pantallas (ruta sin código), se les completa el código en lugar de duplicarlas
+UPDATE admin.tb_roles r SET rol_codigo = c.codigo
+  FROM (VALUES ('/adm/usuarios', 'SIS_USUARIOS'), ('/adm/perfiles', 'SIS_PERFILES')) AS c(ruta, codigo)
+ WHERE r.rol_path = c.ruta AND r.rol_codigo IS NULL
+   AND NOT EXISTS (SELECT 1 FROM admin.tb_roles y WHERE y.rol_codigo = c.codigo);
 
 INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path, rol_codigo)
 SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
@@ -755,14 +789,14 @@ SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = v.codigo)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE v.ruta IS NOT NULL AND r.rol_path = v.ruta);
 
--- 4. Asignaciones iniciales: el administrador (113) y el perfil ADMINISTRADOR reciben toda la administración del sistema
+-- 4. Asignaciones iniciales: el administrador (parámetro SIS_ADMINISTRADORES) y el perfil ADMINISTRADOR reciben toda la administración del sistema
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT u.usuario_id, r.rol_id FROM admin.tb_usuarios u JOIN admin.tb_roles r ON r.rol_codigo LIKE 'SIS\_%'
- WHERE u.usuario_id = 113
+ WHERE admin.fn_es_administrador(u.usuario_id)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT p.perfil_id, r.rol_id FROM admin.tb_perfiles p JOIN admin.tb_roles r ON r.rol_codigo LIKE 'SIS\_%'
- WHERE upper(trim(p.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(p.perfil_id)
 ON CONFLICT DO NOTHING;
 
 -- 5. Contraseñas: password_hash (bcrypt, 60 caracteres). Las MD5 existentes se convierten solas en el siguiente login.
@@ -835,19 +869,19 @@ SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = v.codigo)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE v.ruta IS NOT NULL AND r.rol_path = v.ruta);
 
--- Asignación inicial: el administrador (113) y quienes ya emiten órdenes de movilización (servicios generales)
+-- Asignación inicial: el administrador (parámetro SIS_ADMINISTRADORES) y quienes ya emiten órdenes de movilización (servicios generales)
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, p.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles p ON p.rol_codigo IN ('ADM_PETICIONES_MATERIALES', 'ADM_PETICION_MATERIALES_GESTIONAR')
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                     WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo = 'ADM_MOVILIZACION_CREAR'))
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = p.rol_id);
 -- y el perfil ADMINISTRADOR
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf JOIN admin.tb_roles r ON r.rol_codigo IN ('ADM_PETICIONES_MATERIALES', 'ADM_PETICION_MATERIALES_GESTIONAR')
- WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(pf.perfil_id)
 ON CONFLICT DO NOTHING;
 
 -- =============================================================================
@@ -871,17 +905,17 @@ SELECT 'Resumen gerencial', 'Resumen de flota, gasto, contratos, alertas y licen
 UPDATE admin.tb_roles SET rol_codigo = 'ADM_DASHBOARD'
  WHERE rol_path = '/admin/dashboard' AND rol_codigo IS NULL AND NOT EXISTS (SELECT 1 FROM admin.tb_roles y WHERE y.rol_codigo = 'ADM_DASHBOARD');
 
--- Asignación inicial: el administrador (113), el perfil ADMINISTRADOR y quienes ya ven la bitácora de vehículos
+-- Asignación inicial: el administrador (parámetro SIS_ADMINISTRADORES), el perfil ADMINISTRADOR y quienes ya ven la bitácora de vehículos
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, d.rol_id
   FROM admin.tb_usuarios u JOIN admin.tb_roles d ON d.rol_codigo = 'ADM_DASHBOARD'
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                     WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo = 'ADM_BITACORA_VEHICULOS'))
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = d.rol_id);
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf JOIN admin.tb_roles r ON r.rol_codigo = 'ADM_DASHBOARD'
- WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(pf.perfil_id)
 ON CONFLICT DO NOTHING;
 
 
@@ -1204,13 +1238,13 @@ UPDATE admin.tb_roles SET rol_codigo = 'OPE_PARTES_ESTADISTICAS'
  WHERE rol_path = '/operaciones/partes-estadisticas' AND rol_codigo IS NULL
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles y WHERE y.rol_codigo = 'OPE_PARTES_ESTADISTICAS');
 
--- Asignación inicial: administrador (113) todo; quienes ya tienen Partes de servicio: registrar y estadística;
+-- Asignación inicial: administrador (parámetro SIS_ADMINISTRADORES) todo; quienes ya tienen Partes de servicio: registrar y estadística;
 -- quienes ven el resumen gerencial (dirección): estadística. Perfil ADMINISTRADOR: todo.
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, r.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles r ON r.rol_codigo IN ('OPE_PARTES', 'OPE_PARTES_ESTADISTICAS', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR')
- WHERE u.usuario_id = 113
+ WHERE admin.fn_es_administrador(u.usuario_id)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT ur.fk_usuario_id, r.rol_id
@@ -1227,7 +1261,7 @@ SELECT DISTINCT ur.fk_usuario_id, r.rol_id
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf
   JOIN admin.tb_roles r ON r.rol_codigo IN ('OPE_PARTES', 'OPE_PARTES_ESTADISTICAS', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR')
- WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(pf.perfil_id)
 ON CONFLICT DO NOTHING;
 
 
@@ -1656,3 +1690,42 @@ SELECT 'CUERPO DE BOMBEROS SANTO DOMINGO', 'CBSD', 'Juntos hacia el crecimiento 
 UPDATE admin.tb_sistema SET sistema_slogan = COALESCE(sistema_slogan, 'Juntos hacia el crecimiento institucional'),
                             sistema_facebook = COALESCE(sistema_facebook, '/CuerpoDeBomberosSantoDomingo'),
                             sistema_twitter = COALESCE(sistema_twitter, '@BomberosSD');
+
+
+-- ======================================================================================================
+-- 13. ACCESO DE LOS ADMINISTRADORES (todos los privilegios; parámetros SIS_ADMINISTRADORES y SIS_PERFILES_ADMINISTRADOR)
+-- ======================================================================================================
+-- =============================================================================
+-- ACCESO DE LOS ADMINISTRADORES - re-ejecutable, va AL FINAL de script-3
+-- Los administradores (parámetro SIS_ADMINISTRADORES: usuario_id o login) y los perfiles de administrador
+-- (parámetro SIS_PERFILES_ADMINISTRADOR) reciben TODOS los privilegios existentes, incluidos los que agreguen
+-- migraciones nuevas. Para cambiar quién es administrador:
+--   UPDATE admin.tb_params SET param_value = '113|mi.usuario' WHERE param_key = 'SIS_ADMINISTRADORES';
+-- y volver a ejecutar esta sección (o script-3 completo).
+-- =============================================================================
+
+-- 1. Perfiles de administrador: todos los privilegios
+INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
+SELECT p.perfil_id, r.rol_id
+  FROM admin.tb_perfiles p CROSS JOIN admin.tb_roles r
+ WHERE admin.fn_perfil_es_administrador(p.perfil_id)
+ON CONFLICT DO NOTHING;
+
+-- 2. Usuarios administradores: todos los privilegios como adicionales (no dependen de su perfil ni de su estado)
+INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
+SELECT u.usuario_id, r.rol_id
+  FROM admin.tb_usuarios u CROSS JOIN admin.tb_roles r
+ WHERE admin.fn_es_administrador(u.usuario_id)
+   AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
+
+-- 3. Perfil de administrador activo (un perfil inactivo no da privilegios)
+UPDATE admin.tb_perfiles p SET perfil_estado = 'ACTIVO'
+ WHERE admin.fn_perfil_es_administrador(p.perfil_id) AND perfil_estado IS DISTINCT FROM 'ACTIVO';
+
+-- 4. Resultado: administradores, su estado y cuántos privilegios efectivos tienen (debe ser el total de privilegios)
+SELECT u.usuario_id, u.usuario_login, COALESCE(u.usuario_estado, 'ACTIVO') AS estado, pf.perfil_nombre,
+       (SELECT count(DISTINCT v.rol_id) FROM admin.vw_usuario_privilegios v WHERE v.usuario_id = u.usuario_id) AS privilegios,
+       (SELECT count(*) FROM admin.tb_roles) AS total_privilegios
+  FROM admin.tb_usuarios u LEFT JOIN admin.tb_perfiles pf ON pf.perfil_id = u.fk_perfil_id
+ WHERE admin.fn_es_administrador(u.usuario_id)
+ ORDER BY u.usuario_id;

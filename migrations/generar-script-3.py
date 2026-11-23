@@ -80,6 +80,8 @@ UPDATE admin.tb_sistema SET sistema_slogan = COALESCE(sistema_slogan, 'Juntos ha
                             sistema_facebook = COALESCE(sistema_facebook, '/CuerpoDeBomberosSantoDomingo'),
                             sistema_twitter = COALESCE(sistema_twitter, '@BomberosSD');
 """),
+    ("13. ACCESO DE LOS ADMINISTRADORES (todos los privilegios; parámetros SIS_ADMINISTRADORES y SIS_PERFILES_ADMINISTRADOR)",
+     leer('migrations/admin/02-acceso-administradores.sql')),
 ]
 
 encabezado = """-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

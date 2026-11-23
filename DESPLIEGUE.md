@@ -111,6 +111,21 @@ mantenimiento vencido/próximo), gasto del mes y del año con tendencia de 12 me
 alertas (mismos criterios de la bitácora), licencias de operadores y peticiones de materiales
 (`servicios/administrativo/getResumenGerencial.php?mes=AAAA-MM`). El detalle para analistas sigue en la bitácora.
 
+### Administradores del sistema (`migrations/admin/02-acceso-administradores.sql`, última sección)
+
+- Quién es administrador se configura en `admin.tb_params` (no en el código):
+  - `SIS_ADMINISTRADORES`: usuario_id o login separados por `|` (por defecto `113`).
+  - `SIS_PERFILES_ADMINISTRADOR`: nombres de los perfiles de administrador (sin importar mayúsculas ni espacios).
+- Esos usuarios y perfiles reciben **todos** los privilegios cada vez que se ejecuta `script-3.sql`; la última sección
+  muestra cuántos privilegios tiene cada administrador (debe ser igual al total).
+- Si se pierde el acceso a Administración:
+
+```sql
+UPDATE admin.tb_params SET param_value = '113|su.login' WHERE param_key = 'SIS_ADMINISTRADORES';
+```
+
+  y volver a ejecutar `script-3.sql` (o solo su última sección). Luego recargar la página del sistema.
+
 ### Códigos con secuencia anual
 
 Todos los documentos numerados usan `{SIGLAS}{AA}{TIPO}…{NNNNN}` con las siglas de `admin.tb_sistema` y reinician cada

@@ -15,7 +15,10 @@ en Administración > Usuarios > Privilegios:
 - **Permiso de acción** (registrar, editar, anular...): `rol_path` = NULL, `rol_codigo` propio (`ADM_OPERADOR_GESTIONAR`).
 - Va dentro del submódulo que corresponda (`admin.tb_submodulos`, del módulo `admin.tb_modulos`); si no existe, crearlo.
 - Re-ejecutable: `WHERE NOT EXISTS (... rol_codigo = ...)`. Modelo: `migrations/operadores/01-operadores.sql`, sección 4.
-- Asignación inicial: al administrador (usuario 113) y a quienes ya usan pantallas relacionadas.
+- Asignación inicial: a los administradores con `admin.fn_es_administrador(u.usuario_id)` (parámetro `SIS_ADMINISTRADORES`,
+  nunca un usuario_id fijo), al perfil de administrador con `admin.fn_perfil_es_administrador(p.perfil_id)` y a quienes
+  ya usan pantallas relacionadas. La sección final de `script-3.sql` (`migrations/admin/02-acceso-administradores.sql`)
+  da además todos los privilegios a los administradores.
 - En el API: `requirePermiso($db, 'CODIGO')` en el endpoint. En el front: `data: { permiso: 'CODIGO' }` en la ruta
   con `canActivate: [AuthGuard, permisoGuard]`, y `auth.tienePermiso('CODIGO')` para botones de acción.
 - Agregar la migración nueva a `migrations/generar-script-3.py` y regenerar `script-3.sql`.

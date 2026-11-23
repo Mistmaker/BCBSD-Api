@@ -56,12 +56,12 @@ SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = v.codigo)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE v.ruta IS NOT NULL AND r.rol_path = v.ruta);
 
--- Acceso de consulta para quien ya emite órdenes de movilización o combustible; ambos privilegios para el administrador (113)
+-- Acceso de consulta para quien ya emite órdenes de movilización o combustible; ambos privilegios para el administrador (parámetro SIS_ADMINISTRADORES)
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, o.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles o ON o.rol_codigo IN ('ADM_OPERADORES', 'ADM_OPERADOR_GESTIONAR')
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR (o.rol_codigo = 'ADM_OPERADORES'
             AND EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                          WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo IN ('ADM_MOVILIZACION', 'ADM_COMBUSTIBLE'))))

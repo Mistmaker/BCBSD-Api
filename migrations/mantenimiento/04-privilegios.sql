@@ -86,11 +86,10 @@ SELECT DISTINCT ur.fk_usuario_id, n.rol_id
   JOIN admin.tb_roles n ON n.rol_codigo IN ('ADM_MOVILIZACION_CREAR', 'ADM_COMBUSTIBLE', 'ADM_COMBUSTIBLE_CREAR')
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = ur.fk_usuario_id AND x.fk_rol_id = n.rol_id);
 
--- 2. Usuario administrador (113 en el sistema actual): todos los privilegios de combustible y mantenimiento.
---    Cambie el 113 si su administrador tiene otro usuario_id.
+-- 2. Administradores (parámetro SIS_ADMINISTRADORES / perfiles de administrador): privilegios de combustible y mantenimiento.
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT u.usuario_id, r.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles r ON r.rol_codigo LIKE 'MANT_%' OR r.rol_codigo LIKE 'ADM_%'
- WHERE u.usuario_id = 113
+ WHERE admin.fn_es_administrador(u.usuario_id)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
