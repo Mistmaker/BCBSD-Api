@@ -33,10 +33,10 @@ final class PartesApiTest extends TestCase
                  VALUES (9801, 1, 1, 'PRB-9801', 'R-98', 'AUTOBOMBA', 'DIESEL', 'ACTIVO', 9801), (9802, 1, 1, 'PRB-9802', 'A-98', 'AMBULANCIA', 'DIESEL', 'ACTIVO', 9801);
             SET session_replication_role = origin;
             INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9801, rol_id FROM admin.tb_roles
-             WHERE rol_codigo IN ('OPE_PARTES', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR', 'OPE_PARTES_ESTADISTICAS', 'ADM_BITACORA_VEHICULOS');
+             WHERE rol_codigo IN ('OPE_PARTES', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR', 'OPE_PARTES_ESTADISTICAS', 'ADM_BITACORA_VEHICULOS', 'SBJ_ESTADISTICAS');
             INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9802, rol_id FROM admin.tb_roles
              WHERE rol_codigo IN ('OPE_PARTES', 'OPE_PARTE_REGISTRAR');
-            INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9803, rol_id FROM admin.tb_roles WHERE rol_codigo = 'OPE_PARTES';");
+            INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9803, rol_id FROM admin.tb_roles WHERE rol_codigo IN ('OPE_PARTES', 'SBJ_INTERVENCIONES', 'ADM_DASHBOARD', 'ADM_VEHICULOS', 'ADM_OPERADORES', 'ADM_MOVILIZACION');");
 
         $socket = stream_socket_server('tcp://127.0.0.1:0');
         self::$puerto = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
@@ -261,6 +261,49 @@ final class PartesApiTest extends TestCase
         $this->assertSame($partes - 1, $e2['resumen']['partes']);
         [$st] = $this->api('PUT', 'operaciones/setParte.php', $edicion);
         $this->assertSame(422, $st);
+    }
+
+    public function testPanelDeSubjefatura(): void
+    {
+        $incendio = $this->parte(['parte_tipo' => 'INCENDIO', 'parte_fecha' => '2025-06-07', 'parte_hora_aviso' => '03:10', 'parte_latitud' => '-0.2477',
+            'parte_longitud' => '-79.1834', 'parte_sector' => 'coca cola', 'parte_area_destruida_m2' => 40, 'parte_causante_identificado' => true,
+            'tipos_incendio' => [(int) self::$pdo->query("SELECT tipo_incendio_id FROM operaciones.tb_partes_catalogo_tipos_incendio WHERE tipo_incendio_codigo = 'FORESTAL'")->fetchColumn()],
+            'causas' => [['parte_causa_clasificacion' => 'Incendio', 'parte_causa_descripcion' => 'Cortocircuito']],
+            'vehiculos' => [['fk_vehiculo_id' => 9802, 'parte_vehiculo_hora_salida' => '2025-06-07T03:15', 'parte_vehiculo_hora_arribo' => '2025-06-07T03:30']]]);
+        [$st, , $t] = $this->api('POST', 'operaciones/setParte.php', $incendio);
+        $this->assertSame(201, $st, $t);
+        [$st, $e, $t] = $this->api('GET', 'subjefatura/estadisticas/getEstadisticasEmergencias.php?desde=2025-06-01&hasta=2025-06-30&estacion=9801');
+        $this->assertSame(200, $st, $t);
+        $this->assertSame(1, $e['resumen']['incendio']);
+        $this->assertSame(0, $e['resumen']['auxilio']);
+        $this->assertSame(20.0, (float) $e['incendio']['resumen']['respuesta_prom_min']);
+        $this->assertSame(40.0, (float) $e['incendio']['resumen']['area_destruida_m2']);
+        $this->assertSame(1, $e['incendio']['resumen']['causante_identificado']);
+        $this->assertSame('Forestal', $e['incendio']['tipos_incendio'][0]['nombre']);
+        $this->assertSame('Cortocircuito', $e['incendio']['causas'][0]['nombre']);
+        $this->assertSame('Coca Cola', $e['incendio']['por_sector'][0]['nombre']);
+        $this->assertSame(1, $e['incendio']['por_hora'][3]);
+        $this->assertSame(1, $e['incendio']['por_dia_semana'][5], 'sábado');
+        $this->assertSame(0, $e['auxilio']['resumen']['partes']);
+        $this->assertCount(1, $e['puntos']);
+        $this->assertSame('INCENDIO', $e['puntos'][0]['tipo']);
+        [$st] = $this->api('GET', 'subjefatura/estadisticas/getEstadisticasEmergencias.php', null, 9802);
+        $this->assertSame(403, $st);
+    }
+
+    public function testMenuAgrupadoYPantallasInactivas(): void
+    {
+        [$st, $menu, $t] = $this->api('GET', 'auth/getMenuUsuario.php', null, 9803);
+        $this->assertSame(200, $st, $t);
+        $this->assertSame(['Dir. Administrativa', 'Operaciones'], array_column($menu, 'name'), 'Intervenciones está en desuso: Subjefatura no aparece');
+        $adm = $menu[0]['children'];
+        $this->assertSame(['Panel', 'Parámetros', 'Órdenes de movilización'], array_column($adm, 'name'));
+        $this->assertSame(['Vehículos', 'Operadores'], array_column($adm[1]['children'], 'name'));
+        [, $permisos] = $this->api('GET', 'auth/getPermisos.php', null, 9803);
+        $this->assertNotContains('SBJ_INTERVENCIONES', $permisos['permisos']);
+        // APH: privilegio propio
+        [$st] = $this->api('GET', 'subjefatura/aph/getHojasRuta.php', null, 9803);
+        $this->assertSame(403, $st);
     }
 
     public function testCatalogos(): void

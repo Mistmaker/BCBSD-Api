@@ -33,7 +33,7 @@ final class BaseDesdeCeroTest extends TestCase
             $this->assertSame($primera, $conteo(), 'la segunda ejecución no agrega ni duplica nada');
             $this->assertGreaterThanOrEqual(100, (int) $primera[0], 'tablas y vistas');
             $this->assertSame(1, (int) $primera[4], 'usuario admin inicial');
-            $privilegios = $db->query("SELECT count(DISTINCT v.rol_id) = (SELECT count(*) FROM admin.tb_roles)
+            $privilegios = $db->query("SELECT count(DISTINCT v.rol_id) = (SELECT count(*) FROM admin.tb_roles r WHERE r.rol_estado IS DISTINCT FROM 'INACTIVO')
                                          FROM admin.tb_usuarios u JOIN admin.vw_usuario_privilegios v ON v.usuario_id = u.usuario_id
                                         WHERE u.usuario_login = 'admin'")->fetchColumn();
             $this->assertTrue((bool) $privilegios, 'el admin inicial tiene todos los privilegios');

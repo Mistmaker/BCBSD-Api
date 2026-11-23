@@ -105,8 +105,9 @@ try {
         for ($i = 0; $i < $nroVales; $i++) {
 
             // Obtener serie y codigo
-            // Código anual {SIGLAS}{AA}ABAS{ORIGEN}{NNNNN}; los vales anteriores de este mismo envío ya cuentan (misma transacción)
-            $datosCodigo = codSiguienteOrden($database, 'logistica.tb_ordenesabastecimiento', 'ABAS', $origen);
+            // Código anual {SIGLAS}{AA}COM{ORIGEN}{NNNNN}; los vales anteriores de este mismo envío ya cuentan (misma transacción).
+            // Antes el tipo era ABAS: en el año del cambio la numeración continúa desde el último ABAS.
+            $datosCodigo = codSiguienteOrden($database, 'logistica.tb_ordenesabastecimiento', 'COM', $origen, null, ['ABAS']);
             // print_r($datosCodigo);
             $request->orden_codigo = $datosCodigo["code"];
             $request->orden_codigo_serie = $datosCodigo["orden_codigo_serie"];

@@ -25,10 +25,10 @@ SELECT u.usuario_id, r.rol_id
 UPDATE admin.tb_perfiles p SET perfil_estado = 'ACTIVO'
  WHERE admin.fn_perfil_es_administrador(p.perfil_id) AND perfil_estado IS DISTINCT FROM 'ACTIVO';
 
--- 4. Resultado: administradores, su estado y cuántos privilegios efectivos tienen (debe ser el total de privilegios)
+-- 4. Resultado: administradores, su estado y cuántos privilegios efectivos tienen (debe ser el total de privilegios en uso)
 SELECT u.usuario_id, u.usuario_login, COALESCE(u.usuario_estado, 'ACTIVO') AS estado, pf.perfil_nombre,
        (SELECT count(DISTINCT v.rol_id) FROM admin.vw_usuario_privilegios v WHERE v.usuario_id = u.usuario_id) AS privilegios,
-       (SELECT count(*) FROM admin.tb_roles) AS total_privilegios
+       (SELECT count(*) FROM admin.tb_roles r WHERE r.rol_estado IS DISTINCT FROM 'INACTIVO') AS total_privilegios
   FROM admin.tb_usuarios u LEFT JOIN admin.tb_perfiles pf ON pf.perfil_id = u.fk_perfil_id
  WHERE admin.fn_es_administrador(u.usuario_id)
  ORDER BY u.usuario_id;

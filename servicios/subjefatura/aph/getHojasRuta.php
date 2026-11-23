@@ -1,6 +1,13 @@
 <?php
 require_once __DIR__ . '/../../../classes/auth.php';
 $auth = requireAuth();
+require_once __DIR__ . '/../../../classes/api.php';
+// Hojas de ruta APH: privilegio SBJ_APH_HOJAS (Subjefatura > Atención prehospitalaria)
+(function () {
+    $db = new Database();
+    requirePermiso($db, 'SBJ_APH_HOJAS');
+    $db->closeConnection();
+})();
 // use Spipu\Html2Pdf\Html2Pdf;
 // DB configuration
 include_once("../../../classes/dbconfig.php");

@@ -107,11 +107,11 @@ final class CodigosApiTest extends TestCase
         // Continúa la secuencia del año (7, aunque el prefijo anterior fuera BCBSD) e ignora el año pasado (50); dos vales seguidos
         [$st, $t] = $this->crear(9601, 2);
         $this->assertSame(201, $st, $t);
-        $this->assertSame(["{$siglas}{$aa}ABASTSTA00008", "{$siglas}{$aa}ABASTSTA00009"], $this->codigos(9601));
+        $this->assertSame(["{$siglas}{$aa}COMTSTA00008", "{$siglas}{$aa}COMTSTA00009"], $this->codigos(9601));
         // Origen que solo tiene órdenes del año anterior: reinicia en 1
         [$st] = $this->crear(9602, 1);
         $this->assertSame(201, $st);
-        $this->assertSame(["{$siglas}{$aa}ABASTSTB00001"], $this->codigos(9602));
+        $this->assertSame(["{$siglas}{$aa}COMTSTB00001"], $this->codigos(9602));
     }
 
     public function testEmitirExigePrivilegio(): void

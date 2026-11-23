@@ -442,12 +442,12 @@ final class MantenimientoApiTest extends TestCase
         // Menú: solo pantallas asignadas, con el usuario del token (se ignora ?id de otro usuario)
         [$st, $menu] = $this->api('GET', 'auth/getMenuUsuario.php?id=113');
         $this->assertSame(200, $st);
-        $urls = array_merge(...array_map(fn($m) => array_column($m['children'], 'url'), $menu));
+        $urls = self::urlsMenu($menu);
         $this->assertContains('/admin/ordenes-mantenimiento', $urls);
         $this->assertNotContains('/admin/ordenes-movilizacion', $urls, 'Movilización no está asignada al usuario de prueba');
         $quitar('MANT_CONTRATOS');
         [, $menu] = $this->api('GET', 'auth/getMenuUsuario.php?id=9001');
-        $urls = array_merge(...array_map(fn($m) => array_column($m['children'], 'url'), $menu));
+        $urls = self::urlsMenu($menu);
         $this->assertNotContains('/admin/contratos-mantenimiento', $urls, 'Una pantalla quitada desaparece del menú');
         $dar('MANT_CONTRATOS');
 
@@ -488,5 +488,15 @@ final class MantenimientoApiTest extends TestCase
         $this->assertArrayHasKey('sistema_siglas', $s);
         $this->assertContains('MANT_RUBROS', array_column($s['parametros'], 'param_key'));
         $this->assertArrayHasKey('director_administrativo', $s);
+    }
+
+    /** URLs de todas las pantallas del menú (módulos, grupos y pantallas) */
+    private static function urlsMenu(array $items): array
+    {
+        $urls = [];
+        foreach ($items as $i) {
+            isset($i['children']) ? array_push($urls, ...self::urlsMenu($i['children'])) : $urls[] = $i['url'];
+        }
+        return $urls;
     }
 }

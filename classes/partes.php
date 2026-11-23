@@ -714,3 +714,103 @@ function parteEstadisticas(Database $db, string $desde, string $hasta, ?int $est
         'por_vehiculo' => $porVehiculo, 'por_bombero' => $porBombero, 'por_recurso' => $porRecurso, 'por_tipo_auxilio' => $porTipoAuxilio,
         'por_causa' => $porCausa, 'por_dia_semana' => array_values($porDia), 'por_hora' => $porHora];
 }
+
+/**
+ * Consultas sobre los partes NO anulados del período (CTE "b" con respuesta_min). $tipo: 'INCENDIO', 'AUXILIO' o null.
+ * Devuelve una función ($sql) => filas.
+ */
+function parteConsultaPeriodo(Database $db, string $desde, string $hasta, ?int $estacion, ?string $tipo): callable
+{
+    $filtro = "p.parte_estado <> 'ANULADO' AND p.parte_fecha BETWEEN :d AND :h" . ($estacion ? ' AND p.fk_estacion_id = :e' : '') . ($tipo ? ' AND p.parte_tipo = :t' : '');
+    $base = "WITH b AS (
+                SELECT p.*, (COALESCE(p.parte_fecha_aviso, p.parte_fecha) + p.parte_hora_aviso) AS aviso_ts,
+                       (SELECT extract(epoch FROM MIN(v.parte_vehiculo_hora_arribo) - (COALESCE(p.parte_fecha_aviso, p.parte_fecha) + p.parte_hora_aviso)) / 60
+                          FROM operaciones.tb_partes_vehiculos v WHERE v.fk_parte_id = p.parte_id) AS respuesta_bruta
+                  FROM operaciones.tb_partes p WHERE $filtro),
+             c AS (SELECT b.*, CASE WHEN respuesta_bruta BETWEEN 0 AND 1440 THEN respuesta_bruta END AS respuesta_min FROM b) ";
+    return function (string $sql) use ($db, $base, $desde, $hasta, $estacion, $tipo): array {
+        $db->query($base . $sql);
+        $db->bind(':d', $desde);
+        $db->bind(':h', $hasta);
+        if ($estacion) {
+            $db->bind(':e', $estacion);
+        }
+        if ($tipo) {
+            $db->bind(':t', $tipo);
+        }
+        return $db->resultset();
+    };
+}
+
+/**
+ * Estadística de EMERGENCIAS para la Subjefatura (panel por tipo): resumen, por mes, y para incendio y auxilio por
+ * separado: lugar (parroquia, sector), hora y día del aviso, causas y lo propio de cada tipo (tipos de incendio,
+ * naturaleza, área destruida, causante / clasificación y subclasificación del auxilio), más los puntos del mapa.
+ */
+function parteEstadisticasEmergencias(Database $db, string $desde, string $hasta, ?int $estacion = null): array
+{
+    $num = fn($v, int $dec = 1) => $v === null ? null : round((float) $v, $dec);
+    $todos = parteConsultaPeriodo($db, $desde, $hasta, $estacion, null);
+    $r = $todos("SELECT count(*) AS partes, count(*) FILTER (WHERE parte_tipo = 'INCENDIO') AS incendio, count(*) FILTER (WHERE parte_tipo = 'AUXILIO') AS auxilio,
+                        COALESCE(sum(parte_total_heridos), 0) AS victimas, COALESCE(sum(parte_total_muertos), 0) AS fallecidos, avg(respuesta_min) AS respuesta FROM c")[0];
+    $porMes = array_map(fn($x) => ['mes' => $x['mes'], 'incendio' => (int) $x['incendio'], 'auxilio' => (int) $x['auxilio']],
+        $todos("SELECT to_char(m, 'YYYY-MM') AS mes,
+                       (SELECT count(*) FROM c WHERE date_trunc('month', parte_fecha) = m AND parte_tipo = 'INCENDIO') AS incendio,
+                       (SELECT count(*) FROM c WHERE date_trunc('month', parte_fecha) = m AND parte_tipo = 'AUXILIO') AS auxilio
+                  FROM generate_series(date_trunc('month', :d::date), date_trunc('month', :h::date), interval '1 month') AS m ORDER BY m"));
+    $puntos = array_map(fn($x) => ['parte_id' => (int) $x['parte_id'], 'numero' => $x['parte_numero'], 'tipo' => $x['parte_tipo'], 'fecha' => $x['parte_fecha'],
+        'lat' => (float) $x['parte_latitud'], 'lng' => (float) $x['parte_longitud'], 'detalle' => $x['detalle']],
+        $todos("SELECT parte_id, parte_numero, parte_tipo, parte_fecha::text AS parte_fecha, parte_latitud, parte_longitud,
+                       COALESCE((SELECT string_agg(DISTINCT concat_ws(' / ', ta.parte_auxilio_clasificacion, ta.parte_auxilio_subclasificacion), ', ')
+                                   FROM operaciones.tb_partes_tipos_auxilio ta WHERE ta.fk_parte_id = c.parte_id),
+                                (SELECT string_agg(ti.parte_incendio_clasificacion, ', ') FROM operaciones.tb_partes_tipos_incendio ti WHERE ti.fk_parte_id = c.parte_id),
+                                parte_sector) AS detalle
+                  FROM c WHERE parte_latitud IS NOT NULL AND parte_longitud IS NOT NULL ORDER BY parte_fecha DESC LIMIT 2000"));
+
+    $seccion = function (string $tipo) use ($db, $desde, $hasta, $estacion, $num): array {
+        $q = parteConsultaPeriodo($db, $desde, $hasta, $estacion, $tipo);
+        $r = $q("SELECT count(*) AS partes, COALESCE(sum(parte_total_heridos), 0) AS victimas, COALESCE(sum(parte_total_muertos), 0) AS fallecidos,
+                        avg(respuesta_min) AS respuesta, COALESCE(sum(parte_area_destruida_m2), 0) AS area, COALESCE(sum(parte_total_superficie_quemada_m2), 0) AS superficie,
+                        count(*) FILTER (WHERE parte_causante_identificado) AS causante_si, count(*) FILTER (WHERE parte_causante_identificado = false) AS causante_no
+                   FROM c")[0];
+        $conteo = fn(string $sql) => array_map(fn($x) => ['nombre' => $x['nombre'], 'detalle' => $x['detalle'] ?? null, 'partes' => (int) $x['partes']], $q($sql));
+        $dia = array_fill(1, 7, 0);
+        foreach ($q('SELECT extract(isodow FROM aviso_ts)::int AS d, count(*) AS n FROM c WHERE aviso_ts IS NOT NULL GROUP BY 1') as $x) {
+            $dia[(int) $x['d']] = (int) $x['n'];
+        }
+        $hora = array_fill(0, 24, 0);
+        foreach ($q('SELECT extract(hour FROM parte_hora_aviso)::int AS h, count(*) AS n FROM c WHERE parte_hora_aviso IS NOT NULL GROUP BY 1') as $x) {
+            $hora[(int) $x['h']] = (int) $x['n'];
+        }
+        $s = [
+            'resumen' => ['partes' => (int) $r['partes'], 'victimas' => (int) $r['victimas'], 'fallecidos' => (int) $r['fallecidos'],
+                'respuesta_prom_min' => $num($r['respuesta'])],
+            'por_parroquia' => $conteo("SELECT COALESCE(pa.parish_name, 'Sin parroquia') AS nombre, NULL AS detalle, count(*) AS partes
+                                          FROM c LEFT JOIN resources.parishes pa ON pa.parish_id = c.parte_parroquia GROUP BY 1 ORDER BY partes DESC, 1"),
+            'por_sector' => $conteo("SELECT initcap(trim(parte_sector)) AS nombre, NULL AS detalle, count(*) AS partes FROM c
+                                       WHERE trim(COALESCE(parte_sector, '')) <> '' GROUP BY 1 ORDER BY partes DESC, 1 LIMIT 15"),
+            'causas' => $conteo("SELECT ca.parte_causa_descripcion AS nombre, ca.parte_causa_clasificacion AS detalle, count(DISTINCT ca.fk_parte_id) AS partes
+                                   FROM operaciones.tb_partes_causas ca JOIN c ON c.parte_id = ca.fk_parte_id GROUP BY 1, 2 ORDER BY partes DESC, 1"),
+            'por_dia_semana' => array_values($dia), 'por_hora' => $hora,
+        ];
+        if ($tipo === 'INCENDIO') {
+            $s['resumen'] += ['area_destruida_m2' => $num($r['area'], 2), 'superficie_quemada_m2' => $num($r['superficie'], 2),
+                'causante_identificado' => (int) $r['causante_si'], 'causante_no_identificado' => (int) $r['causante_no']];
+            $s['tipos_incendio'] = $conteo("SELECT ti.parte_incendio_clasificacion AS nombre, NULL AS detalle, count(DISTINCT ti.fk_parte_id) AS partes
+                                              FROM operaciones.tb_partes_tipos_incendio ti JOIN c ON c.parte_id = ti.fk_parte_id GROUP BY 1 ORDER BY partes DESC, 1");
+            $s['naturalezas'] = $conteo("SELECT na.parte_naturaleza_descripcion AS nombre, NULL AS detalle, count(DISTINCT na.fk_parte_id) AS partes
+                                           FROM operaciones.tb_partes_naturalezas na JOIN c ON c.parte_id = na.fk_parte_id GROUP BY 1 ORDER BY partes DESC, 1");
+        } else {
+            $s['clasificaciones'] = $conteo("SELECT COALESCE(ta.parte_auxilio_clasificacion, 'Sin clasificar') AS nombre, NULL AS detalle, count(DISTINCT ta.fk_parte_id) AS partes
+                                               FROM operaciones.tb_partes_tipos_auxilio ta JOIN c ON c.parte_id = ta.fk_parte_id GROUP BY 1 ORDER BY partes DESC, 1");
+            $s['subclasificaciones'] = $conteo("SELECT concat_ws(' / ', ta.parte_auxilio_clasificacion, NULLIF(ta.parte_auxilio_subclasificacion, '')) AS nombre,
+                                                       NULLIF(ta.parte_auxilio_uso_tipo, '') AS detalle, count(DISTINCT ta.fk_parte_id) AS partes
+                                                  FROM operaciones.tb_partes_tipos_auxilio ta JOIN c ON c.parte_id = ta.fk_parte_id GROUP BY 1, 2 ORDER BY partes DESC, 1");
+        }
+        return $s;
+    };
+    return ['desde' => $desde, 'hasta' => $hasta,
+        'resumen' => ['partes' => (int) $r['partes'], 'incendio' => (int) $r['incendio'], 'auxilio' => (int) $r['auxilio'], 'victimas' => (int) $r['victimas'],
+            'fallecidos' => (int) $r['fallecidos'], 'respuesta_prom_min' => $num($r['respuesta'])],
+        'por_mes' => $porMes, 'incendio' => $seccion('INCENDIO'), 'auxilio' => $seccion('AUXILIO'), 'puntos' => $puntos];
+}
