@@ -17,7 +17,7 @@ def importacion_como_bloque(base: str, sql: str) -> str:
     cuerpo = '-- Datos base: personas, personal, usuarios, vehículos, ubicaciones, CIE-10\n' + base + '\n\n-- Mantenimiento vehicular\n' \
         + sql[sql.index('BEGIN;') + len('BEGIN;'):sql.index('COMMIT;')]
     cuerpo = re.sub(r'^SELECT setval\(', 'PERFORM setval(', cuerpo, flags=re.M)
-    cuerpo = '\n'.join('    ' + l if l.strip() else '' for l in cuerpo.strip('\n').split('\n'))
+    cuerpo = '\n'.join('        ' + l if l.strip() else '' for l in cuerpo.strip('\n').split('\n'))
     return f"""CREATE EXTENSION IF NOT EXISTS dblink;
 
 DO $importacion$
@@ -28,21 +28,34 @@ DECLARE
     antes_informes integer;
     total_ordenes integer;
     total_informes integer;
+    contexto text;
 BEGIN
     IF conexion LIKE '%CAMBIAR%' THEN
         RAISE NOTICE 'Importación desde db_cbsd OMITIDA: edite la variable "conexion" para ejecutarla.';
         RETURN;
     END IF;
+    -- pgAdmin conserva la sesión: si una ejecución anterior se detuvo con la conexión abierta, se cierra primero
+    IF 'legacy' = ANY (COALESCE(dblink_get_connections(), '{{}}'::text[])) THEN
+        PERFORM dblink_disconnect('legacy');
+    END IF;
     PERFORM dblink_connect('legacy', conexion);
-
+    BEGIN
 {cuerpo}
 
-    SELECT n INTO total_ordenes FROM dblink('legacy', 'SELECT count(*) FROM logistica.tb_ordenesmantenimiento') AS t(n integer);
-    SELECT n INTO total_informes FROM dblink('legacy', 'SELECT count(*) FROM logistica.tb_informemantenimiento') AS t(n integer);
-    SELECT count(*) INTO antes_ordenes FROM logistica.tb_ordenesmantenimiento WHERE fk_contrato_id IS NULL;
-    SELECT count(*) INTO antes_informes FROM logistica.tb_informemantenimiento WHERE fk_contrato_id IS NULL;
-    RAISE NOTICE 'Importación terminada. Órdenes en db_cbsd: %, sin contrato en la base nueva: %. Informes en db_cbsd: %, en la base nueva: %.',
-        total_ordenes, antes_ordenes, total_informes, antes_informes;
+        SELECT n INTO total_ordenes FROM dblink('legacy', 'SELECT count(*) FROM logistica.tb_ordenesmantenimiento') AS t(n integer);
+        SELECT n INTO total_informes FROM dblink('legacy', 'SELECT count(*) FROM logistica.tb_informemantenimiento') AS t(n integer);
+        SELECT count(*) INTO antes_ordenes FROM logistica.tb_ordenesmantenimiento WHERE fk_contrato_id IS NULL;
+        SELECT count(*) INTO antes_informes FROM logistica.tb_informemantenimiento WHERE fk_contrato_id IS NULL;
+        RAISE NOTICE 'Importación terminada. Órdenes en db_cbsd: %, sin contrato en la base nueva: %. Informes en db_cbsd: %, en la base nueva: %.',
+            total_ordenes, antes_ordenes, total_informes, antes_informes;
+    EXCEPTION WHEN OTHERS THEN
+        -- Siempre se cierra la conexión y se indica en qué paso se detuvo (no queda nada a medias de esta importación)
+        GET STACKED DIAGNOSTICS contexto = PG_EXCEPTION_CONTEXT;
+        PERFORM dblink_disconnect('legacy');
+        RAISE EXCEPTION 'Importación desde db_cbsd detenida: % (código %)', SQLERRM, SQLSTATE
+            USING HINT = 'No se guardó nada de la importación. Paso: ' || split_part(contexto, E'\n', 1)
+                         || '. Corrija y vuelva a ejecutar el script (se puede ejecutar varias veces).';
+    END;
     PERFORM dblink_disconnect('legacy');
 END
 $importacion$;

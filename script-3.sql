@@ -3060,115 +3060,69 @@ DECLARE
     antes_informes integer;
     total_ordenes integer;
     total_informes integer;
+    contexto text;
 BEGIN
     IF conexion LIKE '%CAMBIAR%' THEN
         RAISE NOTICE 'Importación desde db_cbsd OMITIDA: edite la variable "conexion" para ejecutarla.';
         RETURN;
     END IF;
+    -- pgAdmin conserva la sesión: si una ejecución anterior se detuvo con la conexión abierta, se cierra primero
+    IF 'legacy' = ANY (COALESCE(dblink_get_connections(), '{}'::text[])) THEN
+        PERFORM dblink_disconnect('legacy');
+    END IF;
     PERFORM dblink_connect('legacy', conexion);
-
-    -- Datos base: personas, personal, usuarios, vehículos, ubicaciones, CIE-10
-    INSERT INTO resources.tb_personas (
-        persona_id,
-        persona_tipo_doc,
-        persona_doc_identidad,
-        persona_nombres,
-        persona_apellidos,
-        persona_sexo,
-        persona_imagen,
-        persona_direccion,
-        persona_telefono,
-        persona_correo,
-        persona_fingreso,
-        fk_usuario_id,
-        persona_fnacimiento,
-        persona_nacionalidad,
-        persona_celular,
-        persona_estadocivil,
-        persona_tiposangre,
-        fk_parroquia_id,
-        persona_estatura,
-        persona_peso,
-        persona_acerca,
-        persona_destrezas,
-        persona_alergias,
-        persona_discapacidad,
-        persona_lugarnacimiento,
-        persona_etnia,
-        persona_senialesparticulares,
-        fk_conyugeue_id,
-        persona_principal,
-        persona_secundaria,
-        persona_no_casa,
-        persona_referencia,
-        persona_barrio_ciudadela,
-        persona_barrio_sector,
-        persona_titulo,
-        persona_anexo_cedula,
-        persona_anexo_votacion,
-        persona_cemergencia_nombre,
-        persona_cemergencia_parentesco,
-        persona_cemergencia_direccion,
-        persona_cemergencia_telefono,
-        persona_discapacidad_tiene,
-        persona_discapacidad_tipo,
-        persona_discapacidad_porcentaje,
-        persona_discapacidad_conadis,
-        persona_discapacidad_conadis_numero,
-        persona_enfermedad_cronica,
-        persona_enfermedad_cronica_describa
-    )
-    SELECT 
-        persona_id,
-        persona_tipo_doc,
-        persona_doc_identidad,
-        persona_nombres,
-        persona_apellidos,
-        persona_sexo,
-        persona_imagen,
-        persona_direccion,
-        persona_telefono,
-        persona_correo,
-        persona_fingreso,
-        fk_usuario_id,
-        persona_fnacimiento,
-        persona_nacionalidad,
-        persona_celular,
-        persona_estadocivil,
-        persona_tiposangre,
-        fk_parroquia_id,
-        persona_estatura,
-        persona_peso,
-        persona_acerca,
-        persona_destrezas,
-        persona_alergias,
-        persona_discapacidad,
-        persona_lugarnacimiento,
-        persona_etnia,
-        persona_senialesparticulares,
-        fk_conyugeue_id,
-        persona_principal,
-        persona_secundaria,
-        persona_no_casa,
-        persona_referencia,
-        persona_barrio_ciudadela,
-        persona_barrio_sector,
-        persona_titulo,
-        persona_anexo_cedula,
-        persona_anexo_votacion,
-        persona_cemergencia_nombre,
-        persona_cemergencia_parentesco,
-        persona_cemergencia_direccion,
-        persona_cemergencia_telefono,
-        persona_discapacidad_tiene,
-        persona_discapacidad_tipo,
-        persona_discapacidad_porcentaje,
-        persona_discapacidad_conadis,
-        persona_discapacidad_conadis_numero,
-        persona_enfermedad_cronica,
-        persona_enfermedad_cronica_describa
-    FROM dblink('legacy',
-        $$
+    BEGIN
+        -- Datos base: personas, personal, usuarios, vehículos, ubicaciones, CIE-10
+        INSERT INTO resources.tb_personas (
+            persona_id,
+            persona_tipo_doc,
+            persona_doc_identidad,
+            persona_nombres,
+            persona_apellidos,
+            persona_sexo,
+            persona_imagen,
+            persona_direccion,
+            persona_telefono,
+            persona_correo,
+            persona_fingreso,
+            fk_usuario_id,
+            persona_fnacimiento,
+            persona_nacionalidad,
+            persona_celular,
+            persona_estadocivil,
+            persona_tiposangre,
+            fk_parroquia_id,
+            persona_estatura,
+            persona_peso,
+            persona_acerca,
+            persona_destrezas,
+            persona_alergias,
+            persona_discapacidad,
+            persona_lugarnacimiento,
+            persona_etnia,
+            persona_senialesparticulares,
+            fk_conyugeue_id,
+            persona_principal,
+            persona_secundaria,
+            persona_no_casa,
+            persona_referencia,
+            persona_barrio_ciudadela,
+            persona_barrio_sector,
+            persona_titulo,
+            persona_anexo_cedula,
+            persona_anexo_votacion,
+            persona_cemergencia_nombre,
+            persona_cemergencia_parentesco,
+            persona_cemergencia_direccion,
+            persona_cemergencia_telefono,
+            persona_discapacidad_tiene,
+            persona_discapacidad_tipo,
+            persona_discapacidad_porcentaje,
+            persona_discapacidad_conadis,
+            persona_discapacidad_conadis_numero,
+            persona_enfermedad_cronica,
+            persona_enfermedad_cronica_describa
+        )
         SELECT 
             persona_id,
             persona_tipo_doc,
@@ -3218,81 +3172,122 @@ BEGIN
             persona_discapacidad_conadis_numero,
             persona_enfermedad_cronica,
             persona_enfermedad_cronica_describa
-        FROM resources.tb_personas
-        $$
-    ) AS t (
-        persona_id integer,
-        persona_tipo_doc text,
-        persona_doc_identidad text,
-        persona_nombres text,
-        persona_apellidos text,
-        persona_sexo text,
-        persona_imagen text,
-        persona_direccion text,
-        persona_telefono text,
-        persona_correo text,
-        persona_fingreso timestamp,
-        fk_usuario_id integer,
-        persona_fnacimiento date,
-        persona_nacionalidad text,
-        persona_celular text,
-        persona_estadocivil text,
-        persona_tiposangre text,
-        fk_parroquia_id integer,
-        persona_estatura text,
-        persona_peso text,
-        persona_acerca text,
-        persona_destrezas text,
-        persona_alergias text,
-        persona_discapacidad text,
-        persona_lugarnacimiento text,
-        persona_etnia text,
-        persona_senialesparticulares text,
-        fk_conyugeue_id integer,
-        persona_principal text,
-        persona_secundaria text,
-        persona_no_casa text,
-        persona_referencia text,
-        persona_barrio_ciudadela text,
-        persona_barrio_sector text,
-        persona_titulo text,
-        persona_anexo_cedula text,
-        persona_anexo_votacion text,
-        persona_cemergencia_nombre text,
-        persona_cemergencia_parentesco text,
-        persona_cemergencia_direccion text,
-        persona_cemergencia_telefono text,
-        persona_discapacidad_tiene text,
-        persona_discapacidad_tipo text,
-        persona_discapacidad_porcentaje text,
-        persona_discapacidad_conadis text,
-        persona_discapacidad_conadis_numero text,
-        persona_enfermedad_cronica text,
-        persona_enfermedad_cronica_describa text
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                persona_id,
+                persona_tipo_doc,
+                persona_doc_identidad,
+                persona_nombres,
+                persona_apellidos,
+                persona_sexo,
+                persona_imagen,
+                persona_direccion,
+                persona_telefono,
+                persona_correo,
+                persona_fingreso,
+                fk_usuario_id,
+                persona_fnacimiento,
+                persona_nacionalidad,
+                persona_celular,
+                persona_estadocivil,
+                persona_tiposangre,
+                fk_parroquia_id,
+                persona_estatura,
+                persona_peso,
+                persona_acerca,
+                persona_destrezas,
+                persona_alergias,
+                persona_discapacidad,
+                persona_lugarnacimiento,
+                persona_etnia,
+                persona_senialesparticulares,
+                fk_conyugeue_id,
+                persona_principal,
+                persona_secundaria,
+                persona_no_casa,
+                persona_referencia,
+                persona_barrio_ciudadela,
+                persona_barrio_sector,
+                persona_titulo,
+                persona_anexo_cedula,
+                persona_anexo_votacion,
+                persona_cemergencia_nombre,
+                persona_cemergencia_parentesco,
+                persona_cemergencia_direccion,
+                persona_cemergencia_telefono,
+                persona_discapacidad_tiene,
+                persona_discapacidad_tipo,
+                persona_discapacidad_porcentaje,
+                persona_discapacidad_conadis,
+                persona_discapacidad_conadis_numero,
+                persona_enfermedad_cronica,
+                persona_enfermedad_cronica_describa
+            FROM resources.tb_personas
+            $$
+        ) AS t (
+            persona_id integer,
+            persona_tipo_doc text,
+            persona_doc_identidad text,
+            persona_nombres text,
+            persona_apellidos text,
+            persona_sexo text,
+            persona_imagen text,
+            persona_direccion text,
+            persona_telefono text,
+            persona_correo text,
+            persona_fingreso timestamp,
+            fk_usuario_id integer,
+            persona_fnacimiento date,
+            persona_nacionalidad text,
+            persona_celular text,
+            persona_estadocivil text,
+            persona_tiposangre text,
+            fk_parroquia_id integer,
+            persona_estatura text,
+            persona_peso text,
+            persona_acerca text,
+            persona_destrezas text,
+            persona_alergias text,
+            persona_discapacidad text,
+            persona_lugarnacimiento text,
+            persona_etnia text,
+            persona_senialesparticulares text,
+            fk_conyugeue_id integer,
+            persona_principal text,
+            persona_secundaria text,
+            persona_no_casa text,
+            persona_referencia text,
+            persona_barrio_ciudadela text,
+            persona_barrio_sector text,
+            persona_titulo text,
+            persona_anexo_cedula text,
+            persona_anexo_votacion text,
+            persona_cemergencia_nombre text,
+            persona_cemergencia_parentesco text,
+            persona_cemergencia_direccion text,
+            persona_cemergencia_telefono text,
+            persona_discapacidad_tiene text,
+            persona_discapacidad_tipo text,
+            persona_discapacidad_porcentaje text,
+            persona_discapacidad_conadis text,
+            persona_discapacidad_conadis_numero text,
+            persona_enfermedad_cronica text,
+            persona_enfermedad_cronica_describa text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('resources.tb_personas', 'persona_id'), (SELECT MAX(persona_id) FROM resources.tb_personas));
+        PERFORM setval(pg_get_serial_sequence('resources.tb_personas', 'persona_id'), (SELECT MAX(persona_id) FROM resources.tb_personas));
 
-    INSERT INTO resources.tb_licenciasdeconducir (
-        licencia_id,
-        licencia_estado,
-        licencia_registro,
-        fk_usuario_id,
-        licencia_tipo,
-        licencia_categoria,
-        licencia_descripcion
-    )
-    SELECT 
-        licencia_id,
-        licencia_estado,
-        licencia_registro,
-        fk_usuario_id,
-        licencia_tipo,
-        licencia_categoria,
-        licencia_descripcion
-    FROM dblink('legacy',
-        $$
+        INSERT INTO resources.tb_licenciasdeconducir (
+            licencia_id,
+            licencia_estado,
+            licencia_registro,
+            fk_usuario_id,
+            licencia_tipo,
+            licencia_categoria,
+            licencia_descripcion
+        )
         SELECT 
             licencia_id,
             licencia_estado,
@@ -3301,88 +3296,79 @@ BEGIN
             licencia_tipo,
             licencia_categoria,
             licencia_descripcion
-        FROM resources.tb_licenciasdeconducir
-        $$
-    ) AS t (
-        licencia_id integer,
-        licencia_estado text,
-        licencia_registro timestamp,
-        fk_usuario_id integer,
-        licencia_tipo text,
-        licencia_categoria text,
-        licencia_descripcion text
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                licencia_id,
+                licencia_estado,
+                licencia_registro,
+                fk_usuario_id,
+                licencia_tipo,
+                licencia_categoria,
+                licencia_descripcion
+            FROM resources.tb_licenciasdeconducir
+            $$
+        ) AS t (
+            licencia_id integer,
+            licencia_estado text,
+            licencia_registro timestamp,
+            fk_usuario_id integer,
+            licencia_tipo text,
+            licencia_categoria text,
+            licencia_descripcion text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('resources.tb_licenciasdeconducir', 'licencia_id'), (SELECT MAX(licencia_id) FROM resources.tb_licenciasdeconducir));
+        PERFORM setval(pg_get_serial_sequence('resources.tb_licenciasdeconducir', 'licencia_id'), (SELECT MAX(licencia_id) FROM resources.tb_licenciasdeconducir));
 
-    INSERT INTO admin.tb_perfiles (
-        perfil_id,
-        perfil_nombre,
-        perfil_descripcion,
-        perfil_estado
-    )
-    SELECT 
-        perfil_id,
-        perfil_nombre,
-        perfil_descripcion,
-        perfil_estado
-    FROM dblink('legacy',
-        $$
+        INSERT INTO admin.tb_perfiles (
+            perfil_id,
+            perfil_nombre,
+            perfil_descripcion,
+            perfil_estado
+        )
         SELECT 
             perfil_id,
             perfil_nombre,
             perfil_descripcion,
             perfil_estado
-        FROM admin.tb_perfiles
-        $$
-    ) AS t (
-        perfil_id integer,
-        perfil_nombre text,
-        perfil_descripcion text,
-        perfil_estado text
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                perfil_id,
+                perfil_nombre,
+                perfil_descripcion,
+                perfil_estado
+            FROM admin.tb_perfiles
+            $$
+        ) AS t (
+            perfil_id integer,
+            perfil_nombre text,
+            perfil_descripcion text,
+            perfil_estado text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('admin.tb_perfiles', 'perfil_id'), (SELECT MAX(perfil_id) FROM admin.tb_perfiles));
+        PERFORM setval(pg_get_serial_sequence('admin.tb_perfiles', 'perfil_id'), (SELECT MAX(perfil_id) FROM admin.tb_perfiles));
 
-    INSERT INTO admin.tb_usuarios (
-        usuario_id,
-        fk_persona_id,
-        fk_perfil_id,
-        usuario_login,
-        usuario_pass,
-        usuario_estado,
-        usuario_acceso_correcto,
-        usuario_acceso_fallido,
-        usuario_cambio_perfil,
-        fk_usuario_id,
-        usuario_cambiar_pass,
-        usuario_idioma,
-        usuario_webmail_user,
-        usuario_webmail_pass,
-        usuario_registro,
-        usuario_fingreso
-    )
-    SELECT 
-        usuario_id,
-        fk_persona_id,
-        fk_perfil_id,
-        usuario_login,
-        usuario_pass,
-        usuario_estado,
-        usuario_acceso_correcto,
-        usuario_acceso_fallido,
-        usuario_cambio_perfil,
-        fk_usuario_id,
-        usuario_cambiar_pass,
-        usuario_idioma,
-        usuario_webmail_user,
-        usuario_webmail_pass,
-        usuario_registro,
-        usuario_fingreso
-    FROM dblink('legacy',
-        $$
+        INSERT INTO admin.tb_usuarios (
+            usuario_id,
+            fk_persona_id,
+            fk_perfil_id,
+            usuario_login,
+            usuario_pass,
+            usuario_estado,
+            usuario_acceso_correcto,
+            usuario_acceso_fallido,
+            usuario_cambio_perfil,
+            fk_usuario_id,
+            usuario_cambiar_pass,
+            usuario_idioma,
+            usuario_webmail_user,
+            usuario_webmail_pass,
+            usuario_registro,
+            usuario_fingreso
+        )
         SELECT 
             usuario_id,
             fk_persona_id,
@@ -3400,55 +3386,61 @@ BEGIN
             usuario_webmail_pass,
             usuario_registro,
             usuario_fingreso
-        FROM admin.tb_usuarios
-        $$
-    ) AS t (
-        usuario_id integer,
-        fk_persona_id integer,
-        fk_perfil_id integer,
-        usuario_login text,
-        usuario_pass text,
-        usuario_estado text,
-        usuario_acceso_correcto boolean,
-        usuario_acceso_fallido boolean,
-        usuario_cambio_perfil boolean,
-        fk_usuario_id integer,
-        usuario_cambiar_pass boolean,
-        usuario_idioma text,
-        usuario_webmail_user text,
-        usuario_webmail_pass text,
-        usuario_registro timestamp,
-        usuario_fingreso timestamp
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                usuario_id,
+                fk_persona_id,
+                fk_perfil_id,
+                usuario_login,
+                usuario_pass,
+                usuario_estado,
+                usuario_acceso_correcto,
+                usuario_acceso_fallido,
+                usuario_cambio_perfil,
+                fk_usuario_id,
+                usuario_cambiar_pass,
+                usuario_idioma,
+                usuario_webmail_user,
+                usuario_webmail_pass,
+                usuario_registro,
+                usuario_fingreso
+            FROM admin.tb_usuarios
+            $$
+        ) AS t (
+            usuario_id integer,
+            fk_persona_id integer,
+            fk_perfil_id integer,
+            usuario_login text,
+            usuario_pass text,
+            usuario_estado text,
+            usuario_acceso_correcto boolean,
+            usuario_acceso_fallido boolean,
+            usuario_cambio_perfil boolean,
+            fk_usuario_id integer,
+            usuario_cambiar_pass boolean,
+            usuario_idioma text,
+            usuario_webmail_user text,
+            usuario_webmail_pass text,
+            usuario_registro timestamp,
+            usuario_fingreso timestamp
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('admin.tb_usuarios', 'usuario_id'), (SELECT MAX(usuario_id) FROM admin.tb_usuarios));
+        PERFORM setval(pg_get_serial_sequence('admin.tb_usuarios', 'usuario_id'), (SELECT MAX(usuario_id) FROM admin.tb_usuarios));
 
-    INSERT INTO tthh.tb_direcciones (
-        direccion_id,
-        direccion_registro,
-        direccion_estado,
-        fk_usuario_id,
-        direccion_codigo,
-        direccion_nombre,
-        direccion_competencias,
-        direccion_fecha_creacion,
-        direccion_baselegal,
-        direccion_tipo
-    )
-    SELECT 
-        direccion_id,
-        direccion_registro,
-        direccion_estado,
-        fk_usuario_id,
-        direccion_codigo,
-        direccion_nombre,
-        direccion_competencias,
-        direccion_fecha_creacion,
-        direccion_baselegal,
-        direccion_tipo
-    FROM dblink('legacy',
-        $$
+        INSERT INTO tthh.tb_direcciones (
+            direccion_id,
+            direccion_registro,
+            direccion_estado,
+            fk_usuario_id,
+            direccion_codigo,
+            direccion_nombre,
+            direccion_competencias,
+            direccion_fecha_creacion,
+            direccion_baselegal,
+            direccion_tipo
+        )
         SELECT 
             direccion_id,
             direccion_registro,
@@ -3460,92 +3452,42 @@ BEGIN
             direccion_fecha_creacion,
             direccion_baselegal,
             direccion_tipo
-        FROM tthh.tb_direcciones
-        $$
-    ) AS t (
-        direccion_id integer,
-        direccion_registro timestamp,
-        direccion_estado text,
-        fk_usuario_id integer,
-        direccion_codigo text,
-        direccion_nombre text,
-        direccion_competencias text,
-        direccion_fecha_creacion date,
-        direccion_baselegal text,
-        direccion_tipo text
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                direccion_id,
+                direccion_registro,
+                direccion_estado,
+                fk_usuario_id,
+                direccion_codigo,
+                direccion_nombre,
+                direccion_competencias,
+                direccion_fecha_creacion,
+                direccion_baselegal,
+                direccion_tipo
+            FROM tthh.tb_direcciones
+            $$
+        ) AS t (
+            direccion_id integer,
+            direccion_registro timestamp,
+            direccion_estado text,
+            fk_usuario_id integer,
+            direccion_codigo text,
+            direccion_nombre text,
+            direccion_competencias text,
+            direccion_fecha_creacion date,
+            direccion_baselegal text,
+            direccion_tipo text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('tthh.tb_direcciones', 'direccion_id'), (SELECT MAX(direccion_id) FROM tthh.tb_direcciones));
+        PERFORM setval(pg_get_serial_sequence('tthh.tb_direcciones', 'direccion_id'), (SELECT MAX(direccion_id) FROM tthh.tb_direcciones));
 
-    INSERT INTO administrativo.tb_vehiculos (
-        vehiculo_id,
-        fk_usuario_id,
-        fk_estacion_id,
-        fk_marca_id,
-        vehiculo_registro,
-        vehiculo_estado,
-        vehiculo_direccion,
-        vehiculo_placa,
-        vehiculo_toneladas,
-        vehiculo_tipo,
-        vehiculo_color1,
-        vehiculo_marca,
-        vehiculo_fingreso,
-        custodio_id,
-        vehiculo_modelo,
-        vehiculo_chasis,
-        vehiculo_motor,
-        vehiculo_combustible,
-        vehiculo_avaluo,
-        vehiculo_anio,
-        vehiculo_pais,
-        vehiculo_corroceria,
-        vehiculo_pasajeros,
-        vehiculo_cilindraje,
-        vehiculo_color2,
-        vehiculo_proposito,
-        vehiculo_anio_matricula,
-        vehiculo_ramv,
-        vehiculo_sigla
-    )
-    SELECT 
-        vehiculo_id,
-        fk_usuario_id,
-        fk_estacion_id,
-        fk_marca_id,
-        vehiculo_registro,
-        vehiculo_estado,
-        vehiculo_direccion,
-        vehiculo_placa,
-        vehiculo_toneladas,
-        vehiculo_tipo,
-        vehiculo_color1,
-        vehiculo_marca,
-        vehiculo_fingreso,
-        custodio_id,
-        vehiculo_modelo,
-        vehiculo_chasis,
-        vehiculo_motor,
-        vehiculo_combustible,
-        vehiculo_avaluo,
-        vehiculo_anio,
-        vehiculo_pais,
-        vehiculo_corroceria,
-        vehiculo_pasajeros,
-        vehiculo_cilindraje,
-        vehiculo_color2,
-        vehiculo_proposito,
-        vehiculo_anio_matricula,
-        vehiculo_ramv,
-        vehiculo_sigla
-    FROM dblink('legacy',
-        $$
-        SELECT 
+        INSERT INTO administrativo.tb_vehiculos (
             vehiculo_id,
             fk_usuario_id,
-            1 as fk_estacion_id,
-            1 as fk_marca_id,
+            fk_estacion_id,
+            fk_marca_id,
             vehiculo_registro,
             vehiculo_estado,
             vehiculo_direccion,
@@ -3555,7 +3497,7 @@ BEGIN
             vehiculo_color1,
             vehiculo_marca,
             vehiculo_fingreso,
-            1 as custodio_id,
+            custodio_id,
             vehiculo_modelo,
             vehiculo_chasis,
             vehiculo_motor,
@@ -3570,81 +3512,125 @@ BEGIN
             vehiculo_proposito,
             vehiculo_anio_matricula,
             vehiculo_ramv,
-            (select unidad_nombre from logistica.tb_unidades where resources.tb_vehiculos.vehiculo_id = logistica.tb_unidades.fk_vehiculo_id ) as vehiculo_sigla
-        FROM resources.tb_vehiculos where vehiculo_id in (select fk_vehiculo_id from logistica.tb_unidades)
-        $$
-    ) AS t (
-        vehiculo_id integer,
-        fk_usuario_id integer,
-        fk_estacion_id integer,
-        fk_marca_id integer,
-        vehiculo_registro timestamp,
-        vehiculo_estado text,
-        vehiculo_direccion text,
-        vehiculo_placa text,
-        vehiculo_toneladas numeric(4,2),
-        vehiculo_tipo text,
-        vehiculo_color1 text,
-        vehiculo_marca text,
-        vehiculo_fingreso timestamp,
-        custodio_id integer,
-        vehiculo_modelo text,
-        vehiculo_chasis text,
-        vehiculo_motor text,
-        vehiculo_combustible text,
-        vehiculo_avaluo numeric(10,2),
-        vehiculo_anio integer,
-        vehiculo_pais text,
-        vehiculo_corroceria text,
-        vehiculo_pasajeros integer,
-        vehiculo_cilindraje numeric(6,2),
-        vehiculo_color2 text,
-        vehiculo_proposito text,
-        vehiculo_anio_matricula integer,
-        vehiculo_ramv text,
-        vehiculo_sigla text
-    )
-    ON CONFLICT DO NOTHING;
+            vehiculo_sigla
+        )
+        SELECT 
+            vehiculo_id,
+            fk_usuario_id,
+            fk_estacion_id,
+            fk_marca_id,
+            vehiculo_registro,
+            vehiculo_estado,
+            vehiculo_direccion,
+            vehiculo_placa,
+            vehiculo_toneladas,
+            vehiculo_tipo,
+            vehiculo_color1,
+            vehiculo_marca,
+            vehiculo_fingreso,
+            custodio_id,
+            vehiculo_modelo,
+            vehiculo_chasis,
+            vehiculo_motor,
+            vehiculo_combustible,
+            vehiculo_avaluo,
+            vehiculo_anio,
+            vehiculo_pais,
+            vehiculo_corroceria,
+            vehiculo_pasajeros,
+            vehiculo_cilindraje,
+            vehiculo_color2,
+            vehiculo_proposito,
+            vehiculo_anio_matricula,
+            vehiculo_ramv,
+            vehiculo_sigla
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                vehiculo_id,
+                fk_usuario_id,
+                1 as fk_estacion_id,
+                1 as fk_marca_id,
+                vehiculo_registro,
+                vehiculo_estado,
+                vehiculo_direccion,
+                vehiculo_placa,
+                vehiculo_toneladas,
+                vehiculo_tipo,
+                vehiculo_color1,
+                vehiculo_marca,
+                vehiculo_fingreso,
+                1 as custodio_id,
+                vehiculo_modelo,
+                vehiculo_chasis,
+                vehiculo_motor,
+                vehiculo_combustible,
+                vehiculo_avaluo,
+                vehiculo_anio,
+                vehiculo_pais,
+                vehiculo_corroceria,
+                vehiculo_pasajeros,
+                vehiculo_cilindraje,
+                vehiculo_color2,
+                vehiculo_proposito,
+                vehiculo_anio_matricula,
+                vehiculo_ramv,
+                (select unidad_nombre from logistica.tb_unidades where resources.tb_vehiculos.vehiculo_id = logistica.tb_unidades.fk_vehiculo_id ) as vehiculo_sigla
+            FROM resources.tb_vehiculos where vehiculo_id in (select fk_vehiculo_id from logistica.tb_unidades)
+            $$
+        ) AS t (
+            vehiculo_id integer,
+            fk_usuario_id integer,
+            fk_estacion_id integer,
+            fk_marca_id integer,
+            vehiculo_registro timestamp,
+            vehiculo_estado text,
+            vehiculo_direccion text,
+            vehiculo_placa text,
+            vehiculo_toneladas numeric(4,2),
+            vehiculo_tipo text,
+            vehiculo_color1 text,
+            vehiculo_marca text,
+            vehiculo_fingreso timestamp,
+            custodio_id integer,
+            vehiculo_modelo text,
+            vehiculo_chasis text,
+            vehiculo_motor text,
+            vehiculo_combustible text,
+            vehiculo_avaluo numeric(10,2),
+            vehiculo_anio integer,
+            vehiculo_pais text,
+            vehiculo_corroceria text,
+            vehiculo_pasajeros integer,
+            vehiculo_cilindraje numeric(6,2),
+            vehiculo_color2 text,
+            vehiculo_proposito text,
+            vehiculo_anio_matricula integer,
+            vehiculo_ramv text,
+            vehiculo_sigla text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('administrativo.tb_vehiculos', 'vehiculo_id'), (SELECT MAX(vehiculo_id) FROM administrativo.tb_vehiculos));
+        PERFORM setval(pg_get_serial_sequence('administrativo.tb_vehiculos', 'vehiculo_id'), (SELECT MAX(vehiculo_id) FROM administrativo.tb_vehiculos));
 
-    INSERT INTO tthh.tb_personal (
-        personal_id,
-        personal_registro,
-        personal_estado,
-        fk_usuario_id,
-        fk_persona_id,
-        fk_estacion_id,
-        personal_contrasenia,
-        personal_cambiar_pass,
-        personal_notificar_acceso_exitoso,
-        personal_notificar_acceso_fallido,
-        personal_notificar_cambios_perfil,
-        personal_notificar_permisos,
-        personal_notificar_eventos,
-        personal_correo_institucional,
-        biometrico_id,
-        fk_jornada_id
-    )
-    SELECT 
-        personal_id,
-        personal_registro,
-        personal_estado,
-        fk_usuario_id,
-        fk_persona_id,
-        fk_estacion_id,
-        personal_contrasenia,
-        personal_cambiar_pass,
-        personal_notificar_acceso_exitoso,
-        personal_notificar_acceso_fallido,
-        personal_notificar_cambios_perfil,
-        personal_notificar_permisos,
-        personal_notificar_eventos,
-        personal_correo_institucional,
-        biometrico_id,
-        fk_jornada_id
-    FROM dblink('legacy',
-        $$
+        INSERT INTO tthh.tb_personal (
+            personal_id,
+            personal_registro,
+            personal_estado,
+            fk_usuario_id,
+            fk_persona_id,
+            fk_estacion_id,
+            personal_contrasenia,
+            personal_cambiar_pass,
+            personal_notificar_acceso_exitoso,
+            personal_notificar_acceso_fallido,
+            personal_notificar_cambios_perfil,
+            personal_notificar_permisos,
+            personal_notificar_eventos,
+            personal_correo_institucional,
+            biometrico_id,
+            fk_jornada_id
+        )
         SELECT 
             personal_id,
             personal_registro,
@@ -3662,65 +3648,66 @@ BEGIN
             personal_correo_institucional,
             biometrico_id,
             fk_jornada_id
-        FROM tthh.tb_personal
-        $$
-    ) AS t (
-        personal_id integer,
-        personal_registro timestamp,
-        personal_estado text,
-        fk_usuario_id integer,
-        fk_persona_id integer,
-        fk_estacion_id integer,
-        personal_contrasenia text,
-        personal_cambiar_pass text,
-        personal_notificar_acceso_exitoso boolean,
-        personal_notificar_acceso_fallido boolean,
-        personal_notificar_cambios_perfil boolean,
-        personal_notificar_permisos boolean,
-        personal_notificar_eventos boolean,
-        personal_correo_institucional text,
-        biometrico_id integer,
-        fk_jornada_id integer
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                personal_id,
+                personal_registro,
+                personal_estado,
+                fk_usuario_id,
+                fk_persona_id,
+                fk_estacion_id,
+                personal_contrasenia,
+                personal_cambiar_pass,
+                personal_notificar_acceso_exitoso,
+                personal_notificar_acceso_fallido,
+                personal_notificar_cambios_perfil,
+                personal_notificar_permisos,
+                personal_notificar_eventos,
+                personal_correo_institucional,
+                biometrico_id,
+                fk_jornada_id
+            FROM tthh.tb_personal
+            $$
+        ) AS t (
+            personal_id integer,
+            personal_registro timestamp,
+            personal_estado text,
+            fk_usuario_id integer,
+            fk_persona_id integer,
+            fk_estacion_id integer,
+            personal_contrasenia text,
+            personal_cambiar_pass text,
+            personal_notificar_acceso_exitoso boolean,
+            personal_notificar_acceso_fallido boolean,
+            personal_notificar_cambios_perfil boolean,
+            personal_notificar_permisos boolean,
+            personal_notificar_eventos boolean,
+            personal_correo_institucional text,
+            biometrico_id integer,
+            fk_jornada_id integer
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('tthh.tb_personal', 'personal_id'), (SELECT MAX(personal_id) FROM tthh.tb_personal));
+        PERFORM setval(pg_get_serial_sequence('tthh.tb_personal', 'personal_id'), (SELECT MAX(personal_id) FROM tthh.tb_personal));
 
-    INSERT INTO tthh.tb_puestos (
-        puesto_id,
-        puesto_registro,
-        puesto_estado,
-        fk_usuario_id,
-        puesto_departamento,
-        puesto_nombre,
-        fk_direccion_id,
-        puesto_remuneracion,
-        puesto_direccion,
-        puesto_grado,
-        puesto_modalidad,
-        puesto_fecha_creacion,
-        puesto_baselegal,
-        puesto_partida,
-        fk_grupo_id
-    )
-    SELECT 
-        puesto_id,
-        puesto_registro,
-        puesto_estado,
-        fk_usuario_id,
-        puesto_departamento,
-        puesto_nombre,
-        fk_direccion_id,
-        puesto_remuneracion,
-        puesto_direccion,
-        puesto_grado,
-        puesto_modalidad,
-        puesto_fecha_creacion,
-        puesto_baselegal,
-        puesto_partida,
-        fk_grupo_id
-    FROM dblink('legacy',
-        $$
+        INSERT INTO tthh.tb_puestos (
+            puesto_id,
+            puesto_registro,
+            puesto_estado,
+            fk_usuario_id,
+            puesto_departamento,
+            puesto_nombre,
+            fk_direccion_id,
+            puesto_remuneracion,
+            puesto_direccion,
+            puesto_grado,
+            puesto_modalidad,
+            puesto_fecha_creacion,
+            puesto_baselegal,
+            puesto_partida,
+            fk_grupo_id
+        )
         SELECT 
             puesto_id,
             puesto_registro,
@@ -3737,64 +3724,64 @@ BEGIN
             puesto_baselegal,
             puesto_partida,
             fk_grupo_id
-        FROM tthh.tb_puestos
-        $$
-    ) AS t (
-        puesto_id integer,
-        puesto_registro timestamp,
-        puesto_estado text,
-        fk_usuario_id integer,
-        puesto_departamento text,
-        puesto_nombre text,
-        fk_direccion_id integer,
-        puesto_remuneracion numeric(10,2),
-        puesto_direccion text,
-        puesto_grado integer,
-        puesto_modalidad text,
-        puesto_fecha_creacion date,
-        puesto_baselegal text,
-        puesto_partida text,
-        fk_grupo_id integer
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                puesto_id,
+                puesto_registro,
+                puesto_estado,
+                fk_usuario_id,
+                puesto_departamento,
+                puesto_nombre,
+                fk_direccion_id,
+                puesto_remuneracion,
+                puesto_direccion,
+                puesto_grado,
+                puesto_modalidad,
+                puesto_fecha_creacion,
+                puesto_baselegal,
+                puesto_partida,
+                fk_grupo_id
+            FROM tthh.tb_puestos
+            $$
+        ) AS t (
+            puesto_id integer,
+            puesto_registro timestamp,
+            puesto_estado text,
+            fk_usuario_id integer,
+            puesto_departamento text,
+            puesto_nombre text,
+            fk_direccion_id integer,
+            puesto_remuneracion numeric(10,2),
+            puesto_direccion text,
+            puesto_grado integer,
+            puesto_modalidad text,
+            puesto_fecha_creacion date,
+            puesto_baselegal text,
+            puesto_partida text,
+            fk_grupo_id integer
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('tthh.tb_puestos', 'puesto_id'), (SELECT MAX(puesto_id) FROM tthh.tb_puestos));
+        PERFORM setval(pg_get_serial_sequence('tthh.tb_puestos', 'puesto_id'), (SELECT MAX(puesto_id) FROM tthh.tb_puestos));
 
-    INSERT INTO tthh.tb_personal_puestos (
-        ppersonal_id,
-        ppersonal_registro,
-        ppersonal_estado,
-        fk_usuario_id,
-        fk_personal_id,
-        fk_puesto_id,
-        personal_definicion,
-        personal_contrato,
-        personal_fecha_ingreso,
-        personal_fecha_salida,
-        personal_fecha_registro,
-        personal_motivo_salida,
-        personal_observacion,
-        personal_baselegal,
-        personal_regimen_laboral
-    )
-    SELECT 
-        ppersonal_id,
-        ppersonal_registro,
-        ppersonal_estado,
-        fk_usuario_id,
-        fk_personal_id,
-        fk_puesto_id,
-        personal_definicion,
-        personal_contrato,
-        personal_fecha_ingreso,
-        personal_fecha_salida,
-        personal_fecha_registro,
-        personal_motivo_salida,
-        personal_observacion,
-        personal_baselegal,
-        personal_regimen_laboral
-    FROM dblink('legacy',
-        $$
+        INSERT INTO tthh.tb_personal_puestos (
+            ppersonal_id,
+            ppersonal_registro,
+            ppersonal_estado,
+            fk_usuario_id,
+            fk_personal_id,
+            fk_puesto_id,
+            personal_definicion,
+            personal_contrato,
+            personal_fecha_ingreso,
+            personal_fecha_salida,
+            personal_fecha_registro,
+            personal_motivo_salida,
+            personal_observacion,
+            personal_baselegal,
+            personal_regimen_laboral
+        )
         SELECT 
             ppersonal_id,
             ppersonal_registro,
@@ -3811,52 +3798,58 @@ BEGIN
             personal_observacion,
             personal_baselegal,
             personal_regimen_laboral
-        FROM tthh.tb_personal_puestos
-        $$
-    ) AS t (
-        ppersonal_id integer,
-        ppersonal_registro timestamp,
-        ppersonal_estado text,
-        fk_usuario_id integer,
-        fk_personal_id integer,
-        fk_puesto_id integer,
-        personal_definicion text,
-        personal_contrato text,
-        personal_fecha_ingreso date,
-        personal_fecha_salida date,
-        personal_fecha_registro date,
-        personal_motivo_salida text,
-        personal_observacion text,
-        personal_baselegal text,
-        personal_regimen_laboral text
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                ppersonal_id,
+                ppersonal_registro,
+                ppersonal_estado,
+                fk_usuario_id,
+                fk_personal_id,
+                fk_puesto_id,
+                personal_definicion,
+                personal_contrato,
+                personal_fecha_ingreso,
+                personal_fecha_salida,
+                personal_fecha_registro,
+                personal_motivo_salida,
+                personal_observacion,
+                personal_baselegal,
+                personal_regimen_laboral
+            FROM tthh.tb_personal_puestos
+            $$
+        ) AS t (
+            ppersonal_id integer,
+            ppersonal_registro timestamp,
+            ppersonal_estado text,
+            fk_usuario_id integer,
+            fk_personal_id integer,
+            fk_puesto_id integer,
+            personal_definicion text,
+            personal_contrato text,
+            personal_fecha_ingreso date,
+            personal_fecha_salida date,
+            personal_fecha_registro date,
+            personal_motivo_salida text,
+            personal_observacion text,
+            personal_baselegal text,
+            personal_regimen_laboral text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('tthh.tb_personal_puestos', 'ppersonal_id'), (SELECT MAX(ppersonal_id) FROM tthh.tb_personal_puestos));
+        PERFORM setval(pg_get_serial_sequence('tthh.tb_personal_puestos', 'ppersonal_id'), (SELECT MAX(ppersonal_id) FROM tthh.tb_personal_puestos));
 
-    INSERT INTO tthh.tb_conductores (
-        conductor_id,
-        conductor_registro,
-        conductor_estado,
-        fk_usuario_id,
-        fk_personal_id,
-        fk_licencia_id,
-        conductor_licencia_emision,
-        conductor_licencia_validez,
-        conductor_pdf
-    )
-    SELECT 
-        conductor_id,
-        conductor_registro,
-        conductor_estado,
-        fk_usuario_id,
-        fk_personal_id,
-        fk_licencia_id,
-        conductor_licencia_emision,
-        conductor_licencia_validez,
-        conductor_pdf
-    FROM dblink('legacy',
-        $$
+        INSERT INTO tthh.tb_conductores (
+            conductor_id,
+            conductor_registro,
+            conductor_estado,
+            fk_usuario_id,
+            fk_personal_id,
+            fk_licencia_id,
+            conductor_licencia_emision,
+            conductor_licencia_validez,
+            conductor_pdf
+        )
         SELECT 
             conductor_id,
             conductor_registro,
@@ -3867,40 +3860,43 @@ BEGIN
             conductor_licencia_emision,
             conductor_licencia_validez,
             conductor_pdf
-        FROM tthh.tb_conductores
-        $$
-    ) AS t (
-        conductor_id integer,
-        conductor_registro timestamp,
-        conductor_estado text,
-        fk_usuario_id integer,
-        fk_personal_id integer,
-        fk_licencia_id integer,
-        conductor_licencia_emision date,
-        conductor_licencia_validez date,
-        conductor_pdf text
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                conductor_id,
+                conductor_registro,
+                conductor_estado,
+                fk_usuario_id,
+                fk_personal_id,
+                fk_licencia_id,
+                conductor_licencia_emision,
+                conductor_licencia_validez,
+                conductor_pdf
+            FROM tthh.tb_conductores
+            $$
+        ) AS t (
+            conductor_id integer,
+            conductor_registro timestamp,
+            conductor_estado text,
+            fk_usuario_id integer,
+            fk_personal_id integer,
+            fk_licencia_id integer,
+            conductor_licencia_emision date,
+            conductor_licencia_validez date,
+            conductor_pdf text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('tthh.tb_conductores', 'conductor_id'), (SELECT MAX(conductor_id) FROM tthh.tb_conductores));
+        PERFORM setval(pg_get_serial_sequence('tthh.tb_conductores', 'conductor_id'), (SELECT MAX(conductor_id) FROM tthh.tb_conductores));
 
-    INSERT INTO operaciones.tb_pelotones (
-        peloton_id,
-        peloton_registro,
-        peloton_estado,
-        fk_usuario_id,
-        fk_estacion_id,
-        peloton_nombre
-    )
-    SELECT 
-        peloton_id,
-        peloton_registro,
-        peloton_estado,
-        fk_usuario_id,
-        fk_estacion_id,
-        peloton_nombre
-    FROM dblink('legacy',
-        $$
+        INSERT INTO operaciones.tb_pelotones (
+            peloton_id,
+            peloton_registro,
+            peloton_estado,
+            fk_usuario_id,
+            fk_estacion_id,
+            peloton_nombre
+        )
         SELECT 
             peloton_id,
             peloton_registro,
@@ -3908,37 +3904,37 @@ BEGIN
             fk_usuario_id,
             fk_estacion_id,
             peloton_nombre
-        FROM tthh.tb_pelotones
-        $$
-    ) AS t (
-        peloton_id integer,
-        peloton_registro timestamp,
-        peloton_estado text,
-        fk_usuario_id integer,
-        fk_estacion_id integer,
-        peloton_nombre text
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                peloton_id,
+                peloton_registro,
+                peloton_estado,
+                fk_usuario_id,
+                fk_estacion_id,
+                peloton_nombre
+            FROM tthh.tb_pelotones
+            $$
+        ) AS t (
+            peloton_id integer,
+            peloton_registro timestamp,
+            peloton_estado text,
+            fk_usuario_id integer,
+            fk_estacion_id integer,
+            peloton_nombre text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(pg_get_serial_sequence('operaciones.tb_pelotones', 'peloton_id'), (SELECT MAX(peloton_id) FROM operaciones.tb_pelotones));
+        PERFORM setval(pg_get_serial_sequence('operaciones.tb_pelotones', 'peloton_id'), (SELECT MAX(peloton_id) FROM operaciones.tb_pelotones));
 
-    INSERT INTO resources.countries (
-        country_id,
-        country_sortname,
-        country_name,
-        country_nombre,
-        country_gentilicio,
-        country_iso3
-    )
-    SELECT 
-        country_id,
-        country_sortname,
-        country_name,
-        country_nombre,
-        country_gentilicio,
-        country_iso3
-    FROM dblink('legacy',
-        $$
+        INSERT INTO resources.countries (
+            country_id,
+            country_sortname,
+            country_name,
+            country_nombre,
+            country_gentilicio,
+            country_iso3
+        )
         SELECT 
             country_id,
             country_sortname,
@@ -3946,133 +3942,130 @@ BEGIN
             country_nombre,
             country_gentilicio,
             country_iso3
-        FROM resources.countries
-        $$
-    ) AS t (
-        country_id integer,
-        country_sortname character varying(3),
-        country_name text,
-        country_nombre text,
-        country_gentilicio text,
-        country_iso3 text
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                country_id,
+                country_sortname,
+                country_name,
+                country_nombre,
+                country_gentilicio,
+                country_iso3
+            FROM resources.countries
+            $$
+        ) AS t (
+            country_id integer,
+            country_sortname character varying(3),
+            country_name text,
+            country_nombre text,
+            country_gentilicio text,
+            country_iso3 text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(
-        pg_get_serial_sequence('resources.countries', 'country_id'),
-        (SELECT MAX(country_id) FROM resources.countries)
-    );
+        PERFORM setval(
+            pg_get_serial_sequence('resources.countries', 'country_id'),
+            (SELECT MAX(country_id) FROM resources.countries)
+        );
 
-    INSERT INTO resources.states (
-        state_id,
-        state_name,
-        fk_country_id
-    )
-    SELECT 
-        state_id,
-        state_name,
-        fk_country_id
-    FROM dblink('legacy',
-        $$
+        INSERT INTO resources.states (
+            state_id,
+            state_name,
+            fk_country_id
+        )
         SELECT 
             state_id,
             state_name,
             fk_country_id
-        FROM resources.states
-        $$
-    ) AS t (
-        state_id integer,
-        state_name text,
-        fk_country_id integer
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                state_id,
+                state_name,
+                fk_country_id
+            FROM resources.states
+            $$
+        ) AS t (
+            state_id integer,
+            state_name text,
+            fk_country_id integer
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(
-        pg_get_serial_sequence('resources.states', 'state_id'),
-        (SELECT MAX(state_id) FROM resources.states)
-    );
+        PERFORM setval(
+            pg_get_serial_sequence('resources.states', 'state_id'),
+            (SELECT MAX(state_id) FROM resources.states)
+        );
 
-    INSERT INTO resources.towns (
-        town_id,
-        town_name,
-        fk_state_id
-    )
-    SELECT 
-        town_id,
-        town_name,
-        fk_state_id
-    FROM dblink('legacy',
-        $$
+        INSERT INTO resources.towns (
+            town_id,
+            town_name,
+            fk_state_id
+        )
         SELECT 
             town_id,
             town_name,
             fk_state_id
-        FROM resources.towns
-        $$
-    ) AS t (
-        town_id integer,
-        town_name text,
-        fk_state_id integer
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                town_id,
+                town_name,
+                fk_state_id
+            FROM resources.towns
+            $$
+        ) AS t (
+            town_id integer,
+            town_name text,
+            fk_state_id integer
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(
-        pg_get_serial_sequence('resources.towns', 'town_id'),
-        (SELECT MAX(town_id) FROM resources.towns)
-    );
+        PERFORM setval(
+            pg_get_serial_sequence('resources.towns', 'town_id'),
+            (SELECT MAX(town_id) FROM resources.towns)
+        );
 
-    INSERT INTO resources.parishes (
-        parish_id,
-        parish_name,
-        fk_town_id
-    )
-    SELECT 
-        parish_id,
-        parish_name,
-        fk_town_id
-    FROM dblink('legacy',
-        $$
+        INSERT INTO resources.parishes (
+            parish_id,
+            parish_name,
+            fk_town_id
+        )
         SELECT 
             parish_id,
             parish_name,
             fk_town_id
-        FROM resources.parishes
-        $$
-    ) AS t (
-        parish_id integer,
-        parish_name text,
-        fk_town_id integer
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT 
+                parish_id,
+                parish_name,
+                fk_town_id
+            FROM resources.parishes
+            $$
+        ) AS t (
+            parish_id integer,
+            parish_name text,
+            fk_town_id integer
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(
-        pg_get_serial_sequence('resources.parishes', 'parish_id'),
-        (SELECT MAX(parish_id) FROM resources.parishes)
-    );
+        PERFORM setval(
+            pg_get_serial_sequence('resources.parishes', 'parish_id'),
+            (SELECT MAX(parish_id) FROM resources.parishes)
+        );
 
-    INSERT INTO resources.cie (
-        cie_id,
-        cie_codigo,
-        cie_simbolo,
-        cie_descripcion,
-        cie_sexo,
-        cie_limite_inferior,
-        cie_limite_superior,
-        cie_no_afeccion,
-        cie_observacion
-    )
-    SELECT
-        cie_id,
-        cie_codigo,
-        cie_simbolo,
-        cie_descripcion,
-        cie_sexo,
-        cie_limite_inferior,
-        cie_limite_superior,
-        cie_no_afeccion,
-        cie_observacion
-    FROM dblink('legacy',
-        $$
+        INSERT INTO resources.cie (
+            cie_id,
+            cie_codigo,
+            cie_simbolo,
+            cie_descripcion,
+            cie_sexo,
+            cie_limite_inferior,
+            cie_limite_superior,
+            cie_no_afeccion,
+            cie_observacion
+        )
         SELECT
             cie_id,
             cie_codigo,
@@ -4083,416 +4076,437 @@ BEGIN
             cie_limite_superior,
             cie_no_afeccion,
             cie_observacion
-        FROM resources.cie
-        $$
-    ) AS t (
-        cie_id integer,
-        cie_codigo text,
-        cie_simbolo text,
-        cie_descripcion text,
-        cie_sexo text,
-        cie_limite_inferior text,
-        cie_limite_superior text,
-        cie_no_afeccion text,
-        cie_observacion text
-    )
-    ON CONFLICT DO NOTHING;
+        FROM dblink('legacy',
+            $$
+            SELECT
+                cie_id,
+                cie_codigo,
+                cie_simbolo,
+                cie_descripcion,
+                cie_sexo,
+                cie_limite_inferior,
+                cie_limite_superior,
+                cie_no_afeccion,
+                cie_observacion
+            FROM resources.cie
+            $$
+        ) AS t (
+            cie_id integer,
+            cie_codigo text,
+            cie_simbolo text,
+            cie_descripcion text,
+            cie_sexo text,
+            cie_limite_inferior text,
+            cie_limite_superior text,
+            cie_no_afeccion text,
+            cie_observacion text
+        )
+        ON CONFLICT DO NOTHING;
 
-    PERFORM setval(
-        pg_get_serial_sequence('resources.cie', 'cie_id'),
-        (SELECT MAX(cie_id) FROM resources.cie)
-    );
+        PERFORM setval(
+            pg_get_serial_sequence('resources.cie', 'cie_id'),
+            (SELECT MAX(cie_id) FROM resources.cie)
+        );
 
-    -- Mantenimiento vehicular
+        -- Mantenimiento vehicular
 
 
-    -- INSTITUCIÓN ------------------------------------------------------------------
-    INSERT INTO admin.tb_sistema (
-        sistema_id,
-        sistema_ruc,
-        sistema_nombre,
-        sistema_slogan,
-        sistema_descripcion,
-        sistema_header,
-        sistema_footer,
-        sistema_mision,
-        sistema_vision,
-        sistema_historia,
-        sistema_ciudad,
-        sistema_direccion,
-        sistema_telefono,
-        sistema_celular,
-        sistema_correo,
-        sistema_sitioweb,
-        sistema_path_img,
-        sistema_ip,
-        fecha_constitucion,
-        sistema_msgcontacto
-    )
-    SELECT t.sistema_id, t.sistema_ruc, t.sistema_nombre, t.sistema_slogan, t.sistema_descripcion, t.sistema_header, t.sistema_footer, t.sistema_mision, t.sistema_vision, t.sistema_historia, t.sistema_ciudad, t.sistema_direccion, t.sistema_telefono, t.sistema_celular, t.sistema_correo, t.sistema_sitioweb, t.sistema_path_img, t.sistema_ip, t.fecha_constitucion, t.sistema_msgcontacto
-    FROM dblink('legacy', $$
-        SELECT sistema_id, sistema_ruc, sistema_nombre, sistema_slogan, sistema_descripcion, sistema_header, sistema_footer, sistema_mision, sistema_vision, sistema_historia, sistema_ciudad, sistema_direccion, sistema_telefono, sistema_celular, sistema_correo, sistema_sitioweb, sistema_path_img, sistema_ip, fecha_constitucion, sistema_msgcontacto FROM admin.tb_sistema
-    $$) AS t (
-        sistema_id integer,
-        sistema_ruc text,
-        sistema_nombre text,
-        sistema_slogan text,
-        sistema_descripcion text,
-        sistema_header text,
-        sistema_footer text,
-        sistema_mision text,
-        sistema_vision text,
-        sistema_historia text,
-        sistema_ciudad text,
-        sistema_direccion text,
-        sistema_telefono text,
-        sistema_celular text,
-        sistema_correo text,
-        sistema_sitioweb text,
-        sistema_path_img text,
-        sistema_ip text,
-        fecha_constitucion text,
-        sistema_msgcontacto text
-    )
-    ON CONFLICT (sistema_id) DO NOTHING;
-    INSERT INTO admin.tb_params (
-        param_key,
-        param_value,
-        param_type,
-        param_name,
-        param_modulo
-    )
-    SELECT t.param_key, t.param_value, t.param_type, t.param_name, t.param_modulo
-    FROM dblink('legacy', $$
-        SELECT param_key, param_value, param_type, param_name, param_modulo FROM admin.tb_params
-    $$) AS t (
-        param_key text,
-        param_value text,
-        param_type text,
-        param_name text,
-        param_modulo text
-    )
-    ON CONFLICT (param_key) DO NOTHING;
+        -- INSTITUCIÓN ------------------------------------------------------------------
+        INSERT INTO admin.tb_sistema (
+            sistema_id,
+            sistema_ruc,
+            sistema_nombre,
+            sistema_slogan,
+            sistema_descripcion,
+            sistema_header,
+            sistema_footer,
+            sistema_mision,
+            sistema_vision,
+            sistema_historia,
+            sistema_ciudad,
+            sistema_direccion,
+            sistema_telefono,
+            sistema_celular,
+            sistema_correo,
+            sistema_sitioweb,
+            sistema_path_img,
+            sistema_ip,
+            fecha_constitucion,
+            sistema_msgcontacto
+        )
+        SELECT t.sistema_id, t.sistema_ruc, t.sistema_nombre, t.sistema_slogan, t.sistema_descripcion, t.sistema_header, t.sistema_footer, t.sistema_mision, t.sistema_vision, t.sistema_historia, t.sistema_ciudad, t.sistema_direccion, t.sistema_telefono, t.sistema_celular, t.sistema_correo, t.sistema_sitioweb, t.sistema_path_img, t.sistema_ip, t.fecha_constitucion, t.sistema_msgcontacto
+        FROM dblink('legacy', $$
+            SELECT sistema_id, sistema_ruc, sistema_nombre, sistema_slogan, sistema_descripcion, sistema_header, sistema_footer, sistema_mision, sistema_vision, sistema_historia, sistema_ciudad, sistema_direccion, sistema_telefono, sistema_celular, sistema_correo, sistema_sitioweb, sistema_path_img, sistema_ip, fecha_constitucion, sistema_msgcontacto FROM admin.tb_sistema
+        $$) AS t (
+            sistema_id integer,
+            sistema_ruc text,
+            sistema_nombre text,
+            sistema_slogan text,
+            sistema_descripcion text,
+            sistema_header text,
+            sistema_footer text,
+            sistema_mision text,
+            sistema_vision text,
+            sistema_historia text,
+            sistema_ciudad text,
+            sistema_direccion text,
+            sistema_telefono text,
+            sistema_celular text,
+            sistema_correo text,
+            sistema_sitioweb text,
+            sistema_path_img text,
+            sistema_ip text,
+            fecha_constitucion text,
+            sistema_msgcontacto text
+        )
+        ON CONFLICT (sistema_id) DO NOTHING;
+        INSERT INTO admin.tb_params (
+            param_key,
+            param_value,
+            param_type,
+            param_name,
+            param_modulo
+        )
+        SELECT t.param_key, t.param_value, t.param_type, t.param_name, t.param_modulo
+        FROM dblink('legacy', $$
+            SELECT param_key, param_value, param_type, param_name, param_modulo FROM admin.tb_params
+        $$) AS t (
+            param_key text,
+            param_value text,
+            param_type text,
+            param_name text,
+            param_modulo text
+        )
+        ON CONFLICT (param_key) DO NOTHING;
 
-    -- PLANES, REGLAS Y RECURSOS --------------------------------------------------
-    INSERT INTO logistica.tb_planesmantenimiento (
-        plan_id,
-        plan_registro,
-        plan_estado,
-        fk_usuario_id,
-        plan_modelo,
-        plan_observaciones
-    )
-    SELECT t.plan_id, t.plan_registro, t.plan_estado, t.fk_usuario_id, t.plan_modelo, t.plan_observaciones
-    FROM dblink('legacy', $$
-        SELECT plan_id, plan_registro, plan_estado, fk_usuario_id, plan_modelo, plan_observaciones FROM logistica.tb_planesmantenimiento
-    $$) AS t (
-        plan_id integer,
-        plan_registro timestamp,
-        plan_estado text,
-        fk_usuario_id integer,
-        plan_modelo text,
-        plan_observaciones text
-    )
-    WHERE t.fk_usuario_id IS NULL OR EXISTS (SELECT 1 FROM admin.tb_usuarios u WHERE u.usuario_id = t.fk_usuario_id)
-    ON CONFLICT (plan_id) DO NOTHING;
-    INSERT INTO logistica.tb_reglasmantenimiento (
-        mantenimiento_id,
-        mantenimiento_registro,
-        mantenimiento_estado,
-        fk_usuario_id,
-        fk_plan_id,
-        mantenimiento_km_inicio,
-        mantenimiento_km_intervalo
-    )
-    SELECT t.mantenimiento_id, t.mantenimiento_registro, t.mantenimiento_estado, t.fk_usuario_id, t.fk_plan_id, t.mantenimiento_km_inicio, t.mantenimiento_km_intervalo
-    FROM dblink('legacy', $$
-        SELECT mantenimiento_id, mantenimiento_registro, mantenimiento_estado, fk_usuario_id, fk_plan_id, COALESCE(mantenimiento_km_inicio, 0), mantenimiento_km_intervalo FROM logistica.tb_reglasmantenimiento WHERE mantenimiento_km_intervalo > 0
-    $$) AS t (
-        mantenimiento_id integer,
-        mantenimiento_registro timestamp,
-        mantenimiento_estado text,
-        fk_usuario_id integer,
-        fk_plan_id integer,
-        mantenimiento_km_inicio integer,
-        mantenimiento_km_intervalo integer
-    )
-    WHERE EXISTS (SELECT 1 FROM logistica.tb_planesmantenimiento p WHERE p.plan_id = t.fk_plan_id)
-    ON CONFLICT (mantenimiento_id) DO NOTHING;
-    INSERT INTO logistica.tb_recursosmantenimiento (
-        recurso_id,
-        recurso_registro,
-        recurso_estado,
-        fk_usuario_id,
-        recurso_tipo,
-        recurso_codigo,
-        recurso_descripcion
-    )
-    SELECT t.recurso_id, t.recurso_registro, t.recurso_estado, t.fk_usuario_id, t.recurso_tipo, t.recurso_codigo, t.recurso_descripcion
-    FROM dblink('legacy', $$
-        SELECT recurso_id, recurso_registro, recurso_estado, fk_usuario_id, recurso_tipo, recurso_codigo, recurso_descripcion FROM logistica.tb_recursosmantenimiento
-    $$) AS t (
-        recurso_id integer,
-        recurso_registro timestamp,
-        recurso_estado text,
-        fk_usuario_id integer,
-        recurso_tipo text,
-        recurso_codigo text,
-        recurso_descripcion text
-    )
-    ON CONFLICT DO NOTHING;
-    INSERT INTO logistica.tb_mantenimiento_recursos (
-        regla_id,
-        fk_mantenimiento_id,
-        fk_recurso_id
-    )
-    SELECT t.regla_id, t.fk_mantenimiento_id, t.fk_recurso_id
-    FROM dblink('legacy', $$
-        SELECT regla_id, fk_mantenimiento_id, fk_recurso_id FROM logistica.tb_mantenimiento_recursos
-    $$) AS t (
-        regla_id integer,
-        fk_mantenimiento_id integer,
-        fk_recurso_id integer
-    )
-    WHERE EXISTS (SELECT 1 FROM logistica.tb_reglasmantenimiento r WHERE r.mantenimiento_id = t.fk_mantenimiento_id) AND EXISTS (SELECT 1 FROM logistica.tb_recursosmantenimiento r WHERE r.recurso_id = t.fk_recurso_id)
-    ON CONFLICT DO NOTHING;
+        -- PLANES, REGLAS Y RECURSOS --------------------------------------------------
+        INSERT INTO logistica.tb_planesmantenimiento (
+            plan_id,
+            plan_registro,
+            plan_estado,
+            fk_usuario_id,
+            plan_modelo,
+            plan_observaciones
+        )
+        SELECT t.plan_id, t.plan_registro, t.plan_estado, t.fk_usuario_id, t.plan_modelo, t.plan_observaciones
+        FROM dblink('legacy', $$
+            SELECT plan_id, plan_registro, plan_estado, fk_usuario_id, plan_modelo, plan_observaciones FROM logistica.tb_planesmantenimiento
+        $$) AS t (
+            plan_id integer,
+            plan_registro timestamp,
+            plan_estado text,
+            fk_usuario_id integer,
+            plan_modelo text,
+            plan_observaciones text
+        )
+        WHERE t.fk_usuario_id IS NULL OR EXISTS (SELECT 1 FROM admin.tb_usuarios u WHERE u.usuario_id = t.fk_usuario_id)
+        ON CONFLICT (plan_id) DO NOTHING;
+        INSERT INTO logistica.tb_reglasmantenimiento (
+            mantenimiento_id,
+            mantenimiento_registro,
+            mantenimiento_estado,
+            fk_usuario_id,
+            fk_plan_id,
+            mantenimiento_km_inicio,
+            mantenimiento_km_intervalo
+        )
+        SELECT t.mantenimiento_id, t.mantenimiento_registro, t.mantenimiento_estado, t.fk_usuario_id, t.fk_plan_id, t.mantenimiento_km_inicio, t.mantenimiento_km_intervalo
+        FROM dblink('legacy', $$
+            SELECT mantenimiento_id, mantenimiento_registro, mantenimiento_estado, fk_usuario_id, fk_plan_id, COALESCE(mantenimiento_km_inicio, 0), mantenimiento_km_intervalo FROM logistica.tb_reglasmantenimiento WHERE mantenimiento_km_intervalo > 0
+        $$) AS t (
+            mantenimiento_id integer,
+            mantenimiento_registro timestamp,
+            mantenimiento_estado text,
+            fk_usuario_id integer,
+            fk_plan_id integer,
+            mantenimiento_km_inicio integer,
+            mantenimiento_km_intervalo integer
+        )
+        WHERE EXISTS (SELECT 1 FROM logistica.tb_planesmantenimiento p WHERE p.plan_id = t.fk_plan_id)
+        ON CONFLICT (mantenimiento_id) DO NOTHING;
+        INSERT INTO logistica.tb_recursosmantenimiento (
+            recurso_id,
+            recurso_registro,
+            recurso_estado,
+            fk_usuario_id,
+            recurso_tipo,
+            recurso_codigo,
+            recurso_descripcion
+        )
+        SELECT t.recurso_id, t.recurso_registro, t.recurso_estado, t.fk_usuario_id, t.recurso_tipo, t.recurso_codigo, t.recurso_descripcion
+        FROM dblink('legacy', $$
+            SELECT recurso_id, recurso_registro, recurso_estado, fk_usuario_id, recurso_tipo, recurso_codigo, recurso_descripcion FROM logistica.tb_recursosmantenimiento
+        $$) AS t (
+            recurso_id integer,
+            recurso_registro timestamp,
+            recurso_estado text,
+            fk_usuario_id integer,
+            recurso_tipo text,
+            recurso_codigo text,
+            recurso_descripcion text
+        )
+        ON CONFLICT DO NOTHING;
+        INSERT INTO logistica.tb_mantenimiento_recursos (
+            regla_id,
+            fk_mantenimiento_id,
+            fk_recurso_id
+        )
+        SELECT t.regla_id, t.fk_mantenimiento_id, t.fk_recurso_id
+        FROM dblink('legacy', $$
+            SELECT regla_id, fk_mantenimiento_id, fk_recurso_id FROM logistica.tb_mantenimiento_recursos
+        $$) AS t (
+            regla_id integer,
+            fk_mantenimiento_id integer,
+            fk_recurso_id integer
+        )
+        WHERE EXISTS (SELECT 1 FROM logistica.tb_reglasmantenimiento r WHERE r.mantenimiento_id = t.fk_mantenimiento_id) AND EXISTS (SELECT 1 FROM logistica.tb_recursosmantenimiento r WHERE r.recurso_id = t.fk_recurso_id)
+        ON CONFLICT DO NOTHING;
 
-    -- Plan asignado a cada vehículo (antes en logistica.tb_unidades)
-    UPDATE administrativo.tb_vehiculos v
-       SET fk_plan_id = t.fk_plan_id
-      FROM dblink('legacy', $$ SELECT fk_vehiculo_id, fk_plan_id FROM logistica.tb_unidades WHERE fk_plan_id IS NOT NULL $$)
-           AS t (fk_vehiculo_id integer, fk_plan_id integer)
-     WHERE v.vehiculo_id = t.fk_vehiculo_id
-       AND v.fk_plan_id IS NULL
-       AND EXISTS (SELECT 1 FROM logistica.tb_planesmantenimiento p WHERE p.plan_id = t.fk_plan_id);
+        -- Plan asignado a cada vehículo (antes en logistica.tb_unidades)
+        UPDATE administrativo.tb_vehiculos v
+           SET fk_plan_id = t.fk_plan_id
+          FROM dblink('legacy', $$ SELECT fk_vehiculo_id, fk_plan_id FROM logistica.tb_unidades WHERE fk_plan_id IS NOT NULL $$)
+               AS t (fk_vehiculo_id integer, fk_plan_id integer)
+         WHERE v.vehiculo_id = t.fk_vehiculo_id
+           AND v.fk_plan_id IS NULL
+           AND EXISTS (SELECT 1 FROM logistica.tb_planesmantenimiento p WHERE p.plan_id = t.fk_plan_id);
 
-    -- ÓRDENES DE MANTENIMIENTO (unidad -> vehículo) ----------------------------------
-    -- Equivalencias con el sistema anterior:
-    --   orden_cargo_recepcion -> orden_informe_numero  (número del informe de pago, documento institucional, texto libre)
-    --   orden_fecha_recepcion -> orden_fecha_entrega   (fecha de entrega del informe de pago)
-    --   orden_fecha_entrega   -> orden_fecha_recepcion (fecha del acta entrega-recepción)
-    INSERT INTO logistica.tb_ordenesmantenimiento (
-        orden_id,
-        orden_registro,
-        orden_estado,
-        fk_usuario_id,
-        fk_vehiculo_id,
-        personal_solicita,
-        director_administrativo,
-        tecnico_servicios,
-        tecnico_puesto,
-        orden_codigo,
-        orden_serie,
-        orden_tipomantenimiento,
-        orden_fecha_mantenimiento_tipo,
-        orden_fecha_mantenimiento,
-        orden_km_mantenimiento,
-        ultimo_km_mantenimiento,
-        ultimo_fecha_mantenimiento,
-        orden_proximomantenimiento,
-        orden_fecha_entrega,
-        orden_observaciones,
-        orden_fecha_recepcion,
-        orden_quien_recepcion,
-        orden_informe_numero          -- en el sistema anterior: orden_cargo_recepcion (número del documento, ej. CBSD-DA-2026-0207-I)
-    )
-    SELECT t.orden_id, t.orden_registro, t.orden_estado, t.fk_usuario_id, t.fk_vehiculo_id, t.personal_solicita, t.director_administrativo, t.tecnico_servicios, t.tecnico_puesto, t.orden_codigo, t.orden_serie, t.orden_tipomantenimiento, t.orden_fecha_mantenimiento_tipo, t.orden_fecha_mantenimiento, t.orden_km_mantenimiento, t.ultimo_km_mantenimiento, t.ultimo_fecha_mantenimiento, t.orden_proximomantenimiento, t.orden_fecha_entrega, t.orden_observaciones, t.orden_fecha_recepcion, t.orden_quien_recepcion, t.orden_cargo_recepcion
-    FROM dblink('legacy', $$
-        SELECT o.orden_id, o.orden_registro, o.orden_estado, o.fk_usuario_id, u.fk_vehiculo_id, o.personal_solicita, o.director_administrativo,
-               o.tecnico_servicios, o.tecnico_puesto, o.orden_codigo, COALESCE(o.orden_serie, 0), o.orden_tipomantenimiento, o.orden_fecha_mantenimiento_tipo,
-               o.orden_fecha_mantenimiento, o.orden_km_mantenimiento, o.ultimo_km_mantenimiento, o.ultimo_fecha_mantenimiento, o.orden_proximomantenimiento,
-               -- fechas cruzadas en el sistema anterior: fecha_recepcion = informe de pago, fecha_entrega = acta entrega-recepción
-               o.orden_fecha_recepcion, o.orden_observaciones, o.orden_fecha_entrega, o.orden_quien_recepcion, o.orden_cargo_recepcion
-          FROM logistica.tb_ordenesmantenimiento o
-          JOIN logistica.tb_unidades u ON u.unidad_id = o.fk_unidad_id
-    $$) AS t (
-        orden_id integer,
-        orden_registro timestamp,
-        orden_estado text,
-        fk_usuario_id integer,
-        fk_vehiculo_id integer,
-        personal_solicita integer,
-        director_administrativo integer,
-        tecnico_servicios integer,
-        tecnico_puesto text,
-        orden_codigo text,
-        orden_serie integer,
-        orden_tipomantenimiento text,
-        orden_fecha_mantenimiento_tipo text,
-        orden_fecha_mantenimiento timestamp,
-        orden_km_mantenimiento numeric(10,2),
-        ultimo_km_mantenimiento numeric(10,2),
-        ultimo_fecha_mantenimiento date,
-        orden_proximomantenimiento numeric(10,2),
-        orden_fecha_entrega date,
-        orden_observaciones text,
-        orden_fecha_recepcion date,
-        orden_quien_recepcion text,
-        orden_cargo_recepcion text
-    )
-    WHERE EXISTS (SELECT 1 FROM administrativo.tb_vehiculos v WHERE v.vehiculo_id = t.fk_vehiculo_id)
-      AND EXISTS (SELECT 1 FROM admin.tb_usuarios x WHERE x.usuario_id = t.fk_usuario_id)
-      AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.personal_solicita)
-      AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.director_administrativo)
-      AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.tecnico_servicios)
-    ON CONFLICT DO NOTHING;
-    INSERT INTO logistica.tb_mantenimiento_trabajos (
-        trabajo_id,
-        trabajo_registro,
-        trabajo_estado,
-        fk_usuario_id,
-        fk_orden_id,
-        trabajo_descripcion
-    )
-    SELECT t.trabajo_id, t.trabajo_registro, t.trabajo_estado, t.fk_usuario_id, t.fk_orden_id, t.trabajo_descripcion
-    FROM dblink('legacy', $$
-        SELECT trabajo_id, trabajo_registro, trabajo_estado, fk_usuario_id, fk_orden_id, trabajo_descripcion FROM logistica.tb_mantenimiento_trabajos
-    $$) AS t (
-        trabajo_id integer,
-        trabajo_registro timestamp,
-        trabajo_estado text,
-        fk_usuario_id integer,
-        fk_orden_id integer,
-        trabajo_descripcion text
-    )
-    WHERE EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
-    ON CONFLICT (trabajo_id) DO NOTHING;
-    INSERT INTO logistica.tb_mantenimiento_sugeridos (
-        trabajo_id,
-        trabajo_registro,
-        trabajo_estado,
-        fk_usuario_id,
-        fk_orden_id,
-        trabajo_descripcion
-    )
-    SELECT t.trabajo_id, t.trabajo_registro, t.trabajo_estado, t.fk_usuario_id, t.fk_orden_id, t.trabajo_descripcion
-    FROM dblink('legacy', $$
-        SELECT trabajo_id, trabajo_registro, trabajo_estado, fk_usuario_id, fk_orden_id, trabajo_descripcion FROM logistica.tb_mantenimiento_sugeridos
-    $$) AS t (
-        trabajo_id integer,
-        trabajo_registro timestamp,
-        trabajo_estado text,
-        fk_usuario_id integer,
-        fk_orden_id integer,
-        trabajo_descripcion text
-    )
-    WHERE EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
-    ON CONFLICT (trabajo_id) DO NOTHING;
-    INSERT INTO logistica.tb_mantenimiento_facturas (
-        factura_id,
-        factura_registro,
-        factura_estado,
-        fk_personal_id,
-        fk_orden_id,
-        factura_tipo,
-        factura_numero,
-        factura_valor,
-        factura_descripcion
-    )
-    SELECT t.factura_id, t.factura_registro, t.factura_estado, t.fk_personal_id, t.fk_orden_id, t.factura_tipo, t.factura_numero, t.factura_valor, t.factura_descripcion
-    FROM dblink('legacy', $$
-        SELECT factura_id, factura_registro, factura_estado, fk_personal_id, fk_orden_id, factura_tipo, factura_numero, factura_valor, factura_descripcion FROM logistica.tb_mantenimiento_facturas
-    $$) AS t (
-        factura_id integer,
-        factura_registro timestamp,
-        factura_estado text,
-        fk_personal_id integer,
-        fk_orden_id integer,
-        factura_tipo text,
-        factura_numero text,
-        factura_valor numeric(10,2),
-        factura_descripcion text
-    )
-    WHERE EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
-    ON CONFLICT (factura_id) DO NOTHING;
-    INSERT INTO logistica.tb_mantenimiento_anexos (
-        anexo_id,
-        anexo_registro,
-        fk_usuario_id,
-        fk_orden_id,
-        anexo_descripcion
-    )
-    SELECT t.anexo_id, t.anexo_registro, t.fk_usuario_id, t.fk_orden_id, t.anexo_descripcion
-    FROM dblink('legacy', $$
-        SELECT anexo_id, anexo_registro, fk_usuario_id, fk_orden_id, anexo_descripcion FROM logistica.tb_mantenimiento_anexos
-    $$) AS t (
-        anexo_id integer,
-        anexo_registro timestamp,
-        fk_usuario_id integer,
-        fk_orden_id integer,
-        anexo_descripcion text
-    )
-    WHERE EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
-    ON CONFLICT (anexo_id) DO NOTHING;
+        -- ÓRDENES DE MANTENIMIENTO (unidad -> vehículo) ----------------------------------
+        -- Equivalencias con el sistema anterior:
+        --   orden_cargo_recepcion -> orden_informe_numero  (número del informe de pago, documento institucional, texto libre)
+        --   orden_fecha_recepcion -> orden_fecha_entrega   (fecha de entrega del informe de pago)
+        --   orden_fecha_entrega   -> orden_fecha_recepcion (fecha del acta entrega-recepción)
+        INSERT INTO logistica.tb_ordenesmantenimiento (
+            orden_id,
+            orden_registro,
+            orden_estado,
+            fk_usuario_id,
+            fk_vehiculo_id,
+            personal_solicita,
+            director_administrativo,
+            tecnico_servicios,
+            tecnico_puesto,
+            orden_codigo,
+            orden_serie,
+            orden_tipomantenimiento,
+            orden_fecha_mantenimiento_tipo,
+            orden_fecha_mantenimiento,
+            orden_km_mantenimiento,
+            ultimo_km_mantenimiento,
+            ultimo_fecha_mantenimiento,
+            orden_proximomantenimiento,
+            orden_fecha_entrega,
+            orden_observaciones,
+            orden_fecha_recepcion,
+            orden_quien_recepcion,
+            orden_informe_numero          -- en el sistema anterior: orden_cargo_recepcion (número del documento, ej. CBSD-DA-2026-0207-I)
+        )
+        SELECT t.orden_id, t.orden_registro, t.orden_estado, t.fk_usuario_id, t.fk_vehiculo_id, t.personal_solicita, t.director_administrativo, t.tecnico_servicios, t.tecnico_puesto, t.orden_codigo, t.orden_serie, t.orden_tipomantenimiento, t.orden_fecha_mantenimiento_tipo, t.orden_fecha_mantenimiento, t.orden_km_mantenimiento, t.ultimo_km_mantenimiento, t.ultimo_fecha_mantenimiento, t.orden_proximomantenimiento, t.orden_fecha_entrega, t.orden_observaciones, t.orden_fecha_recepcion, t.orden_quien_recepcion, t.orden_cargo_recepcion
+        FROM dblink('legacy', $$
+            SELECT o.orden_id, o.orden_registro, o.orden_estado, o.fk_usuario_id, u.fk_vehiculo_id, o.personal_solicita, o.director_administrativo,
+                   o.tecnico_servicios, o.tecnico_puesto, o.orden_codigo, COALESCE(o.orden_serie, 0), o.orden_tipomantenimiento, o.orden_fecha_mantenimiento_tipo,
+                   o.orden_fecha_mantenimiento, o.orden_km_mantenimiento, o.ultimo_km_mantenimiento, o.ultimo_fecha_mantenimiento, o.orden_proximomantenimiento,
+                   -- fechas cruzadas en el sistema anterior: fecha_recepcion = informe de pago, fecha_entrega = acta entrega-recepción
+                   o.orden_fecha_recepcion, o.orden_observaciones, o.orden_fecha_entrega, o.orden_quien_recepcion, o.orden_cargo_recepcion
+              FROM logistica.tb_ordenesmantenimiento o
+              JOIN logistica.tb_unidades u ON u.unidad_id = o.fk_unidad_id
+        $$) AS t (
+            orden_id integer,
+            orden_registro timestamp,
+            orden_estado text,
+            fk_usuario_id integer,
+            fk_vehiculo_id integer,
+            personal_solicita integer,
+            director_administrativo integer,
+            tecnico_servicios integer,
+            tecnico_puesto text,
+            orden_codigo text,
+            orden_serie integer,
+            orden_tipomantenimiento text,
+            orden_fecha_mantenimiento_tipo text,
+            orden_fecha_mantenimiento timestamp,
+            orden_km_mantenimiento numeric(10,2),
+            ultimo_km_mantenimiento numeric(10,2),
+            ultimo_fecha_mantenimiento date,
+            orden_proximomantenimiento numeric(10,2),
+            orden_fecha_entrega date,
+            orden_observaciones text,
+            orden_fecha_recepcion date,
+            orden_quien_recepcion text,
+            orden_cargo_recepcion text
+        )
+        WHERE EXISTS (SELECT 1 FROM administrativo.tb_vehiculos v WHERE v.vehiculo_id = t.fk_vehiculo_id)
+          AND EXISTS (SELECT 1 FROM admin.tb_usuarios x WHERE x.usuario_id = t.fk_usuario_id)
+          AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.personal_solicita)
+          AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.director_administrativo)
+          AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.tecnico_servicios)
+        ON CONFLICT DO NOTHING;
+        INSERT INTO logistica.tb_mantenimiento_trabajos (
+            trabajo_id,
+            trabajo_registro,
+            trabajo_estado,
+            fk_usuario_id,
+            fk_orden_id,
+            trabajo_descripcion
+        )
+        SELECT t.trabajo_id, t.trabajo_registro, t.trabajo_estado, t.fk_usuario_id, t.fk_orden_id, t.trabajo_descripcion
+        FROM dblink('legacy', $$
+            SELECT trabajo_id, trabajo_registro, trabajo_estado, fk_usuario_id, fk_orden_id, trabajo_descripcion FROM logistica.tb_mantenimiento_trabajos
+        $$) AS t (
+            trabajo_id integer,
+            trabajo_registro timestamp,
+            trabajo_estado text,
+            fk_usuario_id integer,
+            fk_orden_id integer,
+            trabajo_descripcion text
+        )
+        WHERE EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
+        ON CONFLICT (trabajo_id) DO NOTHING;
+        INSERT INTO logistica.tb_mantenimiento_sugeridos (
+            trabajo_id,
+            trabajo_registro,
+            trabajo_estado,
+            fk_usuario_id,
+            fk_orden_id,
+            trabajo_descripcion
+        )
+        SELECT t.trabajo_id, t.trabajo_registro, t.trabajo_estado, t.fk_usuario_id, t.fk_orden_id, t.trabajo_descripcion
+        FROM dblink('legacy', $$
+            SELECT trabajo_id, trabajo_registro, trabajo_estado, fk_usuario_id, fk_orden_id, trabajo_descripcion FROM logistica.tb_mantenimiento_sugeridos
+        $$) AS t (
+            trabajo_id integer,
+            trabajo_registro timestamp,
+            trabajo_estado text,
+            fk_usuario_id integer,
+            fk_orden_id integer,
+            trabajo_descripcion text
+        )
+        WHERE EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
+        ON CONFLICT (trabajo_id) DO NOTHING;
+        INSERT INTO logistica.tb_mantenimiento_facturas (
+            factura_id,
+            factura_registro,
+            factura_estado,
+            fk_personal_id,
+            fk_orden_id,
+            factura_tipo,
+            factura_numero,
+            factura_valor,
+            factura_descripcion
+        )
+        SELECT t.factura_id, t.factura_registro, t.factura_estado, t.fk_personal_id, t.fk_orden_id, t.factura_tipo, t.factura_numero, t.factura_valor, t.factura_descripcion
+        FROM dblink('legacy', $$
+            SELECT factura_id, factura_registro, factura_estado, fk_personal_id, fk_orden_id, factura_tipo, factura_numero, factura_valor, factura_descripcion FROM logistica.tb_mantenimiento_facturas
+        $$) AS t (
+            factura_id integer,
+            factura_registro timestamp,
+            factura_estado text,
+            fk_personal_id integer,
+            fk_orden_id integer,
+            factura_tipo text,
+            factura_numero text,
+            factura_valor numeric(10,2),
+            factura_descripcion text
+        )
+        WHERE EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
+        ON CONFLICT (factura_id) DO NOTHING;
+        INSERT INTO logistica.tb_mantenimiento_anexos (
+            anexo_id,
+            anexo_registro,
+            fk_usuario_id,
+            fk_orden_id,
+            anexo_descripcion
+        )
+        SELECT t.anexo_id, t.anexo_registro, t.fk_usuario_id, t.fk_orden_id, t.anexo_descripcion
+        FROM dblink('legacy', $$
+            SELECT anexo_id, anexo_registro, fk_usuario_id, fk_orden_id, anexo_descripcion FROM logistica.tb_mantenimiento_anexos
+        $$) AS t (
+            anexo_id integer,
+            anexo_registro timestamp,
+            fk_usuario_id integer,
+            fk_orden_id integer,
+            anexo_descripcion text
+        )
+        WHERE EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
+        ON CONFLICT (anexo_id) DO NOTHING;
 
-    -- INFORMES ---------------------------------------------------------------------
-    INSERT INTO logistica.tb_informemantenimiento (
-        informe_id,
-        informe_registro,
-        informe_estado,
-        fk_usuario_id,
-        tecnico_servicios,
-        tecnico_cargo,
-        director_administrativo,
-        informe_numero,
-        informe_fecha,
-        informe_taller,
-        informe_detalle
-    )
-    SELECT t.informe_id, t.informe_registro, t.informe_estado, t.fk_usuario_id, t.tecnico_servicios, t.tecnico_cargo, t.director_administrativo, t.informe_numero, t.informe_fecha, t.informe_taller, t.informe_detalle
-    FROM dblink('legacy', $$
-        SELECT informe_id, informe_registro, informe_estado, fk_usuario_id, tecnico_servicios, tecnico_cargo, director_administrativo, informe_numero, COALESCE(informe_fecha, informe_registro::date), informe_taller, informe_detalle FROM logistica.tb_informemantenimiento
-    $$) AS t (
-        informe_id integer,
-        informe_registro timestamp,
-        informe_estado text,
-        fk_usuario_id integer,
-        tecnico_servicios integer,
-        tecnico_cargo text,
-        director_administrativo integer,
-        informe_numero text,
-        informe_fecha date,
-        informe_taller text,
-        informe_detalle text
-    )
-    WHERE EXISTS (SELECT 1 FROM admin.tb_usuarios x WHERE x.usuario_id = t.fk_usuario_id)
-      AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.tecnico_servicios)
-      AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.director_administrativo)
-    ON CONFLICT (informe_id) DO NOTHING;
-    INSERT INTO logistica.tb_informe_ordenesmantenimiento (
-        fk_informe_id,
-        fk_orden_id
-    )
-    SELECT t.fk_informe_id, t.fk_orden_id
-    FROM dblink('legacy', $$
-        SELECT fk_informe_id, fk_orden_id FROM logistica.tb_informe_ordenesmantenimiento
-    $$) AS t (
-        fk_informe_id integer,
-        fk_orden_id integer
-    )
-    WHERE EXISTS (SELECT 1 FROM logistica.tb_informemantenimiento i WHERE i.informe_id = t.fk_informe_id) AND EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
-    ON CONFLICT DO NOTHING;
+        -- INFORMES ---------------------------------------------------------------------
+        INSERT INTO logistica.tb_informemantenimiento (
+            informe_id,
+            informe_registro,
+            informe_estado,
+            fk_usuario_id,
+            tecnico_servicios,
+            tecnico_cargo,
+            director_administrativo,
+            informe_numero,
+            informe_fecha,
+            informe_taller,
+            informe_detalle
+        )
+        SELECT t.informe_id, t.informe_registro, t.informe_estado, t.fk_usuario_id, t.tecnico_servicios, t.tecnico_cargo, t.director_administrativo, t.informe_numero, t.informe_fecha, t.informe_taller, t.informe_detalle
+        FROM dblink('legacy', $$
+            SELECT informe_id, informe_registro, informe_estado, fk_usuario_id, tecnico_servicios, tecnico_cargo, director_administrativo, informe_numero, COALESCE(informe_fecha, informe_registro::date), informe_taller, informe_detalle FROM logistica.tb_informemantenimiento
+        $$) AS t (
+            informe_id integer,
+            informe_registro timestamp,
+            informe_estado text,
+            fk_usuario_id integer,
+            tecnico_servicios integer,
+            tecnico_cargo text,
+            director_administrativo integer,
+            informe_numero text,
+            informe_fecha date,
+            informe_taller text,
+            informe_detalle text
+        )
+        WHERE EXISTS (SELECT 1 FROM admin.tb_usuarios x WHERE x.usuario_id = t.fk_usuario_id)
+          AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.tecnico_servicios)
+          AND EXISTS (SELECT 1 FROM tthh.tb_personal_puestos x WHERE x.ppersonal_id = t.director_administrativo)
+        ON CONFLICT (informe_id) DO NOTHING;
+        INSERT INTO logistica.tb_informe_ordenesmantenimiento (
+            fk_informe_id,
+            fk_orden_id
+        )
+        SELECT t.fk_informe_id, t.fk_orden_id
+        FROM dblink('legacy', $$
+            SELECT fk_informe_id, fk_orden_id FROM logistica.tb_informe_ordenesmantenimiento
+        $$) AS t (
+            fk_informe_id integer,
+            fk_orden_id integer
+        )
+        WHERE EXISTS (SELECT 1 FROM logistica.tb_informemantenimiento i WHERE i.informe_id = t.fk_informe_id) AND EXISTS (SELECT 1 FROM logistica.tb_ordenesmantenimiento o WHERE o.orden_id = t.fk_orden_id)
+        ON CONFLICT DO NOTHING;
 
-    -- SECUENCIAS --------------------------------------------------------------------
-    PERFORM setval(pg_get_serial_sequence('admin.tb_sistema', 'sistema_id'), COALESCE((SELECT MAX(sistema_id) FROM admin.tb_sistema), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('admin.tb_params', 'param_id'), COALESCE((SELECT MAX(param_id) FROM admin.tb_params), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_planesmantenimiento', 'plan_id'), COALESCE((SELECT MAX(plan_id) FROM logistica.tb_planesmantenimiento), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_reglasmantenimiento', 'mantenimiento_id'), COALESCE((SELECT MAX(mantenimiento_id) FROM logistica.tb_reglasmantenimiento), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_recursosmantenimiento', 'recurso_id'), COALESCE((SELECT MAX(recurso_id) FROM logistica.tb_recursosmantenimiento), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_recursos', 'regla_id'), COALESCE((SELECT MAX(regla_id) FROM logistica.tb_mantenimiento_recursos), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_ordenesmantenimiento', 'orden_id'), COALESCE((SELECT MAX(orden_id) FROM logistica.tb_ordenesmantenimiento), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_trabajos', 'trabajo_id'), COALESCE((SELECT MAX(trabajo_id) FROM logistica.tb_mantenimiento_trabajos), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_sugeridos', 'trabajo_id'), COALESCE((SELECT MAX(trabajo_id) FROM logistica.tb_mantenimiento_sugeridos), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_facturas', 'factura_id'), COALESCE((SELECT MAX(factura_id) FROM logistica.tb_mantenimiento_facturas), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_anexos', 'anexo_id'), COALESCE((SELECT MAX(anexo_id) FROM logistica.tb_mantenimiento_anexos), 0) + 1, false);
-    PERFORM setval(pg_get_serial_sequence('logistica.tb_informemantenimiento', 'informe_id'), COALESCE((SELECT MAX(informe_id) FROM logistica.tb_informemantenimiento), 0) + 1, false);
+        -- SECUENCIAS --------------------------------------------------------------------
+        PERFORM setval(pg_get_serial_sequence('admin.tb_sistema', 'sistema_id'), COALESCE((SELECT MAX(sistema_id) FROM admin.tb_sistema), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('admin.tb_params', 'param_id'), COALESCE((SELECT MAX(param_id) FROM admin.tb_params), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_planesmantenimiento', 'plan_id'), COALESCE((SELECT MAX(plan_id) FROM logistica.tb_planesmantenimiento), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_reglasmantenimiento', 'mantenimiento_id'), COALESCE((SELECT MAX(mantenimiento_id) FROM logistica.tb_reglasmantenimiento), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_recursosmantenimiento', 'recurso_id'), COALESCE((SELECT MAX(recurso_id) FROM logistica.tb_recursosmantenimiento), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_recursos', 'regla_id'), COALESCE((SELECT MAX(regla_id) FROM logistica.tb_mantenimiento_recursos), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_ordenesmantenimiento', 'orden_id'), COALESCE((SELECT MAX(orden_id) FROM logistica.tb_ordenesmantenimiento), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_trabajos', 'trabajo_id'), COALESCE((SELECT MAX(trabajo_id) FROM logistica.tb_mantenimiento_trabajos), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_sugeridos', 'trabajo_id'), COALESCE((SELECT MAX(trabajo_id) FROM logistica.tb_mantenimiento_sugeridos), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_facturas', 'factura_id'), COALESCE((SELECT MAX(factura_id) FROM logistica.tb_mantenimiento_facturas), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_mantenimiento_anexos', 'anexo_id'), COALESCE((SELECT MAX(anexo_id) FROM logistica.tb_mantenimiento_anexos), 0) + 1, false);
+        PERFORM setval(pg_get_serial_sequence('logistica.tb_informemantenimiento', 'informe_id'), COALESCE((SELECT MAX(informe_id) FROM logistica.tb_informemantenimiento), 0) + 1, false);
 
-    SELECT n INTO total_ordenes FROM dblink('legacy', 'SELECT count(*) FROM logistica.tb_ordenesmantenimiento') AS t(n integer);
-    SELECT n INTO total_informes FROM dblink('legacy', 'SELECT count(*) FROM logistica.tb_informemantenimiento') AS t(n integer);
-    SELECT count(*) INTO antes_ordenes FROM logistica.tb_ordenesmantenimiento WHERE fk_contrato_id IS NULL;
-    SELECT count(*) INTO antes_informes FROM logistica.tb_informemantenimiento WHERE fk_contrato_id IS NULL;
-    RAISE NOTICE 'Importación terminada. Órdenes en db_cbsd: %, sin contrato en la base nueva: %. Informes en db_cbsd: %, en la base nueva: %.',
-        total_ordenes, antes_ordenes, total_informes, antes_informes;
+        SELECT n INTO total_ordenes FROM dblink('legacy', 'SELECT count(*) FROM logistica.tb_ordenesmantenimiento') AS t(n integer);
+        SELECT n INTO total_informes FROM dblink('legacy', 'SELECT count(*) FROM logistica.tb_informemantenimiento') AS t(n integer);
+        SELECT count(*) INTO antes_ordenes FROM logistica.tb_ordenesmantenimiento WHERE fk_contrato_id IS NULL;
+        SELECT count(*) INTO antes_informes FROM logistica.tb_informemantenimiento WHERE fk_contrato_id IS NULL;
+        RAISE NOTICE 'Importación terminada. Órdenes en db_cbsd: %, sin contrato en la base nueva: %. Informes en db_cbsd: %, en la base nueva: %.',
+            total_ordenes, antes_ordenes, total_informes, antes_informes;
+    EXCEPTION WHEN OTHERS THEN
+        -- Siempre se cierra la conexión y se indica en qué paso se detuvo (no queda nada a medias de esta importación)
+        GET STACKED DIAGNOSTICS contexto = PG_EXCEPTION_CONTEXT;
+        PERFORM dblink_disconnect('legacy');
+        RAISE EXCEPTION 'Importación desde db_cbsd detenida: % (código %)', SQLERRM, SQLSTATE
+            USING HINT = 'No se guardó nada de la importación. Paso: ' || split_part(contexto, E'
+', 1)
+                         || '. Corrija y vuelva a ejecutar el script (se puede ejecutar varias veces).';
+    END;
     PERFORM dblink_disconnect('legacy');
 END
 $importacion$;
