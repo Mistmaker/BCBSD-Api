@@ -6,6 +6,7 @@
  * Número como en el formato del área operativa: {SIGLAS}-{PA|PI}-{ESTACIÓN}-{AAAA}-{NNNN}, secuencia por año, estación y tipo.
  */
 require_once __DIR__ . '/api.php';
+require_once __DIR__ . '/mapaUbicacion.php';
 
 const PARTE_TIPOS = ['AUXILIO', 'INCENDIO'];
 const PARTE_ESTADOS = ['REGISTRADO', 'FINALIZADO', 'ANULADO'];
@@ -365,6 +366,8 @@ function parteValidar(object $p, ?string $hoy = null): array
         'parte_visita_inspectores' => parteBool(prop($p, 'parte_visita_inspectores')),
         'parte_fecha_entrega' => parteFecha(prop($p, 'parte_fecha_entrega'), 'la fecha de entrega'),
         'parte_total_muertos' => count($fallecidos), 'parte_total_heridos' => count($victimas),
+        'parte_mapa_tipo' => in_array(strtoupper((string) prop($p, 'parte_mapa_tipo', 'CALLES')), MAPA_TIPOS, true)
+            ? strtoupper((string) prop($p, 'parte_mapa_tipo', 'CALLES')) : 'CALLES',
     ];
     foreach (['parte_tipo_dia', 'parte_forma_aviso', 'parte_codigo_salida', 'parte_grupo_asiste', 'parte_apoyo', 'parte_apoyo_otros',
                  'parte_calle_principal', 'parte_calle_secundaria', 'parte_numero_domicilio', 'parte_telefono', 'parte_sector', 'parte_tipo_sector',
@@ -813,4 +816,39 @@ function parteEstadisticasEmergencias(Database $db, string $desde, string $hasta
         'resumen' => ['partes' => (int) $r['partes'], 'incendio' => (int) $r['incendio'], 'auxilio' => (int) $r['auxilio'], 'victimas' => (int) $r['victimas'],
             'fallecidos' => (int) $r['fallecidos'], 'respuesta_prom_min' => $num($r['respuesta'])],
         'por_mes' => $porMes, 'incendio' => $seccion('INCENDIO'), 'auxilio' => $seccion('AUXILIO'), 'puntos' => $puntos];
+}
+
+/**
+ * Genera (o quita) la imagen de ubicación del parte: mapa del tipo elegido con el marcador en sus coordenadas.
+ * Devuelve true si se generó, false si falló (el parte queda guardado sin imagen; se puede regenerar) y null si el
+ * parte no tiene coordenadas. Se llama después de confirmar la transacción del parte.
+ */
+function parteActualizarMapa(Database $db, int $id, ?callable $tile = null): ?bool
+{
+    $db->query('SELECT parte_numero, parte_latitud, parte_longitud, parte_mapa_tipo, parte_mapa_archivo FROM operaciones.tb_partes WHERE parte_id = :id');
+    $db->bind(':id', $id);
+    $p = $db->single();
+    if (!$p) {
+        return null;
+    }
+    if ($p['parte_latitud'] === null || $p['parte_longitud'] === null) {
+        if ($p['parte_mapa_archivo'] !== null) {
+            $db->query('UPDATE operaciones.tb_partes SET parte_mapa_archivo = NULL, parte_mapa_generado = NULL WHERE parte_id = :id');
+            $db->bind(':id', $id);
+            $db->execute();
+        }
+        return null;
+    }
+    try {
+        $cfg = mapaConfig($db, $p['parte_mapa_tipo'] ?: 'CALLES');
+        $ruta = mapaGenerar($cfg, 'partes', $p['parte_numero'], (float) $p['parte_latitud'], (float) $p['parte_longitud'], $tile);
+    } catch (Throwable $e) {
+        error_log('Mapa del parte ' . $p['parte_numero'] . ': ' . $e->getMessage());
+        return false;
+    }
+    $db->query('UPDATE operaciones.tb_partes SET parte_mapa_archivo = :a, parte_mapa_generado = now() WHERE parte_id = :id');
+    $db->bind(':a', $ruta);
+    $db->bind(':id', $id);
+    $db->execute();
+    return true;
 }

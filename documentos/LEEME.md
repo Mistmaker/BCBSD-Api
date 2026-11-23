@@ -15,6 +15,8 @@ recomienda una carpeta fuera de la raíz pública de Apache, con permiso de escr
 | `capacitaciones/` | Certificados de capacitaciones | `CAP-{CÉDULA}-{CÓDIGO}.pdf` |
 | `reconocimientos/` | Reconocimientos | `REC-{CÉDULA}-{CÓDIGO}.pdf` |
 | `cargas-familiares/` | Cédulas de las cargas familiares | `CFA-{CÉDULA FUNCIONARIO}-{CÉDULA CARGA}.pdf` |
+| `ubicaciones/{módulo}/` | Imagen de ubicación (mapa con el marcador) generada por el sistema, p. ej. `ubicaciones/partes/` | `MAPA-{NÚMERO}.png`; la anterior pasa a `ubicaciones/{módulo}/historico/` |
+| `cache/mapas/` | Cuadros del mapa descargados (caché de 30 días, se pueden borrar) | |
 | `historico/` | Versiones reemplazadas, en la misma subcarpeta y con fecha: `historico/licencias/LIC-B-1712345675_20261122-153000.pdf` | |
 
 La base de datos guarda la ruta relativa (p. ej. `licencias/LIC-C-1712345675.pdf` en `tthh.tb_conductores.conductor_pdf`).

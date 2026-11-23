@@ -38,10 +38,12 @@ try {
     requirePermiso($db, 'OPE_PARTE_REGISTRAR');
     $d = parteValidar($p);
     $cab = $d['cab'];
+    $mapaCambio = true;
     $db->beginTransaction();
 
     if ($metodo === 'PUT') {
-        $db->query('SELECT parte_estado, parte_numero, parte_tipo, fk_estacion_id, parte_anio FROM operaciones.tb_partes WHERE parte_id = :id FOR UPDATE');
+        $db->query('SELECT parte_estado, parte_numero, parte_tipo, fk_estacion_id, parte_anio, parte_latitud, parte_longitud, parte_mapa_tipo, parte_mapa_archivo
+                      FROM operaciones.tb_partes WHERE parte_id = :id FOR UPDATE');
         $db->bind(':id', $id);
         $actual = $db->single();
         if (!$actual) {
@@ -60,6 +62,10 @@ try {
             throw new ValidacionException('No se puede cambiar el tipo, la estación ni el año de un parte ya numerado; anúlelo y registre uno nuevo');
         }
         $numero = $actual['parte_numero'];
+        // La imagen del mapa se rehace solo si cambió la ubicación o el tipo de mapa (o si aún no existe)
+        $mapaCambio = !mapaExiste($actual['parte_mapa_archivo']) || $actual['parte_mapa_tipo'] !== $cab['parte_mapa_tipo']
+            || (float) $actual['parte_latitud'] !== (float) $cab['parte_latitud'] || (float) $actual['parte_longitud'] !== (float) $cab['parte_longitud']
+            || ($actual['parte_latitud'] === null) !== ($cab['parte_latitud'] === null);
         $sets = implode(', ', array_map(fn($c) => "$c = :$c", array_keys($cab)));
         $db->query("UPDATE operaciones.tb_partes SET $sets, parte_actualizado = now(), fk_usuario_actualiza = :usuario_actualiza WHERE parte_id = :parte_id");
         foreach ($cab as $c => $v) {
@@ -82,8 +88,12 @@ try {
     }
     parteGuardarDetalles($db, $id, $d);
     $db->endTransaction();
-    jsonResponse(['msg' => $metodo === 'PUT' ? 'Parte actualizado' : "Parte registrado con el número $numero", 'id' => $id, 'parte_numero' => $numero],
-        $metodo === 'PUT' ? 200 : 201);
+    // Imagen de ubicación (mapa con el marcador): fuera de la transacción; si el servidor de mapas no responde,
+    // el parte queda guardado y la imagen se puede regenerar desde el parte.
+    $mapa = ($metodo === 'POST' || $mapaCambio) ? parteActualizarMapa($db, $id) : null;
+    $msg = ($metodo === 'PUT' ? 'Parte actualizado' : "Parte registrado con el número $numero")
+        . ($mapa === false ? '. No se pudo generar la imagen del mapa (servidor de mapas no disponible): use "Regenerar imagen" en el parte.' : '');
+    jsonResponse(['msg' => $msg, 'id' => $id, 'parte_numero' => $numero, 'mapa' => $mapa], $metodo === 'PUT' ? 200 : 201);
 } catch (Throwable $e) {
     $db?->cancelTransaction();
     apiError($e, 'Error al guardar el parte de servicio');

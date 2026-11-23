@@ -158,11 +158,19 @@ function parteReporteHtml(Database $db, int $id): ?array
 
     $lat = $p['parte_latitud'] !== null ? rtrim(rtrim((string) $p['parte_latitud'], '0'), '.') : '';
     $lng = $p['parte_longitud'] !== null ? rtrim(rtrim((string) $p['parte_longitud'], '0'), '.') : '';
-    $enlace = $p['parte_croquis_url'] ?: ($lat !== '' && $lng !== '' ? "https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=18/$lat/$lng" : '');
-    $mapa = $enlace !== ''
-        ? '<div style="margin-top:2mm;"><qrcode value="' . e($enlace) . '" ec="M" style="width:26mm;border:none;"></qrcode></div>'
-            . '<div style="font-size:7px;">Escanee el código para ver la ubicación en el mapa.</div>'
-        : '<div style="height:25mm;"></div>';
+    $cfgMapa = mapaConfig($db, $p['parte_mapa_tipo'] ?? 'CALLES');
+    // Imagen del mapa con el marcador (generada al guardar el parte) y QR pequeño para abrir la ubicación en el teléfono
+    if (mapaExiste($p['parte_mapa_archivo'] ?? null)) {
+        $mapa = '<img src="' . e(mapaRutaAbsoluta($p['parte_mapa_archivo'])) . '" style="width:104mm;height:58.5mm;">'; // la atribución del mapa va dentro de la imagen
+    } elseif ($lat !== '' && $lng !== '') {
+        $mapa = '<div style="font-size:8px;color:#555;padding:8mm 2mm;">Imagen del mapa no disponible: use el código QR para ver la ubicación.</div>';
+    } else {
+        $mapa = '<div style="font-size:8px;color:#555;padding:8mm 2mm;">Sin coordenadas registradas.</div>';
+    }
+    $qr = ($lat !== '' && $lng !== '')
+        ? '<div style="margin-top:3mm;width:26mm;height:26mm;overflow:hidden;"><qrcode value="' . e($p['parte_croquis_url'] ?: mapaUrlQr($cfgMapa, (float) $lat, (float) $lng)) . '" ec="M" style="width:24mm;border:none;"></qrcode></div>'
+            . '<div style="width:48mm;font-size:7px;">Escanee para abrir la ubicación en el teléfono.</div>'
+        : '';
     $sino = fn($b) => $b === null ? '' : ($b ? 'Sí' : 'No');
     $minutos = minutosTexto(parteMinutos(($p['parte_fecha_aviso'] ?: $fecha) . ' ' . ($p['parte_hora_aviso'] ?? ''),
         ($arr = array_filter(array_column($p['vehiculos'], 'parte_vehiculo_hora_arribo'))) ? str_replace('T', ' ', min($arr)) : null));
@@ -194,7 +202,7 @@ function parteReporteHtml(Database $db, int $id): ?array
         'incendio_html' => $incendioHtml,
         'danios' => $nada($p['parte_danios_materiales']) ? 'Ninguno' : nl2br(e($p['parte_danios_materiales'])),
         'descripcion' => nl2br(e($p['parte_descripcion_operaciones'])),
-        'latitud' => e($lat), 'longitud' => e($lng), 'mapa_html' => $mapa,
+        'latitud' => e($lat), 'longitud' => e($lng), 'mapa_html' => $mapa, 'qr_html' => $qr,
         'novedades' => $p['parte_novedades'] ? nl2br(e($p['parte_novedades'])) : 'Ninguna',
         'inspectores' => e(trim($sino($p['parte_visita_inspectores']) . ($p['parte_visita_inspectores'] && $p['parte_visita_inspectores_motivo'] ? ': ' . $p['parte_visita_inspectores_motivo'] : ''))),
         'elaborado' => nl2br(e($p['parte_elaborado_por'])), 'revisado' => nl2br(e($p['parte_revisado_por'])), 'aprobado' => nl2br(e($p['parte_aprobado_por'])),

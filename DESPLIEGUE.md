@@ -212,6 +212,19 @@ para registrar y editar). Un operador es un funcionario, operativo o administrat
 - Privilegios: `OPE_PARTES` (listado), `OPE_PARTES_ESTADISTICAS` (estadística), `OPE_PARTE_REGISTRAR` (registrar y
   editar) y `OPE_PARTE_ANULAR` (anular con motivo y corregir partes finalizados).
 
+### Imagen de ubicación (mapa con el marcador)
+
+- Al guardar un parte con coordenadas, el API descarga los cuadros del mapa alrededor del punto, dibuja el marcador y
+  guarda el PNG en `DOCS_DIR/ubicaciones/partes/` (`classes/mapaUbicacion.php`, reutilizable para permisos de
+  funcionamiento y planes de emergencia). El PDF del parte lo incluye junto con un QR que abre la ubicación.
+- **El servidor del API necesita salida HTTPS** al servidor de mapas. Si no responde, el parte se guarda igual y la
+  imagen se genera luego con "Regenerar imagen" en el parte.
+- Mapa de **calles** (OpenStreetMap) o **satelital** (Esri), elegido en cada parte. Parámetros (módulo MAPAS):
+  `MAPA_CALLES_URL`, `MAPA_SATELITE_URL` y sus `_ATRIBUCION` (obligatoria), `MAPA_ZOOM` (17), `MAPA_ANCHO` (640),
+  `MAPA_ALTO` (360), `MAPA_MARCADOR_COLOR`, `MAPA_QR_URL` (Google Maps), `MAPA_USER_AGENT`.
+- Los cuadros se guardan 30 días en `DOCS_DIR/cache/mapas/` (política de uso de OpenStreetMap: pocas descargas y
+  con identificación).
+
 ### Bitácora del vehículo (`migrations/mantenimiento/05-bitacora.sql`)
 
 Pantalla **Unidades > Bitácora de vehículos** (privilegio `ADM_BITACORA_VEHICULOS`). Endpoints

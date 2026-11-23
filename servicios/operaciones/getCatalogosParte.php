@@ -14,6 +14,8 @@ try {
     $pelotones = parteLista(parametro($db, 'OPE_PARTE_PELOTONES', ''));
     $claves = parteLista(parametro($db, 'OPE_PARTE_CLAVES', ''));
     $parroquia = (int) parametro($db, 'OPE_PARTE_PARROQUIA_ID', 0);
+    // Mapas del formulario: los mismos servidores con los que se genera la imagen impresa
+    $mapas = array_map(fn($t) => ['tipo' => $t, 'url' => ($c = mapaConfig($db, $t))['url'], 'atribucion' => $c['atribucion']], MAPA_TIPOS);
     $lista = function (string $sql) use ($db): array {
         $db->query($sql);
         return $db->resultset();
@@ -55,6 +57,7 @@ try {
                                   WHERE naturaleza_estado = 'ACTIVO' ORDER BY naturaleza_id"),
         'rangos' => $rangos, 'pelotones' => $pelotones, 'claves' => $claves,
         'ubicacion' => $ubicacion,
+        'mapas' => $mapas,
     ]);
 } catch (Throwable $e) {
     apiError($e, 'Error al consultar los catálogos del parte');
