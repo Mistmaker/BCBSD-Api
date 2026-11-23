@@ -14,6 +14,10 @@ en Administración > Usuarios > Privilegios:
   (`ADM_OPERADORES`). Aparece en el menú del usuario que lo tenga.
 - **Permiso de acción** (registrar, editar, anular...): `rol_path` = NULL, `rol_codigo` propio (`ADM_OPERADOR_GESTIONAR`).
 - Va dentro del submódulo que corresponda (`admin.tb_submodulos`, del módulo `admin.tb_modulos`); si no existe, crearlo.
+  Buscar el submódulo por módulo Y nombre (hay nombres repetidos: "Panel", "Parámetros"). El submódulo es el grupo del
+  menú: completar su orden y el de la pantalla en `migrations/admin/03-menu.sql` (`submodulo_orden`, `submodulo_menu`,
+  `rol_orden`, `rol_menu`). El primer acceso de cada módulo es "Panel". Pantallas en desuso: `rol_estado = 'INACTIVO'`.
+- Códigos de documentos: tipo de 3 letras (MOV, COM, ODM, INF, PDM); los partes usan PA/PI como el formato del área.
 - Re-ejecutable: `WHERE NOT EXISTS (... rol_codigo = ...)`. Modelo: `migrations/operadores/01-operadores.sql`, sección 4.
 - Asignación inicial: a los administradores con `admin.fn_es_administrador(u.usuario_id)` (parámetro `SIS_ADMINISTRADORES`,
   nunca un usuario_id fijo), al perfil de administrador con `admin.fn_perfil_es_administrador(p.perfil_id)` y a quienes

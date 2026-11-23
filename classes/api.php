@@ -125,10 +125,17 @@ function permisosUsuario(Database $db, ?int $usuarioId = null): array
  */
 function privilegiosUsuario(Database $db, int $usuarioId): array
 {
-    $sql = fn(string $fuente) => "SELECT DISTINCT ON (r.rol_id) r.rol_id, r.rol_codigo, r.rol_path, r.rol_nombre, s.submodulo_nombre, m.modulo_nombre, x.origen
+    // Orden y grupos del menú con to_jsonb: el login funciona aunque aún no se haya ejecutado la migración del menú
+    $sql = fn(string $fuente) => "SELECT DISTINCT ON (r.rol_id) r.rol_id, r.rol_codigo, r.rol_path, r.rol_nombre, s.submodulo_id, s.submodulo_nombre,
+                     m.modulo_id, m.modulo_nombre, x.origen,
+                     COALESCE((to_jsonb(m) ->> 'modulo_orden')::int, 100) AS modulo_orden,
+                     COALESCE((to_jsonb(s) ->> 'submodulo_orden')::int, 100) AS submodulo_orden,
+                     COALESCE(to_jsonb(s) ->> 'submodulo_menu', 'GRUPO') AS submodulo_menu,
+                     COALESCE((to_jsonb(r) ->> 'rol_orden')::int, 100) AS rol_orden, to_jsonb(r) ->> 'rol_menu' AS rol_menu
               FROM $fuente x JOIN admin.tb_roles r ON r.rol_id = x.rol_id
               JOIN admin.tb_submodulos s ON s.submodulo_id = r.fk_submodulo_id JOIN admin.tb_modulos m ON m.modulo_id = s.fk_modulo_id
-             WHERE x.usuario_id = :u ORDER BY r.rol_id, (x.origen = 'PERFIL') DESC";
+             WHERE x.usuario_id = :u AND (to_jsonb(r) ->> 'rol_estado') IS DISTINCT FROM 'INACTIVO'
+             ORDER BY r.rol_id, (x.origen = 'PERFIL') DESC";
     try {
         $db->query($sql('admin.vw_usuario_privilegios'));
         $db->bind(':u', $usuarioId);
@@ -140,17 +147,39 @@ function privilegiosUsuario(Database $db, int $usuarioId): array
     }
 }
 
-/** Menú del usuario: pantallas (privilegios con ruta) agrupadas por módulo, ordenadas por módulo y rol. */
+/**
+ * Menú del usuario: módulo -> grupo (submódulo) -> pantalla, cada nivel por su orden (modulo_orden, submodulo_orden,
+ * rol_orden; luego por nombre). Sin carpeta: los submódulos 'DIRECTO' (Panel), los grupos con una sola pantalla visible
+ * y el grupo único de un módulo. El texto es rol_menu (corto) o rol_nombre.
+ */
 function menuUsuario(array $privilegios): array
 {
     $pantallas = array_values(array_filter($privilegios, fn($p) => !empty($p['rol_path'])));
-    usort($pantallas, fn($a, $b) => [$a['modulo_nombre'], (int) $a['rol_id']] <=> [$b['modulo_nombre'], (int) $b['rol_id']]);
-    $grupos = [];
+    $n = fn($p, $k, $d = 100) => (int) ($p[$k] ?? $d);
+    usort($pantallas, fn($a, $b) => [$n($a, 'modulo_orden'), $a['modulo_nombre'], $n($a, 'submodulo_orden'), $a['submodulo_nombre'] ?? '',
+        $n($a, 'rol_orden'), (int) $a['rol_id']] <=> [$n($b, 'modulo_orden'), $b['modulo_nombre'], $n($b, 'submodulo_orden'), $b['submodulo_nombre'] ?? '',
+        $n($b, 'rol_orden'), (int) $b['rol_id']]);
+    $modulos = [];
     foreach ($pantallas as $p) {
-        $grupos[$p['modulo_nombre']] ??= ['name' => $p['modulo_nombre'], 'url' => '/' . explode('/', $p['rol_path'])[1], 'icon' => 'fa fa-folder', 'children' => []];
-        $grupos[$p['modulo_nombre']]['children'][] = ['name' => $p['rol_nombre'], 'url' => $p['rol_path'], 'icon' => 'nav-icon-bullet'];
+        $modulos[$p['modulo_nombre']][$p['submodulo_nombre'] ?? ''][] = $p;
     }
-    return array_values($grupos);
+    $item = fn($p) => ['name' => ($p['rol_menu'] ?? null) ?: $p['rol_nombre'], 'url' => $p['rol_path'], 'icon' => 'nav-icon-bullet'];
+    $menu = [];
+    foreach ($modulos as $modulo => $grupos) {
+        $primero = reset($grupos)[0];
+        $url = '/' . explode('/', $primero['rol_path'])[1];
+        $hijos = [];
+        foreach ($grupos as $grupo => $items) {
+            if (count($grupos) === 1 || count($items) === 1 || ($items[0]['submodulo_menu'] ?? 'GRUPO') === 'DIRECTO') {
+                array_push($hijos, ...array_map($item, $items));
+            } else {
+                // El menú de CoreUI necesita la url del grupo: la del módulo (el grupo se abre al entrar al módulo)
+                $hijos[] = ['name' => $grupo, 'url' => $url, 'icon' => 'fa fa-folder-open', 'children' => array_map($item, $items)];
+            }
+        }
+        $menu[] = ['name' => $modulo, 'url' => $url, 'icon' => 'fa fa-folder', 'children' => $hijos];
+    }
+    return $menu;
 }
 
 /**

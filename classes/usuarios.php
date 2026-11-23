@@ -103,7 +103,10 @@ function usrArbolPrivilegios(Database $db, array $asignados = [], array $delPerf
                        r.rol_path, r.rol_codigo
                   FROM admin.tb_roles r JOIN admin.tb_submodulos s ON s.submodulo_id = r.fk_submodulo_id
                   JOIN admin.tb_modulos m ON m.modulo_id = s.fk_modulo_id
-                 ORDER BY m.modulo_nombre, s.submodulo_nombre, (r.rol_path IS NULL), r.rol_nombre");
+                 WHERE (to_jsonb(r) ->> 'rol_estado') IS DISTINCT FROM 'INACTIVO'
+                 ORDER BY COALESCE((to_jsonb(m) ->> 'modulo_orden')::int, 100), m.modulo_nombre,
+                          COALESCE((to_jsonb(s) ->> 'submodulo_orden')::int, 100), s.submodulo_nombre,
+                          COALESCE((to_jsonb(r) ->> 'rol_orden')::int, 100), (r.rol_path IS NULL), r.rol_nombre");
     $asignados = array_flip(array_map('intval', $asignados));
     $delPerfil = array_flip(array_map('intval', $delPerfil));
     $modulos = [];
@@ -132,7 +135,7 @@ function usrRolesValidos(Database $db, array $roles): array
     if (!$roles) {
         return [];
     }
-    $db->query('SELECT rol_id FROM admin.tb_roles WHERE rol_id = ANY(CAST(:r AS int[]))');
+    $db->query("SELECT rol_id FROM admin.tb_roles r WHERE rol_id = ANY(CAST(:r AS int[])) AND (to_jsonb(r) ->> 'rol_estado') IS DISTINCT FROM 'INACTIVO'");
     $db->bind(':r', '{' . implode(',', $roles) . '}');
     return array_map('intval', array_column($db->resultset(), 'rol_id'));
 }

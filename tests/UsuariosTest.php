@@ -51,14 +51,31 @@ final class UsuariosTest extends TestCase
 
     public function testMenuAgrupadoPorModulo(): void
     {
+        $p = fn($id, $nombre, $ruta, $modulo, $mo, $grupo, $go, $ro, $menu = null, $tipo = 'GRUPO') => ['rol_id' => $id, 'rol_nombre' => $nombre,
+            'rol_path' => $ruta, 'modulo_nombre' => $modulo, 'modulo_orden' => $mo, 'submodulo_nombre' => $grupo, 'submodulo_orden' => $go,
+            'submodulo_menu' => $tipo, 'rol_orden' => $ro, 'rol_menu' => $menu];
         $menu = menuUsuario([
-            ['rol_id' => 5, 'rol_nombre' => 'Usuarios', 'rol_path' => '/adm/usuarios', 'modulo_nombre' => 'Administración'],
-            ['rol_id' => 2, 'rol_nombre' => 'Operadores', 'rol_path' => '/admin/operadores', 'modulo_nombre' => 'Dir. Administrativa'],
-            ['rol_id' => 9, 'rol_nombre' => 'Crear', 'rol_path' => null, 'modulo_nombre' => 'Dir. Administrativa'],
-            ['rol_id' => 1, 'rol_nombre' => 'Vehículos', 'rol_path' => '/admin/vehiculos', 'modulo_nombre' => 'Dir. Administrativa'],
+            $p(5, 'Usuarios', '/adm/usuarios', 'Administración', 90, 'Usuarios y perfiles', 100, 10),
+            $p(6, 'Perfiles', '/adm/perfiles', 'Administración', 90, 'Usuarios y perfiles', 100, 20),
+            $p(40, 'Resumen gerencial', '/admin/dashboard', 'Dir. Administrativa', 10, 'Panel', 10, 10, 'Panel', 'DIRECTO'),
+            $p(2, 'Operadores', '/admin/operadores', 'Dir. Administrativa', 10, 'Parámetros', 20, 30),
+            $p(9, 'Crear', null, 'Dir. Administrativa', 10, 'Parámetros', 20, 11),
+            $p(1, 'Vehículos', '/admin/vehiculos', 'Dir. Administrativa', 10, 'Parámetros', 20, 10),
+            $p(7, 'Órdenes de movilización', '/admin/ordenes-movilizacion', 'Dir. Administrativa', 10, 'Gestión', 30, 10),
         ]);
-        $this->assertSame(['Administración', 'Dir. Administrativa'], array_column($menu, 'name'));
-        $this->assertSame('/adm', $menu[0]['url']);
-        $this->assertSame(['Vehículos', 'Operadores'], array_column($menu[1]['children'], 'name')); // sin acciones, por rol_id
+        // Módulos por orden; el Panel primero y sin carpeta; grupos con su orden; sin acciones
+        $this->assertSame(['Dir. Administrativa', 'Administración'], array_column($menu, 'name'));
+        $this->assertSame('/admin', $menu[0]['url']);
+        $this->assertSame(['Panel', 'Parámetros', 'Órdenes de movilización'], array_column($menu[0]['children'], 'name'),
+            'Gestión con una sola pantalla visible se muestra sin carpeta');
+        $this->assertSame('/admin/dashboard', $menu[0]['children'][0]['url']);
+        $this->assertSame(['Vehículos', 'Operadores'], array_column($menu[0]['children'][1]['children'], 'name'));
+        // Módulo con un solo grupo: pantallas directas
+        $this->assertSame(['Usuarios', 'Perfiles'], array_column($menu[1]['children'], 'name'));
+        $this->assertArrayNotHasKey('children', $menu[1]['children'][0]);
+        // Sin datos de orden (migración aún no ejecutada): sigue funcionando, por nombre de módulo y rol_id
+        $simple = menuUsuario([['rol_id' => 2, 'rol_nombre' => 'B', 'rol_path' => '/x/b', 'modulo_nombre' => 'M'],
+                               ['rol_id' => 1, 'rol_nombre' => 'A', 'rol_path' => '/x/a', 'modulo_nombre' => 'M']]);
+        $this->assertSame(['A', 'B'], array_column($simple[0]['children'], 'name'));
     }
 }

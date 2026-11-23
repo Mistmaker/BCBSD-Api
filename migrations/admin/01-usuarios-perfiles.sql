@@ -46,17 +46,22 @@ SELECT 'SIN PERFIL', 'Usuarios sin privilegios predefinidos (solo los adicionale
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_perfiles WHERE upper(trim(perfil_nombre)) = 'SIN PERFIL');
 
 -- 2. Privilegios efectivos
+-- Pantallas o acciones en desuso: rol_estado = 'INACTIVO' (no salen en el menú ni en Privilegios y su ruta queda bloqueada).
+-- NULL o 'ACTIVO' = en uso. Se reactiva con: UPDATE admin.tb_roles SET rol_estado = 'ACTIVO' WHERE rol_codigo = '...';
+ALTER TABLE admin.tb_roles ADD COLUMN IF NOT EXISTS rol_estado text;
 CREATE OR REPLACE VIEW admin.vw_usuario_privilegios AS
 SELECT u.usuario_id, ur.fk_rol_id AS rol_id, 'USUARIO'::text AS origen
   FROM admin.tb_usuarios u JOIN admin.tb_usuario_rol ur ON ur.fk_usuario_id = u.usuario_id
+  JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id AND r.rol_estado IS DISTINCT FROM 'INACTIVO'
  WHERE COALESCE(u.usuario_estado, 'ACTIVO') = 'ACTIVO'
 UNION
 SELECT u.usuario_id, pr.fk_rol_id, 'PERFIL'::text
   FROM admin.tb_usuarios u
   JOIN admin.tb_perfiles p ON p.perfil_id = u.fk_perfil_id AND COALESCE(p.perfil_estado, 'ACTIVO') = 'ACTIVO'
   JOIN admin.tb_perfil_rol pr ON pr.fk_perfil_id = p.perfil_id
+  JOIN admin.tb_roles r ON r.rol_id = pr.fk_rol_id AND r.rol_estado IS DISTINCT FROM 'INACTIVO'
  WHERE COALESCE(u.usuario_estado, 'ACTIVO') = 'ACTIVO';
-COMMENT ON VIEW admin.vw_usuario_privilegios IS 'Privilegios efectivos: perfil + adicionales, solo usuarios y perfiles ACTIVOS';
+COMMENT ON VIEW admin.vw_usuario_privilegios IS 'Privilegios efectivos: perfil + adicionales, solo usuarios, perfiles y privilegios ACTIVOS';
 
 -- 3. Menú y privilegios de la administración del sistema (antes el menú estaba fijo para un usuario)
 ALTER TABLE admin.tb_roles ADD COLUMN IF NOT EXISTS rol_codigo text;

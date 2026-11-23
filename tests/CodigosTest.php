@@ -33,4 +33,13 @@ final class CodigosTest extends TestCase
         $this->assertSame(2, mantSerieDeCodigo('CBSD27ODM00002', 'CBSD', 'ODM', 2027));
         $this->assertNull(mantSerieDeCodigo('CBSD26ODM00002', 'CBSD', 'ODM', 2027)); // otro año: no cuenta
     }
+
+    public function testCombustibleCOMContinuaLaNumeracionDeABAS(): void
+    {
+        $patron = '/' . codPatron(2026, ['COM', 'ABAS'], 'DA') . '/';
+        $this->assertMatchesRegularExpression($patron, 'CBSD26ABASDA00012');
+        $this->assertMatchesRegularExpression($patron, 'CBSD26COMDA00013');
+        $this->assertDoesNotMatchRegularExpression($patron, 'CBSD26MOVDA00013');
+        $this->assertDoesNotMatchRegularExpression($patron, 'CBSD25COMDA00013', 'otro año');
+    }
 }

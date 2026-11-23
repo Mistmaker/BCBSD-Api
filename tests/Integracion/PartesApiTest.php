@@ -13,6 +13,8 @@ final class PartesApiTest extends TestCase
     /** @var resource|null */
     private static $servidor = null;
     private static int $puerto = 0;
+    private static string $docs = '';
+    private static array $paramsMapa = [];
 
     public static function setUpBeforeClass(): void
     {
@@ -33,10 +35,21 @@ final class PartesApiTest extends TestCase
                  VALUES (9801, 1, 1, 'PRB-9801', 'R-98', 'AUTOBOMBA', 'DIESEL', 'ACTIVO', 9801), (9802, 1, 1, 'PRB-9802', 'A-98', 'AMBULANCIA', 'DIESEL', 'ACTIVO', 9801);
             SET session_replication_role = origin;
             INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9801, rol_id FROM admin.tb_roles
-             WHERE rol_codigo IN ('OPE_PARTES', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR', 'OPE_PARTES_ESTADISTICAS', 'ADM_BITACORA_VEHICULOS');
+             WHERE rol_codigo IN ('OPE_PARTES', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR', 'OPE_PARTES_ESTADISTICAS', 'ADM_BITACORA_VEHICULOS', 'SBJ_ESTADISTICAS');
             INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9802, rol_id FROM admin.tb_roles
              WHERE rol_codigo IN ('OPE_PARTES', 'OPE_PARTE_REGISTRAR');
-            INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9803, rol_id FROM admin.tb_roles WHERE rol_codigo = 'OPE_PARTES';");
+            INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id) SELECT 9803, rol_id FROM admin.tb_roles WHERE rol_codigo IN ('OPE_PARTES', 'SBJ_INTERVENCIONES', 'ADM_DASHBOARD', 'ADM_VEHICULOS', 'ADM_OPERADORES', 'ADM_MOVILIZACION');");
+
+        // Servidor de mapas simulado: un cuadro PNG en disco (file://) y documentos en una carpeta temporal
+        self::$docs = sys_get_temp_dir() . '/bcbsd-partes-docs-' . getmypid();
+        @mkdir(self::$docs, 0750, true);
+        $t = imagecreatetruecolor(256, 256);
+        imagefill($t, 0, 0, imagecolorallocate($t, 210, 225, 210));
+        imagepng($t, self::$docs . '/cuadro.png');
+        foreach (self::$pdo->query("SELECT param_key, param_value FROM admin.tb_params WHERE param_key IN ('MAPA_CALLES_URL', 'MAPA_SATELITE_URL')") as $f) {
+            self::$paramsMapa[$f['param_key']] = $f['param_value'];
+        }
+        self::mapaUrl('file://' . self::$docs . '/cuadro.png');
 
         $socket = stream_socket_server('tcp://127.0.0.1:0');
         self::$puerto = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
@@ -44,7 +57,7 @@ final class PartesApiTest extends TestCase
         $env = array_merge(getenv(), [
             'BCBSD_JWT_SECRET' => self::SECRETO, 'BCBSD_DB_HOST' => $host, 'BCBSD_DB_PORT' => $port,
             'BCBSD_DB_NAME' => getenv('BCBSD_TEST_DB_NAME'), 'BCBSD_DB_USER' => getenv('BCBSD_TEST_DB_USER') ?: 'postgres',
-            'BCBSD_DB_PASS' => getenv('BCBSD_TEST_DB_PASS') ?: '',
+            'BCBSD_DB_PASS' => getenv('BCBSD_TEST_DB_PASS') ?: '', 'BCBSD_DOCS_DIR' => self::$docs,
         ]);
         self::$servidor = proc_open([PHP_BINARY, '-S', '127.0.0.1:' . self::$puerto, '-t', dirname(__DIR__, 2)],
             [1 => ['file', '/dev/null', 'w'], 2 => ['file', sys_get_temp_dir() . '/bcbsd-api-partes.log', 'w']], $pipes, dirname(__DIR__, 2), $env);
@@ -61,7 +74,19 @@ final class PartesApiTest extends TestCase
         }
         if (self::$pdo) {
             self::limpiar();
+            foreach (self::$paramsMapa as $k => $v) {
+                self::$pdo->prepare('UPDATE admin.tb_params SET param_value = ? WHERE param_key = ?')->execute([$v, $k]);
+            }
         }
+        if (self::$docs && is_dir(self::$docs)) {
+            exec('rm -rf ' . escapeshellarg(self::$docs));
+        }
+    }
+
+    /** URL del servidor de mapas (calles y satélite) para la prueba */
+    private static function mapaUrl(string $url): void
+    {
+        self::$pdo->prepare("UPDATE admin.tb_params SET param_value = ? WHERE param_key IN ('MAPA_CALLES_URL', 'MAPA_SATELITE_URL')")->execute([$url]);
     }
 
     private static function limpiar(): void
@@ -261,6 +286,99 @@ final class PartesApiTest extends TestCase
         $this->assertSame($partes - 1, $e2['resumen']['partes']);
         [$st] = $this->api('PUT', 'operaciones/setParte.php', $edicion);
         $this->assertSame(422, $st);
+    }
+
+    public function testPanelDeSubjefatura(): void
+    {
+        $incendio = $this->parte(['parte_tipo' => 'INCENDIO', 'parte_fecha' => '2025-06-07', 'parte_hora_aviso' => '03:10', 'parte_latitud' => '-0.2477',
+            'parte_longitud' => '-79.1834', 'parte_sector' => 'coca cola', 'parte_area_destruida_m2' => 40, 'parte_causante_identificado' => true,
+            'tipos_incendio' => [(int) self::$pdo->query("SELECT tipo_incendio_id FROM operaciones.tb_partes_catalogo_tipos_incendio WHERE tipo_incendio_codigo = 'FORESTAL'")->fetchColumn()],
+            'causas' => [['parte_causa_clasificacion' => 'Incendio', 'parte_causa_descripcion' => 'Cortocircuito']],
+            'vehiculos' => [['fk_vehiculo_id' => 9802, 'parte_vehiculo_hora_salida' => '2025-06-07T03:15', 'parte_vehiculo_hora_arribo' => '2025-06-07T03:30']]]);
+        [$st, , $t] = $this->api('POST', 'operaciones/setParte.php', $incendio);
+        $this->assertSame(201, $st, $t);
+        [$st, $e, $t] = $this->api('GET', 'subjefatura/estadisticas/getEstadisticasEmergencias.php?desde=2025-06-01&hasta=2025-06-30&estacion=9801');
+        $this->assertSame(200, $st, $t);
+        $this->assertSame(1, $e['resumen']['incendio']);
+        $this->assertSame(0, $e['resumen']['auxilio']);
+        $this->assertSame(20.0, (float) $e['incendio']['resumen']['respuesta_prom_min']);
+        $this->assertSame(40.0, (float) $e['incendio']['resumen']['area_destruida_m2']);
+        $this->assertSame(1, $e['incendio']['resumen']['causante_identificado']);
+        $this->assertSame('Forestal', $e['incendio']['tipos_incendio'][0]['nombre']);
+        $this->assertSame('Cortocircuito', $e['incendio']['causas'][0]['nombre']);
+        $this->assertSame('Coca Cola', $e['incendio']['por_sector'][0]['nombre']);
+        $this->assertSame(1, $e['incendio']['por_hora'][3]);
+        $this->assertSame(1, $e['incendio']['por_dia_semana'][5], 'sábado');
+        $this->assertSame(0, $e['auxilio']['resumen']['partes']);
+        $this->assertCount(1, $e['puntos']);
+        $this->assertSame('INCENDIO', $e['puntos'][0]['tipo']);
+        [$st] = $this->api('GET', 'subjefatura/estadisticas/getEstadisticasEmergencias.php', null, 9802);
+        $this->assertSame(403, $st);
+    }
+
+    public function testMenuAgrupadoYPantallasInactivas(): void
+    {
+        [$st, $menu, $t] = $this->api('GET', 'auth/getMenuUsuario.php', null, 9803);
+        $this->assertSame(200, $st, $t);
+        $this->assertSame(['Dir. Administrativa', 'Operaciones'], array_column($menu, 'name'), 'Intervenciones está en desuso: Subjefatura no aparece');
+        $adm = $menu[0]['children'];
+        $this->assertSame(['Panel', 'Parámetros', 'Órdenes de movilización'], array_column($adm, 'name'));
+        $this->assertSame(['Vehículos', 'Operadores'], array_column($adm[1]['children'], 'name'));
+        [, $permisos] = $this->api('GET', 'auth/getPermisos.php', null, 9803);
+        $this->assertNotContains('SBJ_INTERVENCIONES', $permisos['permisos']);
+        // APH: privilegio propio
+        [$st] = $this->api('GET', 'subjefatura/aph/getHojasRuta.php', null, 9803);
+        $this->assertSame(403, $st);
+    }
+
+    public function testImagenDelMapa(): void
+    {
+        [$st, $r, $t] = $this->api('POST', 'operaciones/setParte.php', $this->parte(['parte_fecha' => '2025-08-01', 'parte_latitud' => '-0.2477', 'parte_longitud' => '-79.1834']));
+        $this->assertSame(201, $st, $t);
+        $this->assertTrue($r['mapa'], 'imagen generada al guardar');
+        $id = $r['id'];
+        $ruta = self::$pdo->query("SELECT parte_mapa_archivo FROM operaciones.tb_partes WHERE parte_id = $id")->fetchColumn();
+        $this->assertMatchesRegularExpression('#^ubicaciones/partes/MAPA-[A-Z0-9]+-PA-T98-2025-\d{4}\.png$#', $ruta);
+        $this->assertFileExists(self::$docs . '/' . $ruta);
+        // Vista de la imagen (con sesión y privilegio)
+        [$st, , $png] = $this->api('GET', "operaciones/getParteMapa.php?id=$id", null, 9803);
+        $this->assertSame(200, $st);
+        $this->assertSame([640, 360], array_slice(getimagesizefromstring($png), 0, 2));
+        // El PDF incluye la imagen (pesa más que sin ella)
+        $ctx = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 60,
+            'header' => 'Authorization: Bearer ' . jwtEmitir(['sub' => 9803, 'tipo' => 'usuario'], 600, self::SECRETO)]]);
+        $pdf = file_get_contents('http://127.0.0.1:' . self::$puerto . "/reportes/operaciones/parte.php?id=$id", false, $ctx);
+        $this->assertStringStartsWith('%PDF', $pdf);
+        $this->assertGreaterThan(5, substr_count($pdf, '/Subtype /Image') + substr_count($pdf, '/Subtype/Image'), 'imagen del mapa en el PDF');
+
+        // Cambiar a satelital: se regenera y la anterior queda en el histórico
+        [$st, $r] = $this->api('PUT', 'operaciones/setParte.php', $this->parte(['parte_id' => $id, 'parte_fecha' => '2025-08-01', 'parte_latitud' => '-0.2477',
+            'parte_longitud' => '-79.1834', 'parte_mapa_tipo' => 'SATELITE']));
+        $this->assertSame(200, $st);
+        $this->assertTrue($r['mapa']);
+        $this->assertNotEmpty(glob(self::$docs . '/ubicaciones/partes/historico/*.png'));
+        // Sin cambios de ubicación: no se regenera
+        [, $r] = $this->api('PUT', 'operaciones/setParte.php', $this->parte(['parte_id' => $id, 'parte_fecha' => '2025-08-01', 'parte_latitud' => '-0.2477',
+            'parte_longitud' => '-79.1834', 'parte_mapa_tipo' => 'SATELITE', 'parte_novedades' => 'Ninguna']));
+        $this->assertNull($r['mapa']);
+
+        // Servidor de mapas caído: el parte se guarda igual y avisa; luego se regenera
+        self::mapaUrl('file:///no/existe/{z}/{x}/{y}.png');
+        [$st, $r] = $this->api('PUT', 'operaciones/setParte.php', $this->parte(['parte_id' => $id, 'parte_fecha' => '2025-08-01', 'parte_latitud' => '-0.2500',
+            'parte_longitud' => '-79.1834']));
+        $this->assertSame(200, $st);
+        $this->assertFalse($r['mapa']);
+        $this->assertStringContainsString('Regenerar imagen', $r['msg']);
+        [$st] = $this->api('POST', 'operaciones/setParteMapa.php', ['parte_id' => $id]);
+        $this->assertSame(503, $st);
+        self::mapaUrl('file://' . self::$docs . '/cuadro.png');
+        [$st] = $this->api('POST', 'operaciones/setParteMapa.php', ['parte_id' => $id], 9803);
+        $this->assertSame(403, $st, 'regenerar requiere OPE_PARTE_REGISTRAR');
+        [$st, $r, $t] = $this->api('POST', 'operaciones/setParteMapa.php', ['parte_id' => $id]);
+        $this->assertSame(200, $st, $t);
+        // Catálogos: el formulario usa los mismos servidores de mapas
+        [, $c] = $this->api('GET', 'operaciones/getCatalogosParte.php', null, 9803);
+        $this->assertSame(['CALLES', 'SATELITE'], array_column($c['mapas'], 'tipo'));
     }
 
     public function testCatalogos(): void

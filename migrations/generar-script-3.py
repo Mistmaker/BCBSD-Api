@@ -100,7 +100,9 @@ SELECT (SELECT persona_id FROM resources.tb_personas WHERE persona_doc_identidad
        'admin', '$2y$10$C64q4N9kT3MqHUyzmqjpIe2x8/GGYSgIK2ZjDmthuP2NasZqazLxO', true
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_usuarios);
 """),
-    ("13. ACCESO DE LOS ADMINISTRADORES (todos los privilegios; parámetros SIS_ADMINISTRADORES y SIS_PERFILES_ADMINISTRADOR)",
+    ("13. MENÚ ORDENADO Y AGRUPADO (Panel, Parámetros, Gestión...), privilegio APH y pantallas en desuso",
+     leer('migrations/admin/03-menu.sql')),
+    ("14. ACCESO DE LOS ADMINISTRADORES (todos los privilegios; parámetros SIS_ADMINISTRADORES y SIS_PERFILES_ADMINISTRADOR)",
      leer('migrations/admin/02-acceso-administradores.sql')),
 ]
 

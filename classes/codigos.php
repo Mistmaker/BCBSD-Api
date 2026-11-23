@@ -17,19 +17,25 @@ function codSiglas(Database $db): string
     return $siglas !== '' ? $siglas : 'CBSD';
 }
 
-/** Expresión regular (PostgreSQL) de los códigos de un año, tipo y origen con cualquier prefijo */
-function codPatron(int $anio, string $tipo, string $origen): string
+/**
+ * Expresión regular (PostgreSQL) de los códigos de un año, tipo y origen con cualquier prefijo.
+ * $tipo puede ser una lista: el tipo actual y los anteriores que continúan la numeración (p. ej. ['COM', 'ABAS']).
+ */
+function codPatron(int $anio, string|array $tipo, string $origen): string
 {
     $escapar = fn(string $s) => preg_replace('/[.^$*+?()\[\]{}|\\\\]/', '\\\\$0', $s);
-    return '^[A-Z0-9]*' . substr((string) $anio, -2) . $escapar($tipo) . $escapar($origen) . '[0-9]{5}$';
+    $tipos = array_map($escapar, (array) $tipo);
+    $tipoRe = count($tipos) === 1 ? $tipos[0] : '(' . implode('|', $tipos) . ')';
+    return '^[A-Z0-9]*' . substr((string) $anio, -2) . $tipoRe . $escapar($origen) . '[0-9]{5}$';
 }
 
 /**
+ * Tipos de 3 letras: MOV (movilización), COM (combustible; antes ABAS: la numeración del año continúa con $tiposAnteriores).
  * Siguiente código para tablas de órdenes con orden_codigo, orden_codigo_serie, orden_serie, orden_registro y orden_estado
  * (logistica.tb_ordenesmovilizacion, logistica.tb_ordenesabastecimiento).
  * Devuelve ['code' => código, 'orden_codigo_serie' => secuencia del código, 'serie' => número de orden sin contar anuladas].
  */
-function codSiguienteOrden(Database $db, string $tabla, string $tipo, string $origen = '', ?int $anio = null): array
+function codSiguienteOrden(Database $db, string $tabla, string $tipo, string $origen = '', ?int $anio = null, array $tiposAnteriores = []): array
 {
     if (!in_array($tabla, ['logistica.tb_ordenesmovilizacion', 'logistica.tb_ordenesabastecimiento'], true)) {
         throw new InvalidArgumentException("Tabla sin numeración anual: $tabla");
@@ -44,7 +50,7 @@ function codSiguienteOrden(Database $db, string $tabla, string $tipo, string $or
                   FROM $tabla
                  WHERE date_part('year', orden_registro) = :anio AND orden_codigo ~ :patron");
     $db->bind(':anio', $anio);
-    $db->bind(':patron', codPatron($anio, $tipo, $origen));
+    $db->bind(':patron', codPatron($anio, array_merge([$tipo], $tiposAnteriores), $origen));
     $fila = $db->single();
     $secuencia = (int) $fila['codigo'] + 1;
     return [

@@ -15,6 +15,10 @@ ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_serie integer;
 ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_anulado_motivo text;
 ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_actualizado timestamp without time zone;
 ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS fk_usuario_actualiza integer;
+-- Imagen de ubicación (mapa con el marcador) generada al guardar: tipo de mapa elegido, archivo y fecha
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_mapa_tipo text NOT NULL DEFAULT 'CALLES';
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_mapa_archivo text;
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_mapa_generado timestamp without time zone;
 -- El formulario no tiene estos datos en la cabecera (las horas de salida/arribo/fin van por vehículo y la cabecera
 -- toma la primera/última) o los toma de catálogos opcionales: dejan de ser obligatorios en la tabla.
 ALTER TABLE operaciones.tb_partes ALTER COLUMN fk_personal_id DROP NOT NULL;

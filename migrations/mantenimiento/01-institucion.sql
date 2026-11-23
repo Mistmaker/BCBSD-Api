@@ -75,6 +75,23 @@ CREATE OR REPLACE FUNCTION admin.fn_es_administrador(p_usuario_id integer) RETUR
                 OR admin.fn_perfil_es_administrador(u.fk_perfil_id)));
 $f$;
 
+-- Imagen de ubicación (mapa con el marcador) para partes y otros registros con coordenadas. {z} {x} {y} en la URL.
+-- Para cambiar de proveedor de mapas basta con editar la URL y la atribución (la atribución es obligatoria).
+INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
+    ('MAPA_CALLES_URL', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', 'text', 'Servidor del mapa de calles ({z} {x} {y})', 'MAPAS'),
+    ('MAPA_CALLES_ATRIBUCION', '© colaboradores de OpenStreetMap', 'text', 'Atribución obligatoria del mapa de calles', 'MAPAS'),
+    ('MAPA_SATELITE_URL', 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'text',
+     'Servidor del mapa satelital ({z} {x} {y}); útil en zonas rurales, boscosas o con caminos de segundo y tercer orden', 'MAPAS'),
+    ('MAPA_SATELITE_ATRIBUCION', 'Imágenes © Esri, Maxar, Earthstar Geographics', 'text', 'Atribución obligatoria del mapa satelital', 'MAPAS'),
+    ('MAPA_ZOOM', '17', 'integer', 'Zoom de la imagen de ubicación (17 = unos 700 m de ancho)', 'MAPAS'),
+    ('MAPA_ANCHO', '640', 'integer', 'Ancho de la imagen de ubicación en píxeles', 'MAPAS'),
+    ('MAPA_ALTO', '360', 'integer', 'Alto de la imagen de ubicación en píxeles', 'MAPAS'),
+    ('MAPA_MARCADOR_COLOR', '#D32F2F', 'text', 'Color del marcador del punto', 'MAPAS'),
+    ('MAPA_QR_URL', 'https://www.google.com/maps/search/?api=1&query={lat},{lng}', 'text',
+     'Enlace del QR impreso junto al mapa ({lat} {lng}); el teléfono lo abre con su aplicación de mapas', 'MAPAS'),
+    ('MAPA_USER_AGENT', 'SistemaBomberos/1.0', 'text', 'Identificación del sistema ante el servidor de mapas', 'MAPAS')
+ON CONFLICT (param_key) DO NOTHING;
+
 -- Parámetros usados por el módulo de mantenimiento (no se sobrescriben si ya existen)
 INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
     ('MANT_TOLERANCIA_KM', '1000', 'integer', 'Km de anticipación para alertar un mantenimiento preventivo', 'MANTENIMIENTO'),
