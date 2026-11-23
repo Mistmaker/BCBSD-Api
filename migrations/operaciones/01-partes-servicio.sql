@@ -1,6 +1,6 @@
 -- =============================================================================
 -- PARTES DE SERVICIO (Operaciones) - re-ejecutable, no borra datos
--- Esquema del formulario actual: operaciones.tb_partes + detalles (creados en script_sbj_temp.sql). Las tablas antiguas
+-- Esquema del formulario actual: operaciones.tb_partes + detalles (creados en migrations/base/01-estructura.sql). Las tablas antiguas
 -- (operaciones.tb_parte, tb_parte_unidades, tb_parte_personal) quedan solo como histórico.
 -- Para la estadística por vehículo, estación, bombero y herramienta, los detalles se enlazan a sus catálogos:
 --   vehículos -> administrativo.tb_vehiculos, personal -> tthh.tb_personal (personal_id),
@@ -152,10 +152,6 @@ SELECT '', c.clasificacion, c.subclasificacion, c.uso, c.orden FROM (VALUES
     ('Varios', 'Simulacro', '', 80)
 ) AS c(clasificacion, subclasificacion, uso, orden)
 ON CONFLICT ON CONSTRAINT tb_partes_catalogo_tipos_auxilio_uk DO NOTHING;
--- Filas de ejemplo del script original (con clave fija): quedan inactivas si ningún parte las usa
-UPDATE operaciones.tb_partes_catalogo_tipos_auxilio c SET tipo_auxilio_estado = 'INACTIVO'
- WHERE c.tipo_auxilio_clave <> ''
-   AND NOT EXISTS (SELECT 1 FROM operaciones.tb_partes_tipos_auxilio d WHERE d.fk_tipo_auxilio_id = c.tipo_auxilio_id);
 
 -- Posibles causas por clasificación (la de "Incendio" es la lista de los partes de incendio)
 CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_causas (
@@ -233,6 +229,10 @@ ALTER TABLE operaciones.tb_partes_equipos_herramientas ADD COLUMN IF NOT EXISTS 
 ALTER TABLE operaciones.tb_partes_materiales_descartables ADD COLUMN IF NOT EXISTS fk_recurso_id integer REFERENCES operaciones.tb_partes_catalogo_recursos(recurso_id);
 ALTER TABLE operaciones.tb_partes_insumos ADD COLUMN IF NOT EXISTS fk_recurso_id integer REFERENCES operaciones.tb_partes_catalogo_recursos(recurso_id);
 ALTER TABLE operaciones.tb_partes_tipos_auxilio ADD COLUMN IF NOT EXISTS fk_tipo_auxilio_id integer REFERENCES operaciones.tb_partes_catalogo_tipos_auxilio(tipo_auxilio_id);
+-- Filas de ejemplo del script original (con clave fija): quedan inactivas si ningún parte las usa
+UPDATE operaciones.tb_partes_catalogo_tipos_auxilio c SET tipo_auxilio_estado = 'INACTIVO'
+ WHERE c.tipo_auxilio_clave <> ''
+   AND NOT EXISTS (SELECT 1 FROM operaciones.tb_partes_tipos_auxilio d WHERE d.fk_tipo_auxilio_id = c.tipo_auxilio_id);
 
 CREATE INDEX IF NOT EXISTS ix_partes_vehiculos_parte ON operaciones.tb_partes_vehiculos (fk_parte_id);
 CREATE INDEX IF NOT EXISTS ix_partes_vehiculos_vehiculo ON operaciones.tb_partes_vehiculos (fk_vehiculo_id);
@@ -300,13 +300,13 @@ UPDATE admin.tb_roles SET rol_codigo = 'OPE_PARTES_ESTADISTICAS'
  WHERE rol_path = '/operaciones/partes-estadisticas' AND rol_codigo IS NULL
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles y WHERE y.rol_codigo = 'OPE_PARTES_ESTADISTICAS');
 
--- Asignación inicial: administrador (113) todo; quienes ya tienen Partes de servicio: registrar y estadística;
+-- Asignación inicial: administrador (parámetro SIS_ADMINISTRADORES) todo; quienes ya tienen Partes de servicio: registrar y estadística;
 -- quienes ven el resumen gerencial (dirección): estadística. Perfil ADMINISTRADOR: todo.
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, r.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles r ON r.rol_codigo IN ('OPE_PARTES', 'OPE_PARTES_ESTADISTICAS', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR')
- WHERE u.usuario_id = 113
+ WHERE admin.fn_es_administrador(u.usuario_id)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT ur.fk_usuario_id, r.rol_id
@@ -323,5 +323,5 @@ SELECT DISTINCT ur.fk_usuario_id, r.rol_id
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf
   JOIN admin.tb_roles r ON r.rol_codigo IN ('OPE_PARTES', 'OPE_PARTES_ESTADISTICAS', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR')
- WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(pf.perfil_id)
 ON CONFLICT DO NOTHING;

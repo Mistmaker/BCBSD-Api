@@ -8,7 +8,7 @@
 --
 -- La cadena de conexión NO se guarda en el repositorio.
 -- Requisitos: vehículos, personal (tthh.tb_personal_puestos) y usuarios ya importados
--- con script-2.sql (conservan los mismos IDs del sistema anterior).
+-- con la importación de datos base (conservan los mismos IDs del sistema anterior).
 -- Es re-ejecutable: los registros ya importados se omiten (ON CONFLICT DO NOTHING).
 -- =============================================================================
 \set ON_ERROR_STOP on

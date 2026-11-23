@@ -42,12 +42,12 @@ SELECT 'Bitacora de vehiculos', 'Historial, consumo de combustible, gasto de man
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = 'ADM_BITACORA_VEHICULOS' OR r.rol_path = '/admin/bitacora-vehiculos')
  LIMIT 1;
 
--- Quien ya accede a vehículos o a órdenes de mantenimiento recibe la bitácora; también el administrador (113)
+-- Quien ya accede a vehículos o a órdenes de mantenimiento recibe la bitácora; también el administrador (parámetro SIS_ADMINISTRADORES)
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, b.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles b ON b.rol_codigo = 'ADM_BITACORA_VEHICULOS'
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                     WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo IN ('ADM_VEHICULOS', 'MANT_ORDENES')))
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = b.rol_id);

@@ -61,17 +61,17 @@ SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = v.codigo)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE v.ruta IS NOT NULL AND r.rol_path = v.ruta);
 
--- Asignación inicial: el administrador (113) y quienes ya emiten órdenes de movilización (servicios generales)
+-- Asignación inicial: el administrador (parámetro SIS_ADMINISTRADORES) y quienes ya emiten órdenes de movilización (servicios generales)
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, p.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles p ON p.rol_codigo IN ('ADM_PETICIONES_MATERIALES', 'ADM_PETICION_MATERIALES_GESTIONAR')
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                     WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo = 'ADM_MOVILIZACION_CREAR'))
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = p.rol_id);
 -- y el perfil ADMINISTRADOR
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf JOIN admin.tb_roles r ON r.rol_codigo IN ('ADM_PETICIONES_MATERIALES', 'ADM_PETICION_MATERIALES_GESTIONAR')
- WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(pf.perfil_id)
 ON CONFLICT DO NOTHING;

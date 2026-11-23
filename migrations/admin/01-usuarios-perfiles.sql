@@ -58,7 +58,7 @@ SELECT u.usuario_id, pr.fk_rol_id, 'PERFIL'::text
  WHERE COALESCE(u.usuario_estado, 'ACTIVO') = 'ACTIVO';
 COMMENT ON VIEW admin.vw_usuario_privilegios IS 'Privilegios efectivos: perfil + adicionales, solo usuarios y perfiles ACTIVOS';
 
--- 3. Menú y privilegios de la administración del sistema (antes el menú estaba fijo para el usuario 113)
+-- 3. Menú y privilegios de la administración del sistema (antes el menú estaba fijo para un usuario)
 ALTER TABLE admin.tb_roles ADD COLUMN IF NOT EXISTS rol_codigo text;
 INSERT INTO admin.tb_modulos (modulo_nombre, modulo_descripcion)
 SELECT 'Administración', 'Usuarios, perfiles y privilegios del sistema'
@@ -67,6 +67,12 @@ INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre)
 SELECT m.modulo_id, 'Usuarios y perfiles' FROM admin.tb_modulos m
  WHERE m.modulo_nombre = 'Administración'
    AND NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre = 'Usuarios y perfiles');
+
+-- Si el menú anterior ya tenía estas pantallas (ruta sin código), se les completa el código en lugar de duplicarlas
+UPDATE admin.tb_roles r SET rol_codigo = c.codigo
+  FROM (VALUES ('/adm/usuarios', 'SIS_USUARIOS'), ('/adm/perfiles', 'SIS_PERFILES')) AS c(ruta, codigo)
+ WHERE r.rol_path = c.ruta AND r.rol_codigo IS NULL
+   AND NOT EXISTS (SELECT 1 FROM admin.tb_roles y WHERE y.rol_codigo = c.codigo);
 
 INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path, rol_codigo)
 SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
@@ -81,14 +87,14 @@ SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = v.codigo)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE v.ruta IS NOT NULL AND r.rol_path = v.ruta);
 
--- 4. Asignaciones iniciales: el administrador (113) y el perfil ADMINISTRADOR reciben toda la administración del sistema
+-- 4. Asignaciones iniciales: el administrador (parámetro SIS_ADMINISTRADORES) y el perfil ADMINISTRADOR reciben toda la administración del sistema
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT u.usuario_id, r.rol_id FROM admin.tb_usuarios u JOIN admin.tb_roles r ON r.rol_codigo LIKE 'SIS\_%'
- WHERE u.usuario_id = 113
+ WHERE admin.fn_es_administrador(u.usuario_id)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT p.perfil_id, r.rol_id FROM admin.tb_perfiles p JOIN admin.tb_roles r ON r.rol_codigo LIKE 'SIS\_%'
- WHERE upper(trim(p.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(p.perfil_id)
 ON CONFLICT DO NOTHING;
 
 -- 5. Contraseñas: password_hash (bcrypt, 60 caracteres). Las MD5 existentes se convierten solas en el siguiente login.

@@ -15,7 +15,10 @@ en Administración > Usuarios > Privilegios:
 - **Permiso de acción** (registrar, editar, anular...): `rol_path` = NULL, `rol_codigo` propio (`ADM_OPERADOR_GESTIONAR`).
 - Va dentro del submódulo que corresponda (`admin.tb_submodulos`, del módulo `admin.tb_modulos`); si no existe, crearlo.
 - Re-ejecutable: `WHERE NOT EXISTS (... rol_codigo = ...)`. Modelo: `migrations/operadores/01-operadores.sql`, sección 4.
-- Asignación inicial: al administrador (usuario 113) y a quienes ya usan pantallas relacionadas.
+- Asignación inicial: a los administradores con `admin.fn_es_administrador(u.usuario_id)` (parámetro `SIS_ADMINISTRADORES`,
+  nunca un usuario_id fijo), al perfil de administrador con `admin.fn_perfil_es_administrador(p.perfil_id)` y a quienes
+  ya usan pantallas relacionadas. La sección final de `script-3.sql` (`migrations/admin/02-acceso-administradores.sql`)
+  da además todos los privilegios a los administradores.
 - En el API: `requirePermiso($db, 'CODIGO')` en el endpoint. En el front: `data: { permiso: 'CODIGO' }` en la ruta
   con `canActivate: [AuthGuard, permisoGuard]`, y `auth.tienePermiso('CODIGO')` para botones de acción.
 - Agregar la migración nueva a `migrations/generar-script-3.py` y regenerar `script-3.sql`.
@@ -24,8 +27,11 @@ en Administración > Usuarios > Privilegios:
 
 ## Base de datos y migraciones
 
-- `script-3.sql` es el único archivo para pgAdmin: se GENERA con `python3 migrations/generar-script-3.py` a partir de
-  `migrations/`. Nunca editarlo a mano; `tests/Script3Test.php` verifica que esté al día.
+- `script-3.sql` es el ÚNICO script de la base (vacía o existente; reemplaza a script.sql, script-2.sql y
+  script_sbj_temp.sql): se GENERA con `python3 migrations/generar-script-3.py` a partir de `migrations/` (estructura y
+  catálogos base en `migrations/base/`). Nunca editarlo a mano; `tests/Script3Test.php` verifica que esté al día.
+- Antes de entregar un cambio de base: ejecutar `script-3.sql` dos veces sobre una base VACÍA y dos sobre una copia de
+  la base de prueba (sin errores y sin duplicar datos).
 - Migraciones re-ejecutables (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`, `WHERE NOT EXISTS`); no borran datos.
 - `Database` comparte una sola sentencia: llamar `parametro()` / `institucion()` antes de preparar otras consultas.
 

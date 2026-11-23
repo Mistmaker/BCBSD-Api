@@ -46,6 +46,35 @@ CREATE TABLE IF NOT EXISTS admin.tb_params (
     param_modulo text
 );
 
+-- Administradores del sistema (parametrizable por institución): reciben todos los privilegios al ejecutar script-3.
+-- SIS_ADMINISTRADORES: usuario_id o login separados por | (p. ej. 113|jperez). SIS_PERFILES_ADMINISTRADOR: nombres de perfil.
+INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
+    ('SIS_ADMINISTRADORES', '113', 'list', 'Usuarios administradores del sistema: usuario_id o login separados por |. Reciben todos los privilegios al ejecutar script-3', 'ADMINISTRACION'),
+    ('SIS_PERFILES_ADMINISTRADOR', 'ADMINISTRADOR|ADMINISTRADOR DEL SISTEMA|ADMINISTRADOR SISTEMA|SUPER ADMINISTRADOR|SUPERADMINISTRADOR|SUPERADMIN|ADMIN',
+     'list', 'Nombres de los perfiles de administrador (separados por |): el perfil y sus usuarios reciben todos los privilegios', 'ADMINISTRACION')
+ON CONFLICT (param_key) DO NOTHING;
+
+-- ¿El perfil es de administrador? (nombre en SIS_PERFILES_ADMINISTRADOR, sin importar mayúsculas ni espacios)
+CREATE OR REPLACE FUNCTION admin.fn_perfil_es_administrador(p_perfil_id integer) RETURNS boolean LANGUAGE sql STABLE AS $f$
+    SELECT EXISTS (
+        SELECT 1 FROM admin.tb_perfiles p
+         WHERE p.perfil_id = p_perfil_id
+           AND regexp_replace(upper(trim(p.perfil_nombre)), '\s+', ' ', 'g') IN (
+               SELECT regexp_replace(upper(trim(x)), '\s+', ' ', 'g')
+                 FROM admin.tb_params, unnest(string_to_array(param_value, '|')) AS x
+                WHERE param_key = 'SIS_PERFILES_ADMINISTRADOR' AND trim(x) <> ''));
+$f$;
+-- ¿El usuario es administrador? (su id o login está en SIS_ADMINISTRADORES, o su perfil es de administrador)
+CREATE OR REPLACE FUNCTION admin.fn_es_administrador(p_usuario_id integer) RETURNS boolean LANGUAGE sql STABLE AS $f$
+    SELECT EXISTS (
+        SELECT 1 FROM admin.tb_usuarios u
+         WHERE u.usuario_id = p_usuario_id
+           AND (EXISTS (SELECT 1 FROM admin.tb_params, unnest(string_to_array(param_value, '|')) AS x
+                         WHERE param_key = 'SIS_ADMINISTRADORES'
+                           AND (trim(x) = u.usuario_id::text OR lower(trim(x)) = lower(trim(u.usuario_login))))
+                OR admin.fn_perfil_es_administrador(u.fk_perfil_id)));
+$f$;
+
 -- Parámetros usados por el módulo de mantenimiento (no se sobrescriben si ya existen)
 INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
     ('MANT_TOLERANCIA_KM', '1000', 'integer', 'Km de anticipación para alertar un mantenimiento preventivo', 'MANTENIMIENTO'),

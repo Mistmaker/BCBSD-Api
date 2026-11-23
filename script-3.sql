@@ -1,16 +1,1772 @@
 -- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
--- SCRIPT 3: cambios posteriores a script.sql, script-2.sql y script_sbj_temp.sql
---   combustible, institución, mantenimiento vehicular, contratos, menús y privilegios, bitácora del vehículo, operadores, usuarios y perfiles, petición de materiales, importación de db_cbsd.
+-- SCRIPT 3: ÚNICO SCRIPT DE LA BASE DE DATOS (reemplaza a script.sql, script-2.sql y script_sbj_temp.sql)
+--   Estructura base, catálogos, combustible, institución, mantenimiento vehicular, contratos, menús y privilegios,
+--   bitácora, operadores, usuarios y perfiles, servicios generales, partes de servicio e importación de db_cbsd.
 --
--- CÓMO USARLO (pgAdmin): abra el Query Tool sobre la base NUEVA (db_bcbsd), pegue TODO el archivo y ejecútelo.
+-- CÓMO USARLO (pgAdmin): abra el Query Tool sobre la base (db_bcbsd), pegue TODO el archivo y ejecútelo.
+--   * Sirve para una base VACÍA (la crea completa) y para una base EXISTENTE (solo agrega lo que falta).
 --   * Se puede ejecutar varias veces: no borra tablas ni datos; lo que ya existe se omite.
---   * No toca operaciones.tb_estaciones.
 --   * La importación (sección 11) solo corre si edita la línea "conexion" con la clave de la base anterior.
+--   * Base nueva sin importar: se crea el usuario "admin" (perfil Administrador); cambie su clave al entrar.
 --   * Después: asigne los privilegios nuevos a los usuarios en Administración > Usuarios > Privilegios.
 --
 -- ARCHIVO GENERADO por migrations/generar-script-3.py a partir de migrations/. No lo edite a mano:
 -- edite los archivos de migrations/ y vuelva a generarlo.
 -- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+-- ======================================================================================================
+-- 0. ESTRUCTURA BASE: esquemas, tablas y vistas (antes script.sql, script-2.sql y script_sbj_temp.sql)
+-- ======================================================================================================
+-- =============================================================================
+-- ESTRUCTURA BASE (antes script.sql, script-2.sql y script_sbj_temp.sql) - re-ejecutable, NO borra datos
+-- Tablas en orden de dependencias con su definición final. En bases existentes solo se agregan las columnas que
+-- falten. Generado una vez desde los scripts anteriores; desde ahora se mantiene en este archivo.
+-- =============================================================================
+
+-- Esquemas y extensiones
+CREATE SCHEMA IF NOT EXISTS admin AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS administrativo AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS resources AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS operaciones AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS tthh AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS logistica AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS archivo AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS historial AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS subjefatura AUTHORIZATION postgres;
+CREATE EXTENSION IF NOT EXISTS dblink;
+
+CREATE TABLE IF NOT EXISTS resources.tb_personas (
+    persona_id SERIAL NOT NULL PRIMARY KEY,
+    persona_tipo_doc text COLLATE pg_catalog."default" NOT NULL DEFAULT 'CEDULA' :: text,
+    persona_doc_identidad text COLLATE pg_catalog."default" NOT NULL,
+    persona_nombres text COLLATE pg_catalog."default" NOT NULL,
+    persona_apellidos text COLLATE pg_catalog."default" NOT NULL,
+    persona_sexo text COLLATE pg_catalog."default",
+    persona_imagen text COLLATE pg_catalog."default" DEFAULT 'default.png' :: text,
+    persona_direccion text COLLATE pg_catalog."default",
+    persona_telefono text COLLATE pg_catalog."default",
+    persona_correo text COLLATE pg_catalog."default",
+    persona_fingreso timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    fk_usuario_id integer,
+    persona_fnacimiento date,
+    persona_nacionalidad text COLLATE pg_catalog."default" DEFAULT 'ECUATORIANA' :: text,
+    persona_celular text COLLATE pg_catalog."default",
+    persona_estadocivil text COLLATE pg_catalog."default",
+    persona_tiposangre text COLLATE pg_catalog."default",
+    fk_parroquia_id integer DEFAULT 230151,
+    persona_estatura text COLLATE pg_catalog."default",
+    persona_peso text COLLATE pg_catalog."default",
+    persona_acerca text COLLATE pg_catalog."default",
+    persona_destrezas text COLLATE pg_catalog."default",
+    persona_alergias text COLLATE pg_catalog."default",
+    persona_discapacidad text COLLATE pg_catalog."default",
+    persona_lugarnacimiento text COLLATE pg_catalog."default",
+    persona_etnia text COLLATE pg_catalog."default",
+    persona_senialesparticulares text COLLATE pg_catalog."default",
+    fk_conyugeue_id integer,
+    persona_principal text COLLATE pg_catalog."default",
+    persona_secundaria text COLLATE pg_catalog."default",
+    persona_no_casa text COLLATE pg_catalog."default",
+    persona_referencia text COLLATE pg_catalog."default",
+    persona_barrio_ciudadela text COLLATE pg_catalog."default",
+    persona_barrio_sector text COLLATE pg_catalog."default",
+    persona_titulo text COLLATE pg_catalog."default",
+    persona_anexo_cedula text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    persona_anexo_votacion text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    persona_cemergencia_nombre text COLLATE pg_catalog."default",
+    persona_cemergencia_parentesco text COLLATE pg_catalog."default",
+    persona_cemergencia_direccion text COLLATE pg_catalog."default",
+    persona_cemergencia_telefono text COLLATE pg_catalog."default",
+    persona_discapacidad_tiene text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    persona_discapacidad_tipo text COLLATE pg_catalog."default",
+    persona_discapacidad_porcentaje text COLLATE pg_catalog."default",
+    persona_discapacidad_conadis text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    persona_discapacidad_conadis_numero text COLLATE pg_catalog."default",
+    persona_enfermedad_cronica text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    persona_enfermedad_cronica_describa text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS resources.tb_licenciasdeconducir (
+    licencia_id SERIAL NOT NULL PRIMARY KEY,
+    licencia_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    licencia_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    fk_usuario_id integer,
+    licencia_tipo text COLLATE pg_catalog."default",
+    licencia_categoria text COLLATE pg_catalog."default",
+    licencia_descripcion text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS admin.tb_perfiles (
+    perfil_id SERIAL NOT NULL PRIMARY KEY,
+    perfil_nombre text COLLATE pg_catalog."default" NOT NULL,
+    perfil_descripcion text COLLATE pg_catalog."default",
+    perfil_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text
+);
+
+CREATE TABLE IF NOT EXISTS admin.tb_usuarios (
+    usuario_id SERIAL NOT NULL PRIMARY KEY,
+    fk_persona_id integer NOT NULL,
+    fk_perfil_id integer NOT NULL REFERENCES admin.tb_perfiles(perfil_id),
+    usuario_login text COLLATE pg_catalog."default" NOT NULL,
+    usuario_pass text COLLATE pg_catalog."default" NOT NULL,
+    usuario_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    usuario_acceso_correcto boolean DEFAULT false,
+    usuario_acceso_fallido boolean DEFAULT false,
+    usuario_cambio_perfil boolean DEFAULT false,
+    fk_usuario_id integer,
+    usuario_cambiar_pass boolean DEFAULT true,
+    usuario_idioma text COLLATE pg_catalog."default" DEFAULT 'es' :: text,
+    usuario_webmail_user text COLLATE pg_catalog."default",
+    usuario_webmail_pass text COLLATE pg_catalog."default",
+    usuario_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    usuario_fingreso timestamp without time zone DEFAULT CURRENT_TIMESTAMP(0),
+    usuario_tipo text COLLATE pg_catalog."default" DEFAULT 'USUARIO' :: text
+);
+ALTER TABLE admin.tb_usuarios ADD COLUMN IF NOT EXISTS usuario_tipo text COLLATE pg_catalog."default" DEFAULT 'USUARIO' :: text;
+
+CREATE TABLE IF NOT EXISTS administrativo.tb_vehiculos_marcas (
+    marca_id SERIAL NOT NULL PRIMARY KEY,
+    marca_nombre text COLLATE pg_catalog."default" NOT NULL,
+    marca_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text
+);
+
+CREATE TABLE IF NOT EXISTS tthh.tb_jornadas_trabajo (
+    jornada_id SERIAL NOT NULL PRIMARY KEY,
+    jornada_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    jornada_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    fk_usuario_id integer,
+    jornada_nombre text COLLATE pg_catalog."default" NOT NULL,
+    jornada_rancho numeric(10,2) DEFAULT 0,
+    jornada_diasminimo integer DEFAULT 0,
+    jornada_diasmaximo integer DEFAULT 0,
+    jornada_dias_semana text COLLATE pg_catalog."default",
+    jornada_horas_dia integer NOT NULL DEFAULT 8,
+    jornada_entrada text COLLATE pg_catalog."default",
+    jornada_salida text COLLATE pg_catalog."default",
+    jornada_break text COLLATE pg_catalog."default" DEFAULT 'NO'::text,
+    jornada_entrada_break text COLLATE pg_catalog."default",
+    jornada_salida_break text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_estaciones (
+    estacion_id SERIAL NOT NULL PRIMARY KEY,
+    fk_jornada_id integer REFERENCES tthh.tb_jornadas_trabajo(jornada_id),
+    estacion_nombre text COLLATE pg_catalog."default" NOT NULL,
+    estacion_tipo text COLLATE pg_catalog."default" DEFAULT 'ESTACION' NOT NULL,
+    estacion_subtipo text COLLATE pg_catalog."default" DEFAULT 'URBANA' NOT NULL,
+    estacion_jornada text COLLATE pg_catalog."default" DEFAULT '24 HORAS' NOT NULL,
+    estacion_ubicacion text COLLATE pg_catalog."default",
+    estacion_ubicacion_x text COLLATE pg_catalog."default",
+    estacion_ubicacion_y text COLLATE pg_catalog."default",
+    estacion_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text
+);
+ALTER TABLE operaciones.tb_estaciones ADD COLUMN IF NOT EXISTS fk_jornada_id integer REFERENCES tthh.tb_jornadas_trabajo(jornada_id);
+ALTER TABLE operaciones.tb_estaciones ADD COLUMN IF NOT EXISTS estacion_tipo text COLLATE pg_catalog."default" DEFAULT 'ESTACION' NOT NULL;
+ALTER TABLE operaciones.tb_estaciones ADD COLUMN IF NOT EXISTS estacion_subtipo text COLLATE pg_catalog."default" DEFAULT 'URBANA' NOT NULL;
+ALTER TABLE operaciones.tb_estaciones ADD COLUMN IF NOT EXISTS estacion_jornada text COLLATE pg_catalog."default" DEFAULT '24 HORAS' NOT NULL;
+ALTER TABLE operaciones.tb_estaciones ADD COLUMN IF NOT EXISTS estacion_ubicacion text COLLATE pg_catalog."default";
+
+CREATE TABLE IF NOT EXISTS tthh.tb_direcciones (
+    direccion_id SERIAL NOT NULL PRIMARY KEY,
+    direccion_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    direccion_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    fk_usuario_id integer,
+    direccion_codigo text COLLATE pg_catalog."default" NOT NULL,
+    direccion_nombre text COLLATE pg_catalog."default" NOT NULL,
+    direccion_competencias text COLLATE pg_catalog."default",
+    direccion_fecha_creacion date,
+    direccion_baselegal text COLLATE pg_catalog."default",
+    direccion_tipo text COLLATE pg_catalog."default" DEFAULT 'DIRECCION' :: text
+);
+
+CREATE TABLE IF NOT EXISTS administrativo.tb_vehiculos (
+    vehiculo_id SERIAL NOT NULL PRIMARY KEY,
+    fk_usuario_id integer REFERENCES admin.tb_usuarios(usuario_id) NOT NULL,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id) DEFAULT NULL,
+    fk_direccion_id integer REFERENCES tthh.tb_direcciones(direccion_id) DEFAULT NULL,
+    fk_marca_id integer REFERENCES administrativo.tb_vehiculos_marcas(marca_id) NOT NULL,
+    vehiculo_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    vehiculo_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    vehiculo_direccion text COLLATE pg_catalog."default",
+    vehiculo_placa text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    vehiculo_toneladas numeric(4, 2),
+    vehiculo_tipo text COLLATE pg_catalog."default" NOT NULL,
+    vehiculo_color1 text COLLATE pg_catalog."default",
+    vehiculo_marca text COLLATE pg_catalog."default",
+    vehiculo_fingreso timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    custodio_id integer,
+    vehiculo_modelo text COLLATE pg_catalog."default",
+    vehiculo_chasis text COLLATE pg_catalog."default",
+    vehiculo_motor text COLLATE pg_catalog."default",
+    vehiculo_combustible text COLLATE pg_catalog."default" NOT NULL,
+    vehiculo_avaluo numeric(10, 2),
+    vehiculo_anio integer,
+    vehiculo_pais text COLLATE pg_catalog."default",
+    vehiculo_corroceria text COLLATE pg_catalog."default",
+    vehiculo_pasajeros integer,
+    vehiculo_cilindraje numeric(6, 2),
+    vehiculo_color2 text COLLATE pg_catalog."default",
+    vehiculo_proposito text COLLATE pg_catalog."default" DEFAULT 'PARTICULAR' :: text,
+    vehiculo_anio_matricula integer,
+    vehiculo_ramv text COLLATE pg_catalog."default",
+    vehiculo_sigla text COLLATE pg_catalog."default",
+    vehiculo_area text COLLATE pg_catalog."default"
+);
+ALTER TABLE administrativo.tb_vehiculos ADD COLUMN IF NOT EXISTS fk_direccion_id integer REFERENCES tthh.tb_direcciones(direccion_id) DEFAULT NULL;
+ALTER TABLE administrativo.tb_vehiculos ADD COLUMN IF NOT EXISTS vehiculo_area text COLLATE pg_catalog."default";
+
+CREATE TABLE IF NOT EXISTS tthh.tb_personal (
+    personal_id SERIAL NOT NULL PRIMARY KEY,
+    personal_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    personal_estado text COLLATE pg_catalog."default" DEFAULT 'EN FUNCIONES' :: text,
+    fk_usuario_id integer,
+    fk_persona_id integer NOT NULL,
+    fk_estacion_id integer,
+    personal_contrasenia text COLLATE pg_catalog."default",
+    personal_cambiar_pass text COLLATE pg_catalog."default" DEFAULT 'SI' :: text,
+    personal_notificar_acceso_exitoso boolean DEFAULT false,
+    personal_notificar_acceso_fallido boolean DEFAULT false,
+    personal_notificar_cambios_perfil boolean DEFAULT false,
+    personal_notificar_permisos boolean DEFAULT false,
+    personal_notificar_eventos boolean DEFAULT false,
+    personal_correo_institucional text COLLATE pg_catalog."default",
+    biometrico_id integer NOT NULL DEFAULT 0,
+    fk_jornada_id integer
+);
+
+CREATE TABLE IF NOT EXISTS tthh.tb_grupos (
+    grupo_id SERIAL NOT NULL PRIMARY KEY,
+    grupo_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    grupo_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    fk_usuario_id integer,
+    grupo_nombre text COLLATE pg_catalog."default" NOT NULL,
+    grupo_grado text COLLATE pg_catalog."default" NOT NULL,
+    grupo_salario_sri numeric(8, 2) NOT NULL,
+    grupo_salario_interno numeric(8, 2) DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS tthh.tb_puestos (
+    puesto_id SERIAL NOT NULL PRIMARY KEY,
+    puesto_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    puesto_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    fk_usuario_id integer,
+    puesto_departamento text COLLATE pg_catalog."default" DEFAULT 'PRIMERA JEFATURA' :: text,
+    puesto_nombre text COLLATE pg_catalog."default" NOT NULL,
+    fk_direccion_id integer,
+    puesto_remuneracion numeric(10, 2) DEFAULT 0,
+    puesto_direccion text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    puesto_grado integer DEFAULT 3,
+    puesto_modalidad text COLLATE pg_catalog."default" DEFAULT 'ADMINISTRATIVO' :: text,
+    puesto_fecha_creacion date,
+    puesto_baselegal text COLLATE pg_catalog."default",
+    puesto_partida text COLLATE pg_catalog."default",
+    fk_grupo_id integer
+);
+
+CREATE TABLE IF NOT EXISTS tthh.tb_personal_puestos (
+    ppersonal_id SERIAL NOT NULL PRIMARY KEY,
+    ppersonal_registro timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    ppersonal_estado text COLLATE pg_catalog."default" DEFAULT 'EN FUNCIONES' :: text,
+    fk_usuario_id integer,
+    fk_personal_id integer NOT NULL,
+    fk_puesto_id integer NOT NULL,
+    personal_definicion text COLLATE pg_catalog."default" DEFAULT 'TITULAR' :: text,
+    personal_contrato text COLLATE pg_catalog."default" DEFAULT 'CONTRATO OCASIONAL' :: text,
+    personal_fecha_ingreso date,
+    personal_fecha_salida date,
+    personal_fecha_registro date,
+    personal_motivo_salida text COLLATE pg_catalog."default",
+    personal_observacion text COLLATE pg_catalog."default",
+    personal_baselegal text COLLATE pg_catalog."default",
+    personal_regimen_laboral text COLLATE pg_catalog."default" DEFAULT 'LOSEP' :: text
+);
+
+CREATE TABLE IF NOT EXISTS tthh.tb_conductores (
+    conductor_id SERIAL NOT NULL PRIMARY KEY,
+    conductor_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    conductor_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    fk_usuario_id integer,
+    fk_personal_id integer NOT NULL,
+    fk_licencia_id integer NOT NULL,
+    conductor_licencia_emision date NOT NULL,
+    conductor_licencia_validez date NOT NULL,
+    conductor_pdf text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_distributivo (
+    distributivo_id SERIAL NOT NULL PRIMARY KEY,
+    distributivo_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    distributivo_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    fk_usuario_id integer,
+    distributivo_codigo text COLLATE pg_catalog."default",
+    distributivo_periodo_inicio date NOT NULL,
+    distributivo_periodo_cierre date,
+    distributivo_jornadas integer DEFAULT 24,
+    distributivo_ingreso_guardia text COLLATE pg_catalog."default" DEFAULT '08:00'::text,
+    distributivo_salida_guardia text COLLATE pg_catalog."default" DEFAULT '08:00'::text
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_pelotones (
+    peloton_id SERIAL NOT NULL PRIMARY KEY,
+    peloton_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    peloton_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    fk_usuario_id integer,
+    fk_estacion_id integer NOT NULL,
+    peloton_nombre text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_distributivo_peloton (
+    dist_pelo_id SERIAL NOT NULL PRIMARY KEY,
+    fk_peloton_id integer NOT NULL,
+    fk_distributivo_id integer NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_tropas (
+    tropa_id SERIAL NOT NULL PRIMARY KEY,
+    tropa_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    tropa_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    fk_usuario_id integer,
+    fk_dist_pelo_id integer NOT NULL,
+    fk_personal_id integer NOT NULL,
+    tropa_cargo text COLLATE pg_catalog."default",
+    tropa_cargo_otro text COLLATE pg_catalog."default",
+    tropa_detalle text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS logistica.tb_ordenesmovilizacion (
+    orden_id SERIAL NOT NULL PRIMARY KEY,
+    orden_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    orden_estado text COLLATE pg_catalog."default" DEFAULT 'SALIDA'::text,
+    fk_usuario_id integer NOT NULL,
+    fk_unidad_id integer NOT NULL,
+    operador_id integer NOT NULL,
+    director_administrativo integer NOT NULL,
+    tecnico_servicios integer,
+    orden_codigo text COLLATE pg_catalog."default" NOT NULL,
+    orden_codigo_serie integer NOT NULL,
+    orden_serie integer NOT NULL DEFAULT 0,
+    orden_destino text COLLATE pg_catalog."default" NOT NULL,
+    orden_motivo_salida text COLLATE pg_catalog."default" NOT NULL,
+    personal_solicita integer NOT NULL,
+    orden_hora_salida_tipo text COLLATE pg_catalog."default" DEFAULT 'SISTEMA'::text,
+    orden_hora_salida timestamp without time zone NOT NULL,
+    orden_kilometraje_salida numeric(10,2) NOT NULL,
+    orden_hora_entrada_tipo text COLLATE pg_catalog."default" DEFAULT 'SISTEMA'::text,
+    orden_hora_entrada timestamp without time zone,
+    orden_kilometraje_entrada numeric(10,2),
+    orden_observaciones text COLLATE pg_catalog."default"
+);
+ALTER TABLE logistica.tb_ordenesmovilizacion ADD COLUMN IF NOT EXISTS orden_codigo_serie integer;
+
+CREATE TABLE IF NOT EXISTS resources.countries (
+    country_id SERIAL NOT NULL PRIMARY KEY,
+    country_sortname character varying(3) COLLATE pg_catalog."default" NOT NULL,
+    country_name text COLLATE pg_catalog."default" NOT NULL,
+    country_nombre text COLLATE pg_catalog."default",
+    country_gentilicio text COLLATE pg_catalog."default",
+    country_iso3 text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS resources.states (
+    state_id SERIAL NOT NULL PRIMARY KEY,
+    state_name text COLLATE pg_catalog."default" NOT NULL,
+    fk_country_id integer NOT NULL REFERENCES resources.countries(country_id)
+);
+
+CREATE TABLE IF NOT EXISTS resources.towns (
+    town_id SERIAL NOT NULL PRIMARY KEY,
+    town_name text COLLATE pg_catalog."default" NOT NULL,
+    fk_state_id integer NOT NULL REFERENCES resources.states(state_id)
+);
+
+CREATE TABLE IF NOT EXISTS resources.parishes (
+    parish_id SERIAL NOT NULL PRIMARY KEY,
+    parish_name text COLLATE pg_catalog."default" NOT NULL,
+    fk_town_id integer NOT NULL REFERENCES resources.towns(town_id)
+);
+
+CREATE TABLE IF NOT EXISTS resources.cie (
+    cie_id SERIAL NOT NULL PRIMARY KEY,
+    cie_codigo text COLLATE pg_catalog."default",
+    cie_simbolo text COLLATE pg_catalog."default",
+    cie_descripcion text COLLATE pg_catalog."default",
+    cie_sexo text COLLATE pg_catalog."default",
+    cie_limite_inferior text COLLATE pg_catalog."default",
+    cie_limite_superior text COLLATE pg_catalog."default",
+    cie_no_afeccion text COLLATE pg_catalog."default",
+    cie_observacion text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS admin.tb_modulos (
+    modulo_id SERIAL NOT NULL PRIMARY KEY,
+    modulo_nombre text COLLATE pg_catalog."default" NOT NULL,
+    modulo_descripcion text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS admin.tb_submodulos (
+    submodulo_id SERIAL NOT NULL PRIMARY KEY,
+    fk_modulo_id integer NOT NULL REFERENCES admin.tb_modulos(modulo_id),
+    submodulo_nombre text COLLATE pg_catalog."default" NOT NULL,
+    submodulo_descripcion text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS admin.tb_roles (
+    rol_id SERIAL NOT NULL PRIMARY KEY,
+    rol_nombre text COLLATE pg_catalog."default" NOT NULL,
+    rol_descripcion text COLLATE pg_catalog."default",
+    fk_submodulo_id integer NOT NULL REFERENCES admin.tb_submodulos(submodulo_id),
+    rol_path text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS admin.tb_usuario_rol (
+    fk_usuario_id integer NOT NULL,
+    fk_rol_id integer NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_clasificacion (
+    parte_clasificacion_id SERIAL NOT NULL PRIMARY KEY,
+    parte_clasificacion_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_clasificacion_descripcion text COLLATE pg_catalog."default" NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_subclasificacion (
+    parte_subclasificacion_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_clasificacion_id integer NOT NULL REFERENCES operaciones.tb_parte_clasificacion(parte_clasificacion_id),
+    parte_subclasificacion_descripcion text COLLATE pg_catalog."default" NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_uso (
+    parte_uso_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_subclasificacion_id integer NOT NULL REFERENCES operaciones.tb_parte_subclasificacion(parte_subclasificacion_id),
+    parte_uso_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_uso_descripcion text COLLATE pg_catalog."default" NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_causa (
+    parte_causa_id SERIAL NOT NULL PRIMARY KEY,
+    parte_causa_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_causa_descripcion text COLLATE pg_catalog."default" NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_posible_causa (
+    parte_posible_causa_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_causa_id integer NOT NULL REFERENCES operaciones.tb_parte_causa(parte_causa_id),
+    parte_posible_causa_descripcion text COLLATE pg_catalog."default" NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_equipo (
+    parte_equipo_id SERIAL NOT NULL PRIMARY KEY,
+    parte_equipo_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_equipo_descripcion text COLLATE pg_catalog."default" NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_material (
+    parte_material_id SERIAL NOT NULL PRIMARY KEY,
+    parte_material_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_material_descripcion text COLLATE pg_catalog."default" NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_insumo (
+    parte_insumo_id SERIAL NOT NULL PRIMARY KEY,
+    parte_insumo_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_insumo_descripcion text COLLATE pg_catalog."default" NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte (
+    parte_id SERIAL NOT NULL PRIMARY KEY,
+    parte_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    parte_estado text COLLATE pg_catalog."default" DEFAULT 'REGISTRADO'::text,
+    parte_tipo text COLLATE pg_catalog."default",
+    parte_codigo text COLLATE pg_catalog."default" NOT NULL,
+    parte_serie integer NOT NULL,
+    parte_tipo_dia text COLLATE pg_catalog."default" DEFAULT 'LABORABLE'::text,
+    fk_usuario_id integer NOT NULL REFERENCES admin.tb_usuarios(usuario_id),
+    fk_personal_id integer NOT NULL REFERENCES tthh.tb_personal(personal_id),
+    fk_parroquia_id integer NOT NULL REFERENCES resources.parishes(parish_id),
+    parte_forma_aviso text COLLATE pg_catalog."default" NOT NULL,
+    parte_fecha_aviso date NOT NULL,
+    parte_hora_aviso time without time zone NOT NULL,
+    parte_fecha_transferencia date NOT NULL,
+    parte_hora_transferencia time without time zone NOT NULL,
+    parte_fecha_salida date NOT NULL,
+    parte_hora_salida time without time zone NOT NULL,
+    parte_fecha_arribo date NOT NULL,
+    parte_hora_arribo time without time zone NOT NULL,
+    parte_fecha_retorno date NOT NULL,
+    parte_hora_retorno time without time zone NOT NULL,
+    parte_zona text COLLATE pg_catalog."default",
+    parte_calle_principal text COLLATE pg_catalog."default" NOT NULL,
+    parte_calle_secundaria text COLLATE pg_catalog."default",
+    parte_direccion_numero text COLLATE pg_catalog."default",
+    parte_sector text COLLATE pg_catalog."default",
+    parte_referencia text COLLATE pg_catalog."default",
+    parte_informacion_alertante text COLLATE pg_catalog."default" NOT NULL,
+    parte_observaciones text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_personal (
+    parte_personal_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_parte(parte_id),
+    fk_personal_id integer NOT NULL REFERENCES tthh.tb_personal(personal_id),
+    parte_personal_funcion text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_parte_unidades (
+    parte_unidad_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_parte(parte_id),
+    fk_vehiculo_id integer NOT NULL REFERENCES administrativo.tb_vehiculos(vehiculo_id),
+    parte_unidad_funcion text COLLATE pg_catalog."default",
+    parte_unidad_kilometraje_salida numeric(10,0) NOT NULL,
+    parte_unidad_kilometraje_ingreso numeric(10,0),
+    parte_unidad_despacho timestamp without time zone NOT NULL,
+    parte_unidad_salida timestamp without time zone,
+    parte_unidad_arribo timestamp without time zone,
+    parte_unidad_fin_operaciones timestamp without time zone
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes (
+    parte_id SERIAL NOT NULL PRIMARY KEY,
+    parte_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    parte_estado text COLLATE pg_catalog."default" DEFAULT 'REGISTRADO'::text,
+    parte_numero text COLLATE pg_catalog."default" NOT NULL,
+    parte_tipo text COLLATE pg_catalog."default" NOT NULL,
+    fk_estacion_id integer NOT NULL REFERENCES operaciones.tb_estaciones(estacion_id),
+    fk_usuario_id integer NOT NULL REFERENCES admin.tb_usuarios(usuario_id),
+    fk_personal_despacho_id integer REFERENCES tthh.tb_personal(personal_id),
+    fk_personal_id integer NOT NULL REFERENCES tthh.tb_personal(personal_id),
+    fk_parroquia_id integer NOT NULL REFERENCES resources.parishes(parish_id),
+    parte_fecha date NOT NULL,
+    parte_fecha_aviso date,
+    parte_forma_aviso text COLLATE pg_catalog."default" NOT NULL,
+    parte_codigo_salida text COLLATE pg_catalog."default" NOT NULL,
+    parte_tipo_dia text COLLATE pg_catalog."default" DEFAULT 'LABORABLE'::text,
+    parte_grupo_asiste text COLLATE pg_catalog."default" NOT NULL,
+    parte_hora_aviso time without time zone NOT NULL,
+    parte_hora_transferencia_ecu smallint,
+    parte_minuto_transferencia_ecu smallint,
+    parte_hora_salida time without time zone NOT NULL,
+    parte_hora_arribo time without time zone NOT NULL,
+    parte_hora_finalizacion time without time zone NOT NULL,
+    parte_hora_retorno time without time zone NOT NULL,
+    parte_apoyo_requerido text COLLATE pg_catalog."default",
+    parte_apoyo text COLLATE pg_catalog."default",
+    parte_apoyo_otros text COLLATE pg_catalog."default",
+    parte_provincia integer NOT NULL REFERENCES resources.states(state_id),
+    parte_canton integer NOT NULL REFERENCES resources.towns(town_id),
+    parte_parroquia integer NOT NULL REFERENCES resources.parishes(parish_id),
+    parte_direccion text COLLATE pg_catalog."default" NOT NULL,
+    parte_calle_principal text COLLATE pg_catalog."default",
+    parte_calle_secundaria text COLLATE pg_catalog."default",
+    parte_numero_domicilio text COLLATE pg_catalog."default",
+    parte_telefono text COLLATE pg_catalog."default",
+    parte_sector text COLLATE pg_catalog."default",
+    parte_tipo_sector text COLLATE pg_catalog."default",
+    parte_referencia text COLLATE pg_catalog."default",
+    parte_informacion_alertante text COLLATE pg_catalog."default",
+    parte_institucion_tipo text COLLATE pg_catalog."default",
+    parte_institucion_propiedad text COLLATE pg_catalog."default",
+    parte_observacion_institucion text COLLATE pg_catalog."default",
+    parte_observacion_victimas text COLLATE pg_catalog."default",
+    parte_observacion_fallecidos text COLLATE pg_catalog."default",
+    parte_tipo_afectado text COLLATE pg_catalog."default",
+    parte_afectado_propietario text COLLATE pg_catalog."default",
+    parte_afectado_arrendatario text COLLATE pg_catalog."default",
+    parte_afectado_otros text COLLATE pg_catalog."default",
+    parte_area_destruida_m2 numeric(16,4) NOT NULL DEFAULT 0,
+    parte_especies_predominantes text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NINGUNA'::text,
+    parte_total_superficie_quemada text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NINGUNA'::text,
+    parte_total_superficie_quemada_m2 numeric(16,4),
+    parte_lugar_posible_inicio text COLLATE pg_catalog."default",
+    parte_personas_institucion text COLLATE pg_catalog."default" DEFAULT 'NINGUNA'::text,
+    parte_nombre_representante text COLLATE pg_catalog."default" DEFAULT 'NINGUNA'::text,
+    parte_propietario_afectado text COLLATE pg_catalog."default" DEFAULT 'NINGUNO'::text,
+    parte_datos_adicionales text COLLATE pg_catalog."default" DEFAULT 'NINGUNO'::text,
+    parte_causante_identificado boolean,
+    parte_nombre_causante text COLLATE pg_catalog."default",
+    parte_otros_datos_causante text COLLATE pg_catalog."default",
+    parte_naturaleza_especifique text COLLATE pg_catalog."default",
+    parte_total_muertos integer NOT NULL DEFAULT 0,
+    parte_total_heridos integer NOT NULL DEFAULT 0,
+    parte_danios_materiales text COLLATE pg_catalog."default" NOT NULL DEFAULT 'NINGUNA'::text,
+    parte_anexo_requerido boolean,
+    parte_visita_inspectores boolean,
+    parte_visita_inspectores_motivo text COLLATE pg_catalog."default",
+    parte_descripcion_operaciones text COLLATE pg_catalog."default" NOT NULL,
+    parte_longitud numeric(10,7),
+    parte_latitud numeric(10,7),
+    parte_novedades text COLLATE pg_catalog."default",
+    parte_croquis_url text COLLATE pg_catalog."default",
+    parte_elaborado_por text COLLATE pg_catalog."default",
+    parte_revisado_por text COLLATE pg_catalog."default",
+    parte_aprobado_por text COLLATE pg_catalog."default",
+    parte_entregado_a text COLLATE pg_catalog."default",
+    parte_entregado_identificacion text COLLATE pg_catalog."default",
+    parte_fecha_entrega date
+);
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS fk_personal_despacho_id integer REFERENCES tthh.tb_personal(personal_id);
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_fecha_aviso date;
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_hora_transferencia_ecu smallint;
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_minuto_transferencia_ecu smallint;
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_calle_principal text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_calle_secundaria text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_numero_domicilio text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_informacion_alertante text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_institucion_tipo text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_institucion_propiedad text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_observacion_institucion text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_observacion_victimas text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_observacion_fallecidos text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_total_superficie_quemada_m2 numeric(16,4);
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_causante_identificado boolean;
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_nombre_causante text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_otros_datos_causante text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_naturaleza_especifique text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_total_muertos integer NOT NULL DEFAULT 0;
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_total_heridos integer NOT NULL DEFAULT 0;
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_anexo_requerido boolean;
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_visita_inspectores boolean;
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_visita_inspectores_motivo text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_novedades text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_croquis_url text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_elaborado_por text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_revisado_por text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_aprobado_por text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_entregado_a text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_entregado_identificacion text COLLATE pg_catalog."default";
+ALTER TABLE operaciones.tb_partes ADD COLUMN IF NOT EXISTS parte_fecha_entrega date;
+
+CREATE TABLE IF NOT EXISTS logistica.tb_ordenescombustible (
+    orden_id SERIAL NOT NULL PRIMARY KEY,
+    orden_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    orden_estado text COLLATE pg_catalog."default" DEFAULT 'EMITIDA'::text,
+    fk_personal_id integer NOT NULL,
+    fk_autoriza_id integer NOT NULL,
+    fk_solicitante_id integer NOT NULL,
+    fk_unidad_id integer,
+    orden_codigo text COLLATE pg_catalog."default" NOT NULL,
+    orden_serie integer NOT NULL DEFAULT 0,
+    orden_estacionservicio_codigo text COLLATE pg_catalog."default",
+    orden_estacionservicio text COLLATE pg_catalog."default",
+    orden_combustible text COLLATE pg_catalog."default",
+    orden_lugar text COLLATE pg_catalog."default",
+    orden_emitida timestamp without time zone DEFAULT CURRENT_TIMESTAMP(0),
+    orden_valdacion date,
+    fk_encargadoestacion_id integer,
+    fk_operador_id integer,
+    orden_total numeric(5,2),
+    orden_kilometraje integer DEFAULT 0,
+    orden_canecas integer DEFAULT 0,
+    orden_fecha_factura date,
+    orden_galones numeric(5,2),
+    orden_precio numeric(5,2),
+    orden_documento text COLLATE pg_catalog."default",
+    tipo_caneca text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS archivo.direcciones (
+    direccion_id SERIAL PRIMARY KEY,
+    direccion_sigla VARCHAR(10) NOT NULL,
+    direccion_nombre_direccion TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS archivo.tipo_documentos (
+    tipodocumento_id SERIAL PRIMARY KEY,
+    tipodocumento_tipo VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS archivo.documentos (
+    documento_id SERIAL PRIMARY KEY,
+    documento_direccion_origen_id INT REFERENCES archivo.direcciones(direccion_id),
+    documento_direccion_destino_id INT REFERENCES archivo.direcciones(direccion_id),
+    documento_tipo_documento_id INT REFERENCES archivo.tipo_documentos(tipodocumento_id),
+    documento_numero_documento TEXT NOT NULL UNIQUE,
+    documento_numero_folio INT NOT NULL,
+    documento_fecha_documento DATE NOT NULL,
+    documento_remitente TEXT NOT NULL,
+    documento_destinatario TEXT NOT NULL,
+    documento_asunto TEXT NOT NULL,
+    documento_archivo_escaneado TEXT NOT NULL,
+    documento_ubicacion_fisica TEXT NOT NULL,
+    documento_anio INT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS archivo.actas_entrega (
+    acta_entrega_id SERIAL PRIMARY KEY,
+    acta_entrega_documento_id INT REFERENCES archivo.documentos(documento_id),
+    acta_entrega_fecha_entrega DATE NOT NULL,
+    acta_entrega_receptor TEXT NOT NULL,
+    acta_entrega_descripcion TEXT
+);
+
+CREATE TABLE IF NOT EXISTS archivo.registro_retorno (
+    retorno_id SERIAL PRIMARY KEY,
+    retorno_acta_entrega_id INT REFERENCES archivo.actas_entrega(acta_entrega_id),
+    retorno_fecha_retorno DATE NOT NULL,
+    retorno_receptor TEXT NOT NULL,
+    retorno_descripcion TEXT
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_tipoincidencia (
+    incidencia_id SERIAL NOT NULL PRIMARY KEY,
+    incidencia_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    incidencia_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    incidencia_descripcion text NOT NULL COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_tipoemergencia (
+    emergencia_id SERIAL NOT NULL PRIMARY KEY,
+    fk_incidencia_id INT NOT NULL REFERENCES subjefatura.tb_tipoincidencia(incidencia_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    emergencia_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    emergencia_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    emergencia_descripcion text NOT NULL COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_causas (
+    causa_id SERIAL NOT NULL PRIMARY KEY,
+    fk_incidencia_id INT NOT NULL REFERENCES subjefatura.tb_tipoincidencia(incidencia_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    causa_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    causa_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    causa_codigo text COLLATE pg_catalog."default",
+    causa_descripcion text NOT NULL COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_naturaleza (
+    naturaleza_id SERIAL NOT NULL PRIMARY KEY,
+    fk_incidencia_id INT NOT NULL REFERENCES subjefatura.tb_tipoincidencia(incidencia_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    naturaleza_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    naturaleza_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    naturaleza_descripcion text NOT NULL COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_intervenciones (
+    intervencion_id SERIAL NOT NULL PRIMARY KEY,
+    fk_estacion_id int not null,
+    fk_incidencia_id int not null,
+    fk_emergencia_id int not null,
+    fk_causa_id int not null,
+    fk_naturaleza_id int,
+    fk_unidad_id int not null,
+    fk_personal_id int not null REFERENCES tthh.tb_personal (personal_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_parroquia_id int not null,
+    intervencion_longitud text COLLATE pg_catalog."default",
+    intervencion_latitud text COLLATE pg_catalog."default",
+    intervencion_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    intervencion_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    intervencion_fecha timestamp without time zone NOT NULL,
+    intervencion_direccion text COLLATE pg_catalog."default",
+    incidencia_beneficiarios int not null DEFAULT 0,
+    incidencia_fallecidos int not null DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_tipoasusencia (
+    tipoasusencia_id SERIAL NOT NULL PRIMARY KEY,
+    tipoasusencia_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    tipoasusencia_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    tipoasusencia_descripcion text NOT NULL COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_asusencia (
+    asusencia_id SERIAL NOT NULL PRIMARY KEY,
+    fk_tipoausencia_id INT NOT NULL REFERENCES subjefatura.tb_tipoasusencia (tipoasusencia_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_personal_id INT NOT NULL REFERENCES tthh.tb_personal (personal_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_estacion_id INT NOT NULL REFERENCES operaciones.tb_estaciones (estacion_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    asusencia_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    asusencia_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    asusencia_descripcion text NOT NULL COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_aph_hojaruta_tipoemergencia (
+    aph_hojaruta_tipoemergencia_id SERIAL NOT NULL PRIMARY KEY,
+    aph_hojaruta_tipoemergencia_descripcion text NOT NULL COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_aph_hojaruta (
+    aph_hojaruta_id SERIAL NOT NULL PRIMARY KEY,
+    fk_responsable_atencion INT NOT NULL REFERENCES tthh.tb_personal (personal_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_tipo_emergencia INT NOT NULL REFERENCES subjefatura.tb_aph_hojaruta_tipoemergencia (aph_hojaruta_tipoemergencia_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_estacion_id INT NOT NULL REFERENCES operaciones.tb_estaciones (estacion_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_parroquia_id INT NOT NULL,
+    aph_hojaruta_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    aph_hojaruta_codigo text COLLATE pg_catalog."default",
+    aph_hojaruta_codigo002 text COLLATE pg_catalog."default",
+    aph_hojaruta_fecha timestamp without time zone NOT NULL,
+    aph_hojaruta_direccion text COLLATE pg_catalog."default",
+    aph_hojaruta_hora_salida_estacion text COLLATE pg_catalog."default",
+    aph_hojaruta_hora_retorno_estacion text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_aph_hojaruta_vehiculos (
+    aph_hojaruta_vehiculo_id SERIAL NOT NULL PRIMARY KEY,
+    fk_aph_hojaruta_id INT NOT NULL REFERENCES subjefatura.tb_aph_hojaruta (aph_hojaruta_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_vehiculo INT NOT NULL,
+    fk_operador INT NOT NULL REFERENCES tthh.tb_personal (personal_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    aph_hojaruta_vehiculo_kilometraje_salida text COLLATE pg_catalog."default",
+    aph_hojaruta_vehiculo_kilometraje_retorno text COLLATE pg_catalog."default",
+    aph_hojaruta_vehiculo_hora_salida text COLLATE pg_catalog."default",
+    aph_hojaruta_vehiculo_hora_arribo text COLLATE pg_catalog."default",
+    aph_hojaruta_vehiculo_hora_retorno text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_aph_hojaruta_pacientes (
+    aph_hojaruta_paciente_id SERIAL NOT NULL PRIMARY KEY,
+    fk_aph_hojaruta_id INT NOT NULL REFERENCES subjefatura.tb_aph_hojaruta (aph_hojaruta_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_cie10 text COLLATE pg_catalog."default",
+    aph_hojaruta_paciente_cedula text COLLATE pg_catalog."default",
+    aph_hojaruta_paciente_nombres text COLLATE pg_catalog."default",
+    aph_hojaruta_paciente_apellidos text COLLATE pg_catalog."default",
+    aph_hojaruta_paciente_edad text COLLATE pg_catalog."default",
+    aph_hojaruta_paciente_sexo text COLLATE pg_catalog."default",
+    aph_hojaruta_paciente_condicion_inicial text COLLATE pg_catalog."default",
+    aph_hojaruta_paciente_condicion_final text COLLATE pg_catalog."default",
+    aph_hojaruta_paciente_diagnostico_preliminar text COLLATE pg_catalog."default",
+    aph_hojaruta_paciente_destino text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_aph_medicamentos (
+    medicamento_id SERIAL NOT NULL PRIMARY KEY,
+    medicamento_nombre text COLLATE pg_catalog."default",
+    medicamento_presentacion text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_aph_hojaruta_medicamentos (
+    aph_hojaruta_medicamento_id SERIAL NOT NULL PRIMARY KEY,
+    fk_aph_hojaruta_id INT NOT NULL REFERENCES subjefatura.tb_aph_hojaruta (aph_hojaruta_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_aph_hojaruta_paciente_id INT NOT NULL REFERENCES subjefatura.tb_aph_hojaruta_pacientes (aph_hojaruta_paciente_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_medicamento_id INT NOT NULL,
+    aph_hojaruta_medicamento_presentacion text COLLATE pg_catalog."default",
+    aph_hojaruta_medicamento_cantidad text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_personal (
+    parte_personal_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_personal_id integer NOT NULL REFERENCES tthh.tb_personal(personal_id),
+    parte_personal_rol text COLLATE pg_catalog."default",
+    parte_personal_rango text COLLATE pg_catalog."default",
+    parte_personal_grupo text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_vehiculos (
+    parte_vehiculo_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id),
+    parte_vehiculo_placa text COLLATE pg_catalog."default",
+    parte_vehiculo_siglas text COLLATE pg_catalog."default",
+    parte_vehiculo_km_salida numeric,
+    parte_vehiculo_km_retorno numeric,
+    parte_vehiculo_hora_despacho timestamp without time zone,
+    parte_vehiculo_hora_salida timestamp without time zone,
+    parte_vehiculo_hora_arribo timestamp without time zone,
+    parte_vehiculo_hora_fin_operaciones timestamp without time zone,
+    parte_vehiculo_apoyo text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_tipos_auxilio (
+    parte_tipo_auxilio_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_auxilio_clave text COLLATE pg_catalog."default",
+    parte_auxilio_clasificacion text COLLATE pg_catalog."default",
+    parte_auxilio_subclasificacion text COLLATE pg_catalog."default",
+    parte_auxilio_uso_tipo text COLLATE pg_catalog."default",
+    parte_auxilio_especifique text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_causas (
+    parte_causa_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_causa_clave text COLLATE pg_catalog."default",
+    parte_causa_clasificacion text COLLATE pg_catalog."default",
+    parte_causa_descripcion text COLLATE pg_catalog."default",
+    parte_causa_especifique text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_equipos_herramientas (
+    parte_equipo_herramienta_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id),
+    parte_recurso_descripcion text COLLATE pg_catalog."default",
+    parte_recurso_cantidad numeric,
+    parte_recurso_observaciones text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_materiales_descartables (
+    parte_material_descartable_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id),
+    parte_recurso_descripcion text COLLATE pg_catalog."default",
+    parte_recurso_cantidad numeric,
+    parte_recurso_observaciones text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_insumos (
+    parte_insumo_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_estacion_id integer REFERENCES operaciones.tb_estaciones(estacion_id),
+    parte_recurso_descripcion text COLLATE pg_catalog."default",
+    parte_recurso_cantidad numeric,
+    parte_recurso_observaciones text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_personas_asistidas (
+    parte_persona_asistida_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_persona_institucion text COLLATE pg_catalog."default",
+    parte_persona_tipo_institucion text COLLATE pg_catalog."default",
+    parte_persona_nombre text COLLATE pg_catalog."default",
+    parte_persona_identificacion text COLLATE pg_catalog."default",
+    parte_persona_telefono text COLLATE pg_catalog."default",
+    parte_persona_propiedad text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_victimas (
+    parte_victima_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_victima_numero_hoja text COLLATE pg_catalog."default",
+    parte_victima_tipo_identificacion text COLLATE pg_catalog."default",
+    parte_victima_identificacion text COLLATE pg_catalog."default",
+    parte_victima_nombres text COLLATE pg_catalog."default",
+    parte_victima_edad numeric,
+    parte_victima_tipo_edad text COLLATE pg_catalog."default",
+    parte_victima_sexo text COLLATE pg_catalog."default",
+    parte_victima_signos_sintomas text COLLATE pg_catalog."default",
+    parte_victima_traslado text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_fallecidos (
+    parte_fallecido_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    parte_fallecido_numero text COLLATE pg_catalog."default",
+    parte_fallecido_tipo_identificacion text COLLATE pg_catalog."default",
+    parte_fallecido_identificacion text COLLATE pg_catalog."default",
+    parte_fallecido_nombres text COLLATE pg_catalog."default",
+    parte_fallecido_edad numeric,
+    parte_fallecido_tipo_edad text COLLATE pg_catalog."default",
+    parte_fallecido_sexo text COLLATE pg_catalog."default",
+    parte_fallecido_observaciones text COLLATE pg_catalog."default",
+    parte_fallecido_traslado text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_tipos_incendio (
+    tipo_incendio_id SERIAL NOT NULL PRIMARY KEY,
+    tipo_incendio_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    tipo_incendio_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    tipo_incendio_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_causas_incendio (
+    causa_incendio_id SERIAL NOT NULL PRIMARY KEY,
+    causa_incendio_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    causa_incendio_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    causa_incendio_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_naturalezas (
+    naturaleza_id SERIAL NOT NULL PRIMARY KEY,
+    naturaleza_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    naturaleza_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    naturaleza_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_causas_afectacion_humana (
+    causa_afectacion_humana_id SERIAL NOT NULL PRIMARY KEY,
+    causa_afectacion_humana_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    causa_afectacion_humana_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    causa_afectacion_humana_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_tipo_afectado (
+    tipo_afectado_id SERIAL NOT NULL PRIMARY KEY,
+    tipo_afectado_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    tipo_afectado_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    tipo_afectado_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_forma_aviso (
+    forma_aviso_id SERIAL NOT NULL PRIMARY KEY,
+    forma_aviso_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    forma_aviso_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    forma_aviso_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_apoyo (
+    apoyo_id SERIAL NOT NULL PRIMARY KEY,
+    apoyo_codigo text COLLATE pg_catalog."default" NOT NULL UNIQUE,
+    apoyo_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    apoyo_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_tipos_auxilio (
+    tipo_auxilio_id SERIAL NOT NULL PRIMARY KEY,
+    tipo_auxilio_clave text COLLATE pg_catalog."default" NOT NULL,
+    tipo_auxilio_clasificacion text COLLATE pg_catalog."default" NOT NULL,
+    tipo_auxilio_subclasificacion text COLLATE pg_catalog."default" NOT NULL,
+    tipo_auxilio_uso_tipo text COLLATE pg_catalog."default" NOT NULL DEFAULT ''::text,
+    tipo_auxilio_estado text COLLATE pg_catalog."default" NOT NULL DEFAULT 'ACTIVO'::text,
+    CONSTRAINT tb_partes_catalogo_tipos_auxilio_uk UNIQUE (
+        tipo_auxilio_clave,
+        tipo_auxilio_clasificacion,
+        tipo_auxilio_subclasificacion,
+        tipo_auxilio_uso_tipo
+    )
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_tipos_incendio (
+    parte_tipo_incendio_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_tipo_incendio_catalogo_id integer REFERENCES operaciones.tb_partes_catalogo_tipos_incendio(tipo_incendio_id),
+    parte_incendio_clave text COLLATE pg_catalog."default",
+    parte_incendio_clasificacion text COLLATE pg_catalog."default",
+    parte_incendio_especifique text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS operaciones.tb_partes_naturalezas (
+    parte_naturaleza_id SERIAL NOT NULL PRIMARY KEY,
+    fk_parte_id integer NOT NULL REFERENCES operaciones.tb_partes(parte_id) ON DELETE CASCADE,
+    fk_naturaleza_catalogo_id integer REFERENCES operaciones.tb_partes_catalogo_naturalezas(naturaleza_id),
+    parte_naturaleza_clave text COLLATE pg_catalog."default",
+    parte_naturaleza_descripcion text COLLATE pg_catalog."default",
+    parte_naturaleza_especifique text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios (
+    voluntario_id SERIAL NOT NULL PRIMARY KEY,
+    voluntario_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    voluntario_tipo_doc text COLLATE pg_catalog."default" NOT NULL DEFAULT 'CEDULA' :: text,
+    voluntario_doc_identidad text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_pass text COLLATE pg_catalog."default" NULL,
+    voluntario_nombres text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_apellidos text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_sexo text COLLATE pg_catalog."default",
+    voluntario_promocion text COLLATE pg_catalog."default",
+    voluntario_imagen text COLLATE pg_catalog."default" DEFAULT 'default.png' :: text,
+    voluntario_direccion text COLLATE pg_catalog."default",
+    voluntario_telefono text COLLATE pg_catalog."default",
+    voluntario_correo text COLLATE pg_catalog."default",
+    voluntario_fingreso timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    fk_usuario_id integer,
+    voluntario_fnacimiento date,
+    voluntario_nacionalidad text COLLATE pg_catalog."default" DEFAULT 'ECUATORIANA' :: text,
+    voluntario_celular text COLLATE pg_catalog."default",
+    voluntario_estadocivil text COLLATE pg_catalog."default",
+    voluntario_tiposangre text COLLATE pg_catalog."default",
+    fk_parroquia_id integer DEFAULT 230151,
+    voluntario_principal text COLLATE pg_catalog."default",
+    voluntario_secundaria text COLLATE pg_catalog."default",
+    voluntario_no_casa text COLLATE pg_catalog."default",
+    voluntario_referencia text COLLATE pg_catalog."default",
+    voluntario_barrio_ciudadela text COLLATE pg_catalog."default",
+    voluntario_barrio_sector text COLLATE pg_catalog."default",
+    voluntario_titulo text COLLATE pg_catalog."default",
+    voluntario_anexo_cedula text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_cemergencia_nombre text COLLATE pg_catalog."default",
+    voluntario_cemergencia_parentesco text COLLATE pg_catalog."default",
+    voluntario_cemergencia_direccion text COLLATE pg_catalog."default",
+    voluntario_cemergencia_telefono text COLLATE pg_catalog."default",
+    voluntario_discapacidad_tiene text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_discapacidad_tipo text COLLATE pg_catalog."default",
+    voluntario_discapacidad_porcentaje text COLLATE pg_catalog."default",
+    voluntario_discapacidad_conadis text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_discapacidad_conadis_numero text COLLATE pg_catalog."default",
+    voluntario_enfermedad_cronica text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_enfermedad_cronica_describa text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS historial.tb_voluntarios (
+    voluntario_id SERIAL REFERENCES subjefatura.tb_voluntarios (voluntario_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    voluntario_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO' :: text,
+    voluntario_tipo_doc text COLLATE pg_catalog."default" NOT NULL DEFAULT 'CEDULA' :: text,
+    voluntario_doc_identidad text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_pass text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_nombres text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_apellidos text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_sexo text COLLATE pg_catalog."default",
+    voluntario_promocion text COLLATE pg_catalog."default" NOT NULL,
+    voluntario_imagen text COLLATE pg_catalog."default" DEFAULT 'default.png' :: text,
+    voluntario_direccion text COLLATE pg_catalog."default",
+    voluntario_telefono text COLLATE pg_catalog."default",
+    voluntario_correo text COLLATE pg_catalog."default",
+    voluntario_fingreso timestamp without time zone DEFAULT ('now' :: text) :: timestamp(0) with time zone,
+    fk_usuario_id integer,
+    voluntario_fnacimiento date,
+    voluntario_nacionalidad text COLLATE pg_catalog."default" DEFAULT 'ECUATORIANA' :: text,
+    voluntario_celular text COLLATE pg_catalog."default",
+    voluntario_estadocivil text COLLATE pg_catalog."default",
+    voluntario_tiposangre text COLLATE pg_catalog."default",
+    fk_parroquia_id integer DEFAULT 230151,
+    voluntario_principal text COLLATE pg_catalog."default",
+    voluntario_secundaria text COLLATE pg_catalog."default",
+    voluntario_no_casa text COLLATE pg_catalog."default",
+    voluntario_referencia text COLLATE pg_catalog."default",
+    voluntario_barrio_ciudadela text COLLATE pg_catalog."default",
+    voluntario_barrio_sector text COLLATE pg_catalog."default",
+    voluntario_titulo text COLLATE pg_catalog."default",
+    voluntario_anexo_cedula text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_cemergencia_nombre text COLLATE pg_catalog."default",
+    voluntario_cemergencia_parentesco text COLLATE pg_catalog."default",
+    voluntario_cemergencia_direccion text COLLATE pg_catalog."default",
+    voluntario_cemergencia_telefono text COLLATE pg_catalog."default",
+    voluntario_discapacidad_tiene text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_discapacidad_tipo text COLLATE pg_catalog."default",
+    voluntario_discapacidad_porcentaje text COLLATE pg_catalog."default",
+    voluntario_discapacidad_conadis text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_discapacidad_conadis_numero text COLLATE pg_catalog."default",
+    voluntario_enfermedad_cronica text COLLATE pg_catalog."default" DEFAULT 'NO' :: text,
+    voluntario_enfermedad_cronica_describa text COLLATE pg_catalog."default"
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios_eventos (
+    evento_id SERIAL NOT NULL PRIMARY KEY,
+    evento_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    evento_estado text COLLATE pg_catalog."default" DEFAULT 'GENERADO'::text,
+    evento_fecha_inicio date NOT NULL,
+    evento_hora_inicio text COLLATE pg_catalog."default",
+    evento_fecha_finalizacion date NOT NULL,
+    evento_hora_finalizacion text COLLATE pg_catalog."default",
+    evento_motivo text COLLATE pg_catalog."default" NOT NULL,
+    evento_lugar text COLLATE pg_catalog."default" NOT NULL,
+    evento_latitud text COLLATE pg_catalog."default",
+    evento_longitud text COLLATE pg_catalog."default",
+    evento_descripcion text COLLATE pg_catalog."default" NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios_eventos_participantes (
+    evento_participante_id SERIAL NOT NULL PRIMARY KEY,
+    fk_evento_id integer NOT NULL REFERENCES subjefatura.tb_voluntarios_eventos (evento_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_voluntario_id integer NOT NULL REFERENCES subjefatura.tb_voluntarios (voluntario_id) ON DELETE RESTRICT ON UPDATE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios_actividades (
+    actividad_id SERIAL NOT NULL PRIMARY KEY,
+    actividad_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    actividad_estado text COLLATE pg_catalog."default" DEFAULT 'INICIADA'::text,
+    fk_voluntario_id integer NOT NULL REFERENCES subjefatura.tb_voluntarios (voluntario_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    actividad_actividad text COLLATE pg_catalog."default" NOT NULL,
+    actividad_descripcion text COLLATE pg_catalog."default" NOT NULL,
+    actividad_fecha_inicio timestamp without time zone NOT NULL,
+    actividad_fecha_finalizacion timestamp without time zone,
+    actividad_evidencia text COLLATE pg_catalog."default",
+    fk_ppersonal_id integer
+);
+
+CREATE TABLE IF NOT EXISTS subjefatura.tb_voluntarios_asignacion (
+    asignacion_id SERIAL NOT NULL PRIMARY KEY,
+    asignacion_registro timestamp without time zone DEFAULT ('now'::text)::timestamp(0) with time zone,
+    asignacion_estado text COLLATE pg_catalog."default" DEFAULT 'ACTIVO'::text,
+    fk_voluntario_id integer NOT NULL REFERENCES subjefatura.tb_voluntarios (voluntario_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_estacion_id integer NOT NULL REFERENCES operaciones.tb_estaciones (estacion_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    fk_unidad_id integer,
+    asignacion_fecha_inicio date NOT NULL,
+    asignacion_fecha_fin date
+);
+
+-- Vistas
+CREATE OR REPLACE VIEW tthh.vw_personal_simple as 
+select ppersonal_id, personal_id,persona_doc_identidad,persona_apellidos, persona_nombres, puesto_nombre, concat( persona_apellidos,' ',persona_nombres, ', ', puesto_nombre ) as nombre_completo from tthh.tb_personal p 
+inner join tthh.tb_personal_puestos pp ON pp.fk_personal_id = p.personal_id inner join tthh.tb_puestos pu on pu.puesto_id = pp.fk_puesto_id
+inner join resources.tb_personas pe on pe.persona_id = fk_persona_id  order by persona_apellidos, persona_nombres;
+CREATE OR REPLACE VIEW tthh.vw_conductores as
+select ppersonal_id, personal_id,conductor_id, persona_doc_identidad,conductor_estado, licencia_categoria,persona_apellidos, persona_nombres, puesto_nombre, conductor_licencia_validez, concat( persona_apellidos,' ',persona_nombres, ', Lic.:', licencia_categoria ) as nombre_completo,licencia_tipo
+from tthh.tb_conductores c 
+inner join resources.tb_licenciasdeconducir l on l.licencia_id = c.fk_licencia_id inner join tthh.tb_personal p on p.personal_id = c.fk_personal_id
+inner join tthh.tb_personal_puestos pp ON pp.fk_personal_id = p.personal_id inner join tthh.tb_puestos pu on pu.puesto_id = pp.fk_puesto_id
+inner join resources.tb_personas pe on pe.persona_id = fk_persona_id order by persona_apellidos, persona_nombres;
+CREATE OR REPLACE VIEW logistica.vw_ordenesomvilizacion as
+SELECT orden_id, orden_serie, orden_estado, orden_codigo, vehiculo_sigla, vehiculo_placa, vehiculo_chasis, vehiculo_motor, orden_hora_salida, orden_kilometraje_salida, orden_motivo_salida, orden_destino, orden_hora_entrada, orden_kilometraje_entrada, orden_registro, orden_observaciones 
+,(select concat(persona_apellidos,' ',persona_nombres) from tthh.vw_personal_simple p1 where p1.ppersonal_id =  o.director_administrativo)  as da_nombre
+,(select persona_doc_identidad from tthh.vw_personal_simple p1 where p1.ppersonal_id =  o.director_administrativo)  as da_cc
+,(select puesto_nombre from tthh.vw_personal_simple p1 where p1.ppersonal_id =  o.director_administrativo)  as da_puesto
+,(select concat(persona_apellidos,' ',persona_nombres)  from tthh.vw_personal_simple p1 where p1.ppersonal_id =  o.personal_solicita)  as s_nombre
+,(select persona_doc_identidad from tthh.vw_personal_simple p1 where p1.ppersonal_id =  o.personal_solicita)  as s_cc
+,(select puesto_nombre from tthh.vw_personal_simple p1 where p1.ppersonal_id =  o.personal_solicita)  as s_puesto
+,(select concat(persona_apellidos,' ',persona_nombres) from tthh.vw_conductores c1 where c1.conductor_id =  o.operador_id order by c1.ppersonal_id desc limit 1)  as o_nombre
+,(select persona_doc_identidad from tthh.vw_conductores c1 where c1.conductor_id =  o.operador_id order by c1.ppersonal_id desc limit 1)  as o_cc
+,(select puesto_nombre from tthh.vw_conductores c1 where c1.conductor_id =  o.operador_id order by c1.ppersonal_id desc limit 1)  as o_puesto
+,(select concat(licencia_tipo,' - ',licencia_categoria) from tthh.vw_conductores c1 where c1.conductor_id =  o.operador_id order by c1.ppersonal_id desc limit 1)  as o_licencia
+,(select usuario_login from admin.tb_usuarios u where u.usuario_id =  o.fk_usuario_id)  as usuario
+FROM logistica.tb_ordenesmovilizacion o
+inner join administrativo.tb_vehiculos v on v.vehiculo_id = o.fk_unidad_id;
+
+
+-- ======================================================================================================
+-- 0.1 CATÁLOGOS BASE: estaciones, jornadas, menús, documentos y catálogos de subjefatura y partes
+-- ======================================================================================================
+-- =============================================================================
+-- CATÁLOGOS BASE (antes en script.sql, script-2.sql y script_sbj_temp.sql) - re-ejecutable
+-- Cada catálogo se carga solo si su tabla está vacía (base nueva): no duplica filas renombradas por la institución.
+-- Los menús (admin.tb_roles) se cargan por ruta. Las referencias a otros catálogos se buscan por nombre.
+-- =============================================================================
+
+-- operaciones.tb_estaciones: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones) THEN
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'X-1', 'ESTACION'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'X-1');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'X-2', 'ESTACION'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'X-2');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'X-3', 'ESTACION'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'X-3');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'X-4', 'ESTACION'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'X-4');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'X-5', 'ESTACION'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'X-5');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'X-6', 'ESTACION'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'X-6');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'X-7', 'ESTACION'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'X-7');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'X-8', 'ESTACION'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'X-8');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'Grupo de Canes', 'GRUPO'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'Grupo de Canes');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'Grupo de Drones', 'GRUPO'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'Grupo de Drones');
+        INSERT INTO operaciones.tb_estaciones (estacion_nombre, estacion_tipo) SELECT 'Escuela EFEESB', 'DIRECCION'
+         WHERE NOT EXISTS (SELECT 1 FROM operaciones.tb_estaciones x WHERE x.estacion_nombre IS NOT DISTINCT FROM 'Escuela EFEESB');
+    END IF;
+END
+$catalogo$;
+
+-- tthh.tb_jornadas_trabajo: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM tthh.tb_jornadas_trabajo) THEN
+        INSERT INTO tthh.tb_jornadas_trabajo (jornada_estado, jornada_nombre, jornada_rancho, jornada_diasminimo, jornada_diasmaximo, jornada_dias_semana, jornada_horas_dia, jornada_entrada, jornada_salida, jornada_break, jornada_entrada_break, jornada_salida_break) SELECT 'ACTIVO', 'OPERATIVOS 24H/48H', 6.00, 20, 20, '["1","2","3","4","5","6","0"]', 24, '08:00', '08:00', 'NO', NULL, NULL
+         WHERE NOT EXISTS (SELECT 1 FROM tthh.tb_jornadas_trabajo x WHERE x.jornada_nombre IS NOT DISTINCT FROM 'OPERATIVOS 24H/48H');
+        INSERT INTO tthh.tb_jornadas_trabajo (jornada_estado, jornada_nombre, jornada_rancho, jornada_diasminimo, jornada_diasmaximo, jornada_dias_semana, jornada_horas_dia, jornada_entrada, jornada_salida, jornada_break, jornada_entrada_break, jornada_salida_break) SELECT 'ACTIVO', 'ADMINISTRATIVO 8H', 0.00, 5, 10, '["1","2","3","4","5"]', 8, '08:00', '17:00', 'SI', '13:00', '14:00'
+         WHERE NOT EXISTS (SELECT 1 FROM tthh.tb_jornadas_trabajo x WHERE x.jornada_nombre IS NOT DISTINCT FROM 'ADMINISTRATIVO 8H');
+        INSERT INTO tthh.tb_jornadas_trabajo (jornada_estado, jornada_nombre, jornada_rancho, jornada_diasminimo, jornada_diasmaximo, jornada_dias_semana, jornada_horas_dia, jornada_entrada, jornada_salida, jornada_break, jornada_entrada_break, jornada_salida_break) SELECT 'ACTIVO', 'OPERATIVOS 8H', 3.00, 20, 20, '["1","2","3","4","5"]', 9, '08:00', '18:00', 'NO', NULL, NULL
+         WHERE NOT EXISTS (SELECT 1 FROM tthh.tb_jornadas_trabajo x WHERE x.jornada_nombre IS NOT DISTINCT FROM 'OPERATIVOS 8H');
+    END IF;
+END
+$catalogo$;
+
+-- administrativo.tb_vehiculos_marcas: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM administrativo.tb_vehiculos_marcas) THEN
+        INSERT INTO administrativo.tb_vehiculos_marcas (marca_nombre) SELECT 'S/M'
+         WHERE NOT EXISTS (SELECT 1 FROM administrativo.tb_vehiculos_marcas x WHERE x.marca_nombre IS NOT DISTINCT FROM 'S/M');
+    END IF;
+END
+$catalogo$;
+
+-- archivo.direcciones: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM archivo.direcciones) THEN
+        INSERT INTO archivo.direcciones (direccion_sigla, direccion_nombre_direccion) SELECT 'JB', 'Jefatura de Bomberos'
+         WHERE NOT EXISTS (SELECT 1 FROM archivo.direcciones x WHERE x.direccion_sigla IS NOT DISTINCT FROM 'JB');
+        INSERT INTO archivo.direcciones (direccion_sigla, direccion_nombre_direccion) SELECT 'DA', 'Dirección Administrativa'
+         WHERE NOT EXISTS (SELECT 1 FROM archivo.direcciones x WHERE x.direccion_sigla IS NOT DISTINCT FROM 'DA');
+        INSERT INTO archivo.direcciones (direccion_sigla, direccion_nombre_direccion) SELECT 'DJ', 'Dirección Jurídica'
+         WHERE NOT EXISTS (SELECT 1 FROM archivo.direcciones x WHERE x.direccion_sigla IS NOT DISTINCT FROM 'DJ');
+        INSERT INTO archivo.direcciones (direccion_sigla, direccion_nombre_direccion) SELECT 'DPCE', 'Dirección Planificación y Control Estratégico'
+         WHERE NOT EXISTS (SELECT 1 FROM archivo.direcciones x WHERE x.direccion_sigla IS NOT DISTINCT FROM 'DPCE');
+    END IF;
+END
+$catalogo$;
+
+-- archivo.tipo_documentos: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM archivo.tipo_documentos) THEN
+        INSERT INTO archivo.tipo_documentos (tipodocumento_tipo) SELECT 'Memorando'
+         WHERE NOT EXISTS (SELECT 1 FROM archivo.tipo_documentos x WHERE x.tipodocumento_tipo IS NOT DISTINCT FROM 'Memorando');
+        INSERT INTO archivo.tipo_documentos (tipodocumento_tipo) SELECT 'Informe'
+         WHERE NOT EXISTS (SELECT 1 FROM archivo.tipo_documentos x WHERE x.tipodocumento_tipo IS NOT DISTINCT FROM 'Informe');
+        INSERT INTO archivo.tipo_documentos (tipodocumento_tipo) SELECT 'Oficio'
+         WHERE NOT EXISTS (SELECT 1 FROM archivo.tipo_documentos x WHERE x.tipodocumento_tipo IS NOT DISTINCT FROM 'Oficio');
+    END IF;
+END
+$catalogo$;
+
+-- admin.tb_modulos: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM admin.tb_modulos) THEN
+        INSERT INTO admin.tb_modulos (modulo_nombre) SELECT 'ROOT'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_modulos x WHERE x.modulo_nombre IS NOT DISTINCT FROM 'ROOT');
+        INSERT INTO admin.tb_modulos (modulo_nombre) SELECT 'Dir. Administrativa'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_modulos x WHERE x.modulo_nombre IS NOT DISTINCT FROM 'Dir. Administrativa');
+        INSERT INTO admin.tb_modulos (modulo_nombre) SELECT 'Subjefatura'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_modulos x WHERE x.modulo_nombre IS NOT DISTINCT FROM 'Subjefatura');
+        INSERT INTO admin.tb_modulos (modulo_nombre) SELECT 'SCI'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_modulos x WHERE x.modulo_nombre IS NOT DISTINCT FROM 'SCI');
+        INSERT INTO admin.tb_modulos (modulo_nombre) SELECT 'Operaciones'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_modulos x WHERE x.modulo_nombre IS NOT DISTINCT FROM 'Operaciones');
+    END IF;
+END
+$catalogo$;
+
+-- admin.tb_submodulos: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM admin.tb_submodulos) THEN
+        INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) SELECT (SELECT modulo_id FROM admin.tb_modulos WHERE modulo_nombre = 'Dir. Administrativa' ORDER BY modulo_id LIMIT 1), 'Unidades'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre IS NOT DISTINCT FROM 'Unidades');
+        INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) SELECT (SELECT modulo_id FROM admin.tb_modulos WHERE modulo_nombre = 'Dir. Administrativa' ORDER BY modulo_id LIMIT 1), 'Ordenes de movilización'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre IS NOT DISTINCT FROM 'Ordenes de movilización');
+        INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) SELECT (SELECT modulo_id FROM admin.tb_modulos WHERE modulo_nombre = 'Subjefatura' ORDER BY modulo_id LIMIT 1), 'Parámetros'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre IS NOT DISTINCT FROM 'Parámetros');
+        INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) SELECT (SELECT modulo_id FROM admin.tb_modulos WHERE modulo_nombre = 'Subjefatura' ORDER BY modulo_id LIMIT 1), 'Intervenciones'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre IS NOT DISTINCT FROM 'Intervenciones');
+        INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) SELECT (SELECT modulo_id FROM admin.tb_modulos WHERE modulo_nombre = 'Subjefatura' ORDER BY modulo_id LIMIT 1), 'Voluntarios'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre IS NOT DISTINCT FROM 'Voluntarios');
+        INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) SELECT (SELECT modulo_id FROM admin.tb_modulos WHERE modulo_nombre = 'Operaciones' ORDER BY modulo_id LIMIT 1), 'Distributivo'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre IS NOT DISTINCT FROM 'Distributivo');
+        INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre) SELECT (SELECT modulo_id FROM admin.tb_modulos WHERE modulo_nombre = 'Operaciones' ORDER BY modulo_id LIMIT 1), 'Partes de servicio'
+         WHERE NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre IS NOT DISTINCT FROM 'Partes de servicio');
+    END IF;
+END
+$catalogo$;
+
+-- admin.tb_roles (por ruta)
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'Vehiculos', 'Administrar vehiculos', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Unidades' ORDER BY submodulo_id LIMIT 1), '/admin/vehiculos'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/admin/vehiculos');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'Ordenes de Movilizacion', 'Administrar ordenes de movilizacion', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Ordenes de movilización' ORDER BY submodulo_id LIMIT 1), '/admin/ordenes-movilizacion'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/admin/ordenes-movilizacion');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'Ingresar nuevo vehiculo', 'Poder registrar nuevas unidades', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Unidades' ORDER BY submodulo_id LIMIT 1), null
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_nombre IS NOT DISTINCT FROM 'Ingresar nuevo vehiculo');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'Estadisticas', 'Estadisticas operaticas', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Parámetros' ORDER BY submodulo_id LIMIT 1), '/sbj/dashboard'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/sbj/dashboard');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'Intervenciones', 'Administración de intervenciones de emergencias', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Intervenciones' ORDER BY submodulo_id LIMIT 1), '/sbj/intervenciones'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/sbj/intervenciones');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'Ausencias', 'Registros de ausencias del presonal', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Parámetros' ORDER BY submodulo_id LIMIT 1), '/sbj/ausencias'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/sbj/ausencias');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'Voluntarios', 'Registros de voluntarios', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Voluntarios' ORDER BY submodulo_id LIMIT 1), '/sbj/ubv-voluntarios'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/sbj/ubv-voluntarios');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'UBV Actividades', 'Registros de actividades de personal voluntario', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Voluntarios' ORDER BY submodulo_id LIMIT 1), '/sbj/ubv-actividades'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/sbj/ubv-actividades');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'UBV Eventos', 'Registros de eventos de personal voluntario', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Voluntarios' ORDER BY submodulo_id LIMIT 1), '/sbj/ubv-eventos'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/sbj/ubv-eventos');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'Distributivo', 'Administrar distributivos de personal', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Distributivo' ORDER BY submodulo_id LIMIT 1), '/operaciones/distributivo'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/operaciones/distributivo');
+INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path) SELECT 'Partes de servicio', 'Administrar partes de servicio', (SELECT submodulo_id FROM admin.tb_submodulos WHERE submodulo_nombre = 'Partes de servicio' ORDER BY submodulo_id LIMIT 1), '/operaciones/partes'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles x WHERE x.rol_path IS NOT DISTINCT FROM '/operaciones/partes');
+
+-- subjefatura.tb_aph_hojaruta_tipoemergencia: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM subjefatura.tb_aph_hojaruta_tipoemergencia) THEN
+        INSERT INTO subjefatura.tb_aph_hojaruta_tipoemergencia (aph_hojaruta_tipoemergencia_descripcion) SELECT 'TRASLADO DE PACIENTE'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_aph_hojaruta_tipoemergencia x WHERE x.aph_hojaruta_tipoemergencia_descripcion IS NOT DISTINCT FROM 'TRASLADO DE PACIENTE');
+        INSERT INTO subjefatura.tb_aph_hojaruta_tipoemergencia (aph_hojaruta_tipoemergencia_descripcion) SELECT 'ATROPELLAMIENTO'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_aph_hojaruta_tipoemergencia x WHERE x.aph_hojaruta_tipoemergencia_descripcion IS NOT DISTINCT FROM 'ATROPELLAMIENTO');
+        INSERT INTO subjefatura.tb_aph_hojaruta_tipoemergencia (aph_hojaruta_tipoemergencia_descripcion) SELECT 'OBSTETRICA'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_aph_hojaruta_tipoemergencia x WHERE x.aph_hojaruta_tipoemergencia_descripcion IS NOT DISTINCT FROM 'OBSTETRICA');
+    END IF;
+END
+$catalogo$;
+
+-- subjefatura.tb_tipoincidencia: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoincidencia) THEN
+        INSERT INTO subjefatura.tb_tipoincidencia (incidencia_descripcion) SELECT 'INCENDIO'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoincidencia x WHERE x.incidencia_descripcion IS NOT DISTINCT FROM 'INCENDIO');
+        INSERT INTO subjefatura.tb_tipoincidencia (incidencia_descripcion) SELECT 'AUXILIO'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoincidencia x WHERE x.incidencia_descripcion IS NOT DISTINCT FROM 'AUXILIO');
+        INSERT INTO subjefatura.tb_tipoincidencia (incidencia_descripcion) SELECT 'ATENCION PRE HOSPITALARIA'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoincidencia x WHERE x.incidencia_descripcion IS NOT DISTINCT FROM 'ATENCION PRE HOSPITALARIA');
+    END IF;
+END
+$catalogo$;
+
+-- subjefatura.tb_tipoemergencia: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia) THEN
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Declarado'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Declarado');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Incendio'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Incendio');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Amago'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Amago');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Forestal'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Forestal');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Fuga de gas'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Fuga de gas');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Simulacro'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Simulacro');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Inspección con Sirena – Baliza'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Inspección con Sirena – Baliza');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Inspección sin Sirena – Baliza'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Inspección sin Sirena – Baliza');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Falsa Alarma'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Falsa Alarma');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Incendio / apoyo '
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Incendio / apoyo ');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Rescate'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Rescate');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Inundación'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Inundación');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Traslado de ambulancia'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Traslado de ambulancia');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Deslizamiento de tierra'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Deslizamiento de tierra');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Simulacro en Rescate'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Simulacro en Rescate');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Rescate / apoyo'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Rescate / apoyo');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Inundación (apoyo)'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Inundación (apoyo)');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Traslado de paciente'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Traslado de paciente');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Desfile'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Desfile');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Simulacro en Evacuación'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Simulacro en Evacuación');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Salvamento'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Salvamento');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Accidente de transito'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Accidente de transito');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Soporte Vital'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Soporte Vital');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Abrir departamento'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Abrir departamento');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Reparto de agua'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Reparto de agua');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Capacitación'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Capacitación');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Baldeo'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Baldeo');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Evacuación'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Evacuación');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Accidente Aviatorio'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Accidente Aviatorio');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Caída de arboles'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Caída de arboles');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Inspección con Sirena – Baliza'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Inspección con Sirena – Baliza');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Inspección sin Sirena – Baliza'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Inspección sin Sirena – Baliza');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Apoyo'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Apoyo');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Auxilio General'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Auxilio General');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Traslado de paciente'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Traslado de paciente');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Salvamento'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Salvamento');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Soporte Vital'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Soporte Vital');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Accidente Aviatorio'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Accidente Aviatorio');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Inspección con Sirena – Baliza'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Inspección con Sirena – Baliza');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Inspección sin Sirena – Baliza'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Inspección sin Sirena – Baliza');
+        INSERT INTO subjefatura.tb_tipoemergencia (fk_incidencia_id, emergencia_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Auxilio General'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_tipoemergencia x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.emergencia_descripcion IS NOT DISTINCT FROM 'Auxilio General');
+    END IF;
+END
+$catalogo$;
+
+-- subjefatura.tb_causas: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas) THEN
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Desconocida'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Desconocida');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Derrame de combustible'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Derrame de combustible');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Eléctrica'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Eléctrica');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Accidente de transito'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Accidente de transito');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Intencional'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Intencional');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Explosión'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Explosión');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Rayo'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Rayo');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Desprendimiento de chispa'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Desprendimiento de chispa');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Imprevisión'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Imprevisión');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Fuga de gas'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Fuga de gas');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Maniobras militares'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Maniobras militares');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Propagación de incendio'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Propagación de incendio');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Descuido'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Descuido');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Combustión espontanea'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Combustión espontanea');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Quema agrícola'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Quema agrícola');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Quema de basura'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Quema de basura');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Instruir a la ciudadanía'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Instruir a la ciudadanía');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Vehicular'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Vehicular');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Caída'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Caída');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Combustible derramado'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Combustible derramado');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Choque'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Choque');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Parto'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Parto');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Evaluación Primaria'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Evaluación Primaria');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Daño de tubería'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Daño de tubería');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Escasez de agua'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Escasez de agua');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Atropellamiento'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Atropellamiento');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Intoxicación'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Intoxicación');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Apuñalamiento'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Apuñalamiento');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Acumulación de agua'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Acumulación de agua');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Caída a pozo de agua'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Caída a pozo de agua');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Volcamiento'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Volcamiento');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Quemaduras'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Quemaduras');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Traslado de animales'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Traslado de animales');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Estado Etílico'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Estado Etílico');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Instruir a la ciudadanía'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Instruir a la ciudadanía');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Traumatismo'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Traumatismo');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Enfermedad'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Enfermedad');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Olvido de llaves'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Olvido de llaves');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Picadura de animales'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Picadura de animales');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Mordedura de animales'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Mordedura de animales');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Material solido derramado'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Material solido derramado');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Acto Cívico'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Acto Cívico');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), '10.', 'Otro'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'Otro');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), '10.', 'ATROPELLAMIENTO'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'ATROPELLAMIENTO');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), '10.', 'TRAUMATISMO'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'TRAUMATISMO');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), '10.', 'QUEMADURAS'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'QUEMADURAS');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), '10.', 'INTOXICACIÓN'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'INTOXICACIÓN');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), '10.', 'PARTO'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'PARTO');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), '10.', 'APUÑALAMIENTO'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'APUÑALAMIENTO');
+        INSERT INTO subjefatura.tb_causas (fk_incidencia_id, causa_codigo, causa_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), '10.', 'EVALUACIÓN PRIMARIA'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_causas x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.causa_codigo IS NOT DISTINCT FROM '10.' AND x.causa_descripcion IS NOT DISTINCT FROM 'EVALUACIÓN PRIMARIA');
+    END IF;
+END
+$catalogo$;
+
+-- subjefatura.tb_naturaleza: solo si está vacía
+DO $catalogo$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza) THEN
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Vivienda'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Vivienda');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Clandestino'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Clandestino');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Terreno baldío'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Terreno baldío');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Panadería'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Panadería');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Industria'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Industria');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Mecánica'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Mecánica');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Bosque / Campo'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Bosque / Campo');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Iglesia'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Iglesia');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Comercio'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Comercio');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Restaurante'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Restaurante');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Centro Comercial'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Centro Comercial');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Aserradero'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Aserradero');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Vehículo'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Vehículo');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Est. De Servicio'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Est. De Servicio');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Edificio oficinas'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Edificio oficinas');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1), 'Otros'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'INCENDIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Otros');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Vivienda'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Vivienda');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Vía pública'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Vía pública');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Casa de Salud'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Casa de Salud');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Escenario deportivo'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Escenario deportivo');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Concentración  pública'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Concentración  pública');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Institución'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Institución');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Pozo de agua'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Pozo de agua');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Campo y bosque'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Campo y bosque');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Carretera'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Carretera');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1), 'Otro'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'AUXILIO' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Otro');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Vivienda'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Vivienda');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Vía pública'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Vía pública');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Casa de Salud'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Casa de Salud');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Escenario deportivo'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Escenario deportivo');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Concentración  pública'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Concentración  pública');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Institución'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Institución');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Pozo de agua'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Pozo de agua');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Campo y bosque'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Campo y bosque');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Carretera'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Carretera');
+        INSERT INTO subjefatura.tb_naturaleza (fk_incidencia_id, naturaleza_descripcion) SELECT (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1), 'Otro'
+         WHERE NOT EXISTS (SELECT 1 FROM subjefatura.tb_naturaleza x WHERE x.fk_incidencia_id IS NOT DISTINCT FROM (SELECT incidencia_id FROM subjefatura.tb_tipoincidencia WHERE incidencia_descripcion = 'ATENCION PRE HOSPITALARIA' ORDER BY incidencia_id LIMIT 1) AND x.naturaleza_descripcion IS NOT DISTINCT FROM 'Otro');
+    END IF;
+END
+$catalogo$;
+
+-- Catálogos de partes de servicio
+INSERT INTO operaciones.tb_partes_catalogo_tipos_incendio (
+    tipo_incendio_codigo,
+    tipo_incendio_descripcion
+) VALUES
+    ('DECLARADO', 'Declarado'),
+    ('INCENDIO', 'Incendio'),
+    ('AMAGO', 'Amago'),
+    ('FORESTAL', 'Forestal'),
+    ('FUGA_GAS', 'Fuga de gas'),
+    ('INSPECCION_SIRENA_BALIZA', 'Inspección con sirena - baliza'),
+    ('INSPECCION_SIN_SIRENA_BALIZA', 'Inspección sin sirena - baliza'),
+    ('FALSA_ALARMA', 'Falsa alarma'),
+    ('SIMULACRO', 'Simulacro'),
+    ('INCENDIO_APOYO', 'Incendio / apoyo')
+ON CONFLICT (tipo_incendio_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_causas_incendio (
+    causa_incendio_codigo,
+    causa_incendio_descripcion
+) VALUES
+    ('DESCONOCIDA', 'Desconocida'),
+    ('DERRAME_COMBUSTIBLE', 'Derrame de combustible'),
+    ('ELECTRICA', 'Eléctrica'),
+    ('ACCIDENTE_TRANSITO', 'Accidente de tránsito'),
+    ('INTENCIONAL', 'Intencional'),
+    ('EXPLOSION', 'Explosión'),
+    ('RAYO', 'Rayo'),
+    ('DESPRENDIMIENTO_CHISPAS', 'Desprendimiento de chispas'),
+    ('IMPREVISION', 'Imprevisión'),
+    ('FUGA_GAS', 'Fuga de gas'),
+    ('MANIOBRAS_MILITARES', 'Maniobras militares'),
+    ('PROPAGACION_INCENDIO', 'Propagación de incendio'),
+    ('DESCUIDO', 'Descuido'),
+    ('COMBUSTION_ESPONTANEA', 'Combustión espontánea'),
+    ('QUEMA_AGRICOLA', 'Quema agrícola'),
+    ('QUEMA_BASURA', 'Quema de basura'),
+    ('INSTRUIR_CIUDADANIA', 'Instruir a la ciudadanía'),
+    ('VEHICULAR', 'Vehicular')
+ON CONFLICT (causa_incendio_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_naturalezas (
+    naturaleza_codigo,
+    naturaleza_descripcion
+) VALUES
+    ('VIVIENDA', 'Vivienda'),
+    ('CLANDESTINO', 'Clandestino'),
+    ('TERRENO_BALDIO', 'Terreno baldío'),
+    ('PANADERIA', 'Panadería'),
+    ('INDUSTRIA', 'Industria'),
+    ('MECANICA', 'Mecánica'),
+    ('BOSQUE_CAMPO', 'Bosque / campo'),
+    ('IGLESIA', 'Iglesia'),
+    ('COMERCIO', 'Comercio'),
+    ('RESTAURANTE', 'Restaurante'),
+    ('CENTRO_COMERCIAL', 'Centro comercial'),
+    ('ASERRADERO', 'Aserradero'),
+    ('VEHICULO', 'Vehículo'),
+    ('ESTACION_SERVICIO', 'Estación de servicio'),
+    ('EDIFICIO_OFICINAS', 'Edificio de oficinas'),
+    ('OTROS', 'Otros')
+ON CONFLICT (naturaleza_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_causas_afectacion_humana (
+    causa_afectacion_humana_codigo,
+    causa_afectacion_humana_descripcion
+) VALUES
+    ('ASFIXIA', 'Asfixia'),
+    ('QUEMADURAS', 'Quemaduras'),
+    ('CAIDA', 'Caída'),
+    ('OTRAS', 'Otras')
+ON CONFLICT (causa_afectacion_humana_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_tipo_afectado (
+    tipo_afectado_codigo,
+    tipo_afectado_descripcion
+) VALUES
+    ('PROPIO', 'Propio'),
+    ('ARRENDADO', 'Arrendado')
+ON CONFLICT (tipo_afectado_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_forma_aviso (
+    forma_aviso_codigo,
+    forma_aviso_descripcion
+) VALUES
+    ('CR', 'Central de radio'),
+    ('CABINA_RADIO', 'Cabina de radio'),
+    ('TELEFONO', 'Teléfono'),
+    ('PERSONAL', 'Personal')
+ON CONFLICT (forma_aviso_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_apoyo (
+    apoyo_codigo,
+    apoyo_descripcion
+) VALUES
+    ('POLICIA', 'Policía'),
+    ('CRUZ_ROJA', 'Cruz Roja'),
+    ('EJERCITO', 'Ejército'),
+    ('PERSONAS_PARTICULARES', 'Personas particulares'),
+    ('OTROS', 'Otros')
+ON CONFLICT (apoyo_codigo) DO NOTHING;
+
+INSERT INTO operaciones.tb_partes_catalogo_tipos_auxilio (
+    tipo_auxilio_clave,
+    tipo_auxilio_clasificacion,
+    tipo_auxilio_subclasificacion,
+    tipo_auxilio_uso_tipo
+) VALUES
+    ('10-1', 'Auxilio', 'Evacuación', 'Menaje + personas'),
+    ('10-1', 'Auxilio', 'Tala de árboles', '')
+ON CONFLICT (
+    tipo_auxilio_clave,
+    tipo_auxilio_clasificacion,
+    tipo_auxilio_subclasificacion,
+    tipo_auxilio_uso_tipo
+) DO NOTHING;
 
 
 -- ======================================================================================================
@@ -138,6 +1894,35 @@ CREATE TABLE IF NOT EXISTS admin.tb_params (
     param_name text NOT NULL,
     param_modulo text
 );
+
+-- Administradores del sistema (parametrizable por institución): reciben todos los privilegios al ejecutar script-3.
+-- SIS_ADMINISTRADORES: usuario_id o login separados por | (p. ej. 113|jperez). SIS_PERFILES_ADMINISTRADOR: nombres de perfil.
+INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
+    ('SIS_ADMINISTRADORES', '113', 'list', 'Usuarios administradores del sistema: usuario_id o login separados por |. Reciben todos los privilegios al ejecutar script-3', 'ADMINISTRACION'),
+    ('SIS_PERFILES_ADMINISTRADOR', 'ADMINISTRADOR|ADMINISTRADOR DEL SISTEMA|ADMINISTRADOR SISTEMA|SUPER ADMINISTRADOR|SUPERADMINISTRADOR|SUPERADMIN|ADMIN',
+     'list', 'Nombres de los perfiles de administrador (separados por |): el perfil y sus usuarios reciben todos los privilegios', 'ADMINISTRACION')
+ON CONFLICT (param_key) DO NOTHING;
+
+-- ¿El perfil es de administrador? (nombre en SIS_PERFILES_ADMINISTRADOR, sin importar mayúsculas ni espacios)
+CREATE OR REPLACE FUNCTION admin.fn_perfil_es_administrador(p_perfil_id integer) RETURNS boolean LANGUAGE sql STABLE AS $f$
+    SELECT EXISTS (
+        SELECT 1 FROM admin.tb_perfiles p
+         WHERE p.perfil_id = p_perfil_id
+           AND regexp_replace(upper(trim(p.perfil_nombre)), '\s+', ' ', 'g') IN (
+               SELECT regexp_replace(upper(trim(x)), '\s+', ' ', 'g')
+                 FROM admin.tb_params, unnest(string_to_array(param_value, '|')) AS x
+                WHERE param_key = 'SIS_PERFILES_ADMINISTRADOR' AND trim(x) <> ''));
+$f$;
+-- ¿El usuario es administrador? (su id o login está en SIS_ADMINISTRADORES, o su perfil es de administrador)
+CREATE OR REPLACE FUNCTION admin.fn_es_administrador(p_usuario_id integer) RETURNS boolean LANGUAGE sql STABLE AS $f$
+    SELECT EXISTS (
+        SELECT 1 FROM admin.tb_usuarios u
+         WHERE u.usuario_id = p_usuario_id
+           AND (EXISTS (SELECT 1 FROM admin.tb_params, unnest(string_to_array(param_value, '|')) AS x
+                         WHERE param_key = 'SIS_ADMINISTRADORES'
+                           AND (trim(x) = u.usuario_id::text OR lower(trim(x)) = lower(trim(u.usuario_login))))
+                OR admin.fn_perfil_es_administrador(u.fk_perfil_id)));
+$f$;
 
 -- Parámetros usados por el módulo de mantenimiento (no se sobrescriben si ya existen)
 INSERT INTO admin.tb_params (param_key, param_value, param_type, param_name, param_modulo) VALUES
@@ -528,13 +2313,12 @@ SELECT DISTINCT ur.fk_usuario_id, n.rol_id
   JOIN admin.tb_roles n ON n.rol_codigo IN ('ADM_MOVILIZACION_CREAR', 'ADM_COMBUSTIBLE', 'ADM_COMBUSTIBLE_CREAR')
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = ur.fk_usuario_id AND x.fk_rol_id = n.rol_id);
 
--- 2. Usuario administrador (113 en el sistema actual): todos los privilegios de combustible y mantenimiento.
---    Cambie el 113 si su administrador tiene otro usuario_id.
+-- 2. Administradores (parámetro SIS_ADMINISTRADORES / perfiles de administrador): privilegios de combustible y mantenimiento.
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT u.usuario_id, r.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles r ON r.rol_codigo LIKE 'MANT_%' OR r.rol_codigo LIKE 'ADM_%'
- WHERE u.usuario_id = 113
+ WHERE admin.fn_es_administrador(u.usuario_id)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
 
 
@@ -585,12 +2369,12 @@ SELECT 'Bitacora de vehiculos', 'Historial, consumo de combustible, gasto de man
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = 'ADM_BITACORA_VEHICULOS' OR r.rol_path = '/admin/bitacora-vehiculos')
  LIMIT 1;
 
--- Quien ya accede a vehículos o a órdenes de mantenimiento recibe la bitácora; también el administrador (113)
+-- Quien ya accede a vehículos o a órdenes de mantenimiento recibe la bitácora; también el administrador (parámetro SIS_ADMINISTRADORES)
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, b.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles b ON b.rol_codigo = 'ADM_BITACORA_VEHICULOS'
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                     WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo IN ('ADM_VEHICULOS', 'MANT_ORDENES')))
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = b.rol_id);
@@ -657,12 +2441,12 @@ SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = v.codigo)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE v.ruta IS NOT NULL AND r.rol_path = v.ruta);
 
--- Acceso de consulta para quien ya emite órdenes de movilización o combustible; ambos privilegios para el administrador (113)
+-- Acceso de consulta para quien ya emite órdenes de movilización o combustible; ambos privilegios para el administrador (parámetro SIS_ADMINISTRADORES)
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, o.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles o ON o.rol_codigo IN ('ADM_OPERADORES', 'ADM_OPERADOR_GESTIONAR')
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR (o.rol_codigo = 'ADM_OPERADORES'
             AND EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                          WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo IN ('ADM_MOVILIZACION', 'ADM_COMBUSTIBLE'))))
@@ -732,7 +2516,7 @@ SELECT u.usuario_id, pr.fk_rol_id, 'PERFIL'::text
  WHERE COALESCE(u.usuario_estado, 'ACTIVO') = 'ACTIVO';
 COMMENT ON VIEW admin.vw_usuario_privilegios IS 'Privilegios efectivos: perfil + adicionales, solo usuarios y perfiles ACTIVOS';
 
--- 3. Menú y privilegios de la administración del sistema (antes el menú estaba fijo para el usuario 113)
+-- 3. Menú y privilegios de la administración del sistema (antes el menú estaba fijo para un usuario)
 ALTER TABLE admin.tb_roles ADD COLUMN IF NOT EXISTS rol_codigo text;
 INSERT INTO admin.tb_modulos (modulo_nombre, modulo_descripcion)
 SELECT 'Administración', 'Usuarios, perfiles y privilegios del sistema'
@@ -741,6 +2525,12 @@ INSERT INTO admin.tb_submodulos (fk_modulo_id, submodulo_nombre)
 SELECT m.modulo_id, 'Usuarios y perfiles' FROM admin.tb_modulos m
  WHERE m.modulo_nombre = 'Administración'
    AND NOT EXISTS (SELECT 1 FROM admin.tb_submodulos x WHERE x.submodulo_nombre = 'Usuarios y perfiles');
+
+-- Si el menú anterior ya tenía estas pantallas (ruta sin código), se les completa el código en lugar de duplicarlas
+UPDATE admin.tb_roles r SET rol_codigo = c.codigo
+  FROM (VALUES ('/adm/usuarios', 'SIS_USUARIOS'), ('/adm/perfiles', 'SIS_PERFILES')) AS c(ruta, codigo)
+ WHERE r.rol_path = c.ruta AND r.rol_codigo IS NULL
+   AND NOT EXISTS (SELECT 1 FROM admin.tb_roles y WHERE y.rol_codigo = c.codigo);
 
 INSERT INTO admin.tb_roles (rol_nombre, rol_descripcion, fk_submodulo_id, rol_path, rol_codigo)
 SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
@@ -755,14 +2545,14 @@ SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = v.codigo)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE v.ruta IS NOT NULL AND r.rol_path = v.ruta);
 
--- 4. Asignaciones iniciales: el administrador (113) y el perfil ADMINISTRADOR reciben toda la administración del sistema
+-- 4. Asignaciones iniciales: el administrador (parámetro SIS_ADMINISTRADORES) y el perfil ADMINISTRADOR reciben toda la administración del sistema
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT u.usuario_id, r.rol_id FROM admin.tb_usuarios u JOIN admin.tb_roles r ON r.rol_codigo LIKE 'SIS\_%'
- WHERE u.usuario_id = 113
+ WHERE admin.fn_es_administrador(u.usuario_id)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT p.perfil_id, r.rol_id FROM admin.tb_perfiles p JOIN admin.tb_roles r ON r.rol_codigo LIKE 'SIS\_%'
- WHERE upper(trim(p.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(p.perfil_id)
 ON CONFLICT DO NOTHING;
 
 -- 5. Contraseñas: password_hash (bcrypt, 60 caracteres). Las MD5 existentes se convierten solas en el siguiente login.
@@ -835,19 +2625,19 @@ SELECT v.nombre, v.descripcion, s.submodulo_id, v.ruta, v.codigo
  WHERE NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE r.rol_codigo = v.codigo)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles r WHERE v.ruta IS NOT NULL AND r.rol_path = v.ruta);
 
--- Asignación inicial: el administrador (113) y quienes ya emiten órdenes de movilización (servicios generales)
+-- Asignación inicial: el administrador (parámetro SIS_ADMINISTRADORES) y quienes ya emiten órdenes de movilización (servicios generales)
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, p.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles p ON p.rol_codigo IN ('ADM_PETICIONES_MATERIALES', 'ADM_PETICION_MATERIALES_GESTIONAR')
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                     WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo = 'ADM_MOVILIZACION_CREAR'))
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = p.rol_id);
 -- y el perfil ADMINISTRADOR
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf JOIN admin.tb_roles r ON r.rol_codigo IN ('ADM_PETICIONES_MATERIALES', 'ADM_PETICION_MATERIALES_GESTIONAR')
- WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(pf.perfil_id)
 ON CONFLICT DO NOTHING;
 
 -- =============================================================================
@@ -871,17 +2661,17 @@ SELECT 'Resumen gerencial', 'Resumen de flota, gasto, contratos, alertas y licen
 UPDATE admin.tb_roles SET rol_codigo = 'ADM_DASHBOARD'
  WHERE rol_path = '/admin/dashboard' AND rol_codigo IS NULL AND NOT EXISTS (SELECT 1 FROM admin.tb_roles y WHERE y.rol_codigo = 'ADM_DASHBOARD');
 
--- Asignación inicial: el administrador (113), el perfil ADMINISTRADOR y quienes ya ven la bitácora de vehículos
+-- Asignación inicial: el administrador (parámetro SIS_ADMINISTRADORES), el perfil ADMINISTRADOR y quienes ya ven la bitácora de vehículos
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, d.rol_id
   FROM admin.tb_usuarios u JOIN admin.tb_roles d ON d.rol_codigo = 'ADM_DASHBOARD'
- WHERE (u.usuario_id = 113
+ WHERE (admin.fn_es_administrador(u.usuario_id)
         OR EXISTS (SELECT 1 FROM admin.tb_usuario_rol ur JOIN admin.tb_roles r ON r.rol_id = ur.fk_rol_id
                     WHERE ur.fk_usuario_id = u.usuario_id AND r.rol_codigo = 'ADM_BITACORA_VEHICULOS'))
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = d.rol_id);
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf JOIN admin.tb_roles r ON r.rol_codigo = 'ADM_DASHBOARD'
- WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(pf.perfil_id)
 ON CONFLICT DO NOTHING;
 
 
@@ -904,7 +2694,7 @@ ALTER TABLE archivo.documentos ADD COLUMN IF NOT EXISTS documento_eliminado_en t
 -- ======================================================================================================
 -- =============================================================================
 -- PARTES DE SERVICIO (Operaciones) - re-ejecutable, no borra datos
--- Esquema del formulario actual: operaciones.tb_partes + detalles (creados en script_sbj_temp.sql). Las tablas antiguas
+-- Esquema del formulario actual: operaciones.tb_partes + detalles (creados en migrations/base/01-estructura.sql). Las tablas antiguas
 -- (operaciones.tb_parte, tb_parte_unidades, tb_parte_personal) quedan solo como histórico.
 -- Para la estadística por vehículo, estación, bombero y herramienta, los detalles se enlazan a sus catálogos:
 --   vehículos -> administrativo.tb_vehiculos, personal -> tthh.tb_personal (personal_id),
@@ -1056,10 +2846,6 @@ SELECT '', c.clasificacion, c.subclasificacion, c.uso, c.orden FROM (VALUES
     ('Varios', 'Simulacro', '', 80)
 ) AS c(clasificacion, subclasificacion, uso, orden)
 ON CONFLICT ON CONSTRAINT tb_partes_catalogo_tipos_auxilio_uk DO NOTHING;
--- Filas de ejemplo del script original (con clave fija): quedan inactivas si ningún parte las usa
-UPDATE operaciones.tb_partes_catalogo_tipos_auxilio c SET tipo_auxilio_estado = 'INACTIVO'
- WHERE c.tipo_auxilio_clave <> ''
-   AND NOT EXISTS (SELECT 1 FROM operaciones.tb_partes_tipos_auxilio d WHERE d.fk_tipo_auxilio_id = c.tipo_auxilio_id);
 
 -- Posibles causas por clasificación (la de "Incendio" es la lista de los partes de incendio)
 CREATE TABLE IF NOT EXISTS operaciones.tb_partes_catalogo_causas (
@@ -1137,6 +2923,10 @@ ALTER TABLE operaciones.tb_partes_equipos_herramientas ADD COLUMN IF NOT EXISTS 
 ALTER TABLE operaciones.tb_partes_materiales_descartables ADD COLUMN IF NOT EXISTS fk_recurso_id integer REFERENCES operaciones.tb_partes_catalogo_recursos(recurso_id);
 ALTER TABLE operaciones.tb_partes_insumos ADD COLUMN IF NOT EXISTS fk_recurso_id integer REFERENCES operaciones.tb_partes_catalogo_recursos(recurso_id);
 ALTER TABLE operaciones.tb_partes_tipos_auxilio ADD COLUMN IF NOT EXISTS fk_tipo_auxilio_id integer REFERENCES operaciones.tb_partes_catalogo_tipos_auxilio(tipo_auxilio_id);
+-- Filas de ejemplo del script original (con clave fija): quedan inactivas si ningún parte las usa
+UPDATE operaciones.tb_partes_catalogo_tipos_auxilio c SET tipo_auxilio_estado = 'INACTIVO'
+ WHERE c.tipo_auxilio_clave <> ''
+   AND NOT EXISTS (SELECT 1 FROM operaciones.tb_partes_tipos_auxilio d WHERE d.fk_tipo_auxilio_id = c.tipo_auxilio_id);
 
 CREATE INDEX IF NOT EXISTS ix_partes_vehiculos_parte ON operaciones.tb_partes_vehiculos (fk_parte_id);
 CREATE INDEX IF NOT EXISTS ix_partes_vehiculos_vehiculo ON operaciones.tb_partes_vehiculos (fk_vehiculo_id);
@@ -1204,13 +2994,13 @@ UPDATE admin.tb_roles SET rol_codigo = 'OPE_PARTES_ESTADISTICAS'
  WHERE rol_path = '/operaciones/partes-estadisticas' AND rol_codigo IS NULL
    AND NOT EXISTS (SELECT 1 FROM admin.tb_roles y WHERE y.rol_codigo = 'OPE_PARTES_ESTADISTICAS');
 
--- Asignación inicial: administrador (113) todo; quienes ya tienen Partes de servicio: registrar y estadística;
+-- Asignación inicial: administrador (parámetro SIS_ADMINISTRADORES) todo; quienes ya tienen Partes de servicio: registrar y estadística;
 -- quienes ven el resumen gerencial (dirección): estadística. Perfil ADMINISTRADOR: todo.
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT u.usuario_id, r.rol_id
   FROM admin.tb_usuarios u
   JOIN admin.tb_roles r ON r.rol_codigo IN ('OPE_PARTES', 'OPE_PARTES_ESTADISTICAS', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR')
- WHERE u.usuario_id = 113
+ WHERE admin.fn_es_administrador(u.usuario_id)
    AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
 INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
 SELECT DISTINCT ur.fk_usuario_id, r.rol_id
@@ -1227,7 +3017,7 @@ SELECT DISTINCT ur.fk_usuario_id, r.rol_id
 INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
 SELECT pf.perfil_id, r.rol_id FROM admin.tb_perfiles pf
   JOIN admin.tb_roles r ON r.rol_codigo IN ('OPE_PARTES', 'OPE_PARTES_ESTADISTICAS', 'OPE_PARTE_REGISTRAR', 'OPE_PARTE_ANULAR')
- WHERE upper(trim(pf.perfil_nombre)) = 'ADMINISTRADOR'
+ WHERE admin.fn_perfil_es_administrador(pf.perfil_id)
 ON CONFLICT DO NOTHING;
 
 
@@ -1250,6 +3040,1045 @@ BEGIN
         RETURN;
     END IF;
     PERFORM dblink_connect('legacy', conexion);
+
+    -- Datos base: personas, personal, usuarios, vehículos, ubicaciones, CIE-10
+    INSERT INTO resources.tb_personas (
+        persona_id,
+        persona_tipo_doc,
+        persona_doc_identidad,
+        persona_nombres,
+        persona_apellidos,
+        persona_sexo,
+        persona_imagen,
+        persona_direccion,
+        persona_telefono,
+        persona_correo,
+        persona_fingreso,
+        fk_usuario_id,
+        persona_fnacimiento,
+        persona_nacionalidad,
+        persona_celular,
+        persona_estadocivil,
+        persona_tiposangre,
+        fk_parroquia_id,
+        persona_estatura,
+        persona_peso,
+        persona_acerca,
+        persona_destrezas,
+        persona_alergias,
+        persona_discapacidad,
+        persona_lugarnacimiento,
+        persona_etnia,
+        persona_senialesparticulares,
+        fk_conyugeue_id,
+        persona_principal,
+        persona_secundaria,
+        persona_no_casa,
+        persona_referencia,
+        persona_barrio_ciudadela,
+        persona_barrio_sector,
+        persona_titulo,
+        persona_anexo_cedula,
+        persona_anexo_votacion,
+        persona_cemergencia_nombre,
+        persona_cemergencia_parentesco,
+        persona_cemergencia_direccion,
+        persona_cemergencia_telefono,
+        persona_discapacidad_tiene,
+        persona_discapacidad_tipo,
+        persona_discapacidad_porcentaje,
+        persona_discapacidad_conadis,
+        persona_discapacidad_conadis_numero,
+        persona_enfermedad_cronica,
+        persona_enfermedad_cronica_describa
+    )
+    SELECT 
+        persona_id,
+        persona_tipo_doc,
+        persona_doc_identidad,
+        persona_nombres,
+        persona_apellidos,
+        persona_sexo,
+        persona_imagen,
+        persona_direccion,
+        persona_telefono,
+        persona_correo,
+        persona_fingreso,
+        fk_usuario_id,
+        persona_fnacimiento,
+        persona_nacionalidad,
+        persona_celular,
+        persona_estadocivil,
+        persona_tiposangre,
+        fk_parroquia_id,
+        persona_estatura,
+        persona_peso,
+        persona_acerca,
+        persona_destrezas,
+        persona_alergias,
+        persona_discapacidad,
+        persona_lugarnacimiento,
+        persona_etnia,
+        persona_senialesparticulares,
+        fk_conyugeue_id,
+        persona_principal,
+        persona_secundaria,
+        persona_no_casa,
+        persona_referencia,
+        persona_barrio_ciudadela,
+        persona_barrio_sector,
+        persona_titulo,
+        persona_anexo_cedula,
+        persona_anexo_votacion,
+        persona_cemergencia_nombre,
+        persona_cemergencia_parentesco,
+        persona_cemergencia_direccion,
+        persona_cemergencia_telefono,
+        persona_discapacidad_tiene,
+        persona_discapacidad_tipo,
+        persona_discapacidad_porcentaje,
+        persona_discapacidad_conadis,
+        persona_discapacidad_conadis_numero,
+        persona_enfermedad_cronica,
+        persona_enfermedad_cronica_describa
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            persona_id,
+            persona_tipo_doc,
+            persona_doc_identidad,
+            persona_nombres,
+            persona_apellidos,
+            persona_sexo,
+            persona_imagen,
+            persona_direccion,
+            persona_telefono,
+            persona_correo,
+            persona_fingreso,
+            fk_usuario_id,
+            persona_fnacimiento,
+            persona_nacionalidad,
+            persona_celular,
+            persona_estadocivil,
+            persona_tiposangre,
+            fk_parroquia_id,
+            persona_estatura,
+            persona_peso,
+            persona_acerca,
+            persona_destrezas,
+            persona_alergias,
+            persona_discapacidad,
+            persona_lugarnacimiento,
+            persona_etnia,
+            persona_senialesparticulares,
+            fk_conyugeue_id,
+            persona_principal,
+            persona_secundaria,
+            persona_no_casa,
+            persona_referencia,
+            persona_barrio_ciudadela,
+            persona_barrio_sector,
+            persona_titulo,
+            persona_anexo_cedula,
+            persona_anexo_votacion,
+            persona_cemergencia_nombre,
+            persona_cemergencia_parentesco,
+            persona_cemergencia_direccion,
+            persona_cemergencia_telefono,
+            persona_discapacidad_tiene,
+            persona_discapacidad_tipo,
+            persona_discapacidad_porcentaje,
+            persona_discapacidad_conadis,
+            persona_discapacidad_conadis_numero,
+            persona_enfermedad_cronica,
+            persona_enfermedad_cronica_describa
+        FROM resources.tb_personas
+        $$
+    ) AS t (
+        persona_id integer,
+        persona_tipo_doc text,
+        persona_doc_identidad text,
+        persona_nombres text,
+        persona_apellidos text,
+        persona_sexo text,
+        persona_imagen text,
+        persona_direccion text,
+        persona_telefono text,
+        persona_correo text,
+        persona_fingreso timestamp,
+        fk_usuario_id integer,
+        persona_fnacimiento date,
+        persona_nacionalidad text,
+        persona_celular text,
+        persona_estadocivil text,
+        persona_tiposangre text,
+        fk_parroquia_id integer,
+        persona_estatura text,
+        persona_peso text,
+        persona_acerca text,
+        persona_destrezas text,
+        persona_alergias text,
+        persona_discapacidad text,
+        persona_lugarnacimiento text,
+        persona_etnia text,
+        persona_senialesparticulares text,
+        fk_conyugeue_id integer,
+        persona_principal text,
+        persona_secundaria text,
+        persona_no_casa text,
+        persona_referencia text,
+        persona_barrio_ciudadela text,
+        persona_barrio_sector text,
+        persona_titulo text,
+        persona_anexo_cedula text,
+        persona_anexo_votacion text,
+        persona_cemergencia_nombre text,
+        persona_cemergencia_parentesco text,
+        persona_cemergencia_direccion text,
+        persona_cemergencia_telefono text,
+        persona_discapacidad_tiene text,
+        persona_discapacidad_tipo text,
+        persona_discapacidad_porcentaje text,
+        persona_discapacidad_conadis text,
+        persona_discapacidad_conadis_numero text,
+        persona_enfermedad_cronica text,
+        persona_enfermedad_cronica_describa text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('resources.tb_personas', 'persona_id'), (SELECT MAX(persona_id) FROM resources.tb_personas));
+
+    INSERT INTO resources.tb_licenciasdeconducir (
+        licencia_id,
+        licencia_estado,
+        licencia_registro,
+        fk_usuario_id,
+        licencia_tipo,
+        licencia_categoria,
+        licencia_descripcion
+    )
+    SELECT 
+        licencia_id,
+        licencia_estado,
+        licencia_registro,
+        fk_usuario_id,
+        licencia_tipo,
+        licencia_categoria,
+        licencia_descripcion
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            licencia_id,
+            licencia_estado,
+            licencia_registro,
+            fk_usuario_id,
+            licencia_tipo,
+            licencia_categoria,
+            licencia_descripcion
+        FROM resources.tb_licenciasdeconducir
+        $$
+    ) AS t (
+        licencia_id integer,
+        licencia_estado text,
+        licencia_registro timestamp,
+        fk_usuario_id integer,
+        licencia_tipo text,
+        licencia_categoria text,
+        licencia_descripcion text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('resources.tb_licenciasdeconducir', 'licencia_id'), (SELECT MAX(licencia_id) FROM resources.tb_licenciasdeconducir));
+
+    INSERT INTO admin.tb_perfiles (
+        perfil_id,
+        perfil_nombre,
+        perfil_descripcion,
+        perfil_estado
+    )
+    SELECT 
+        perfil_id,
+        perfil_nombre,
+        perfil_descripcion,
+        perfil_estado
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            perfil_id,
+            perfil_nombre,
+            perfil_descripcion,
+            perfil_estado
+        FROM admin.tb_perfiles
+        $$
+    ) AS t (
+        perfil_id integer,
+        perfil_nombre text,
+        perfil_descripcion text,
+        perfil_estado text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('admin.tb_perfiles', 'perfil_id'), (SELECT MAX(perfil_id) FROM admin.tb_perfiles));
+
+    INSERT INTO admin.tb_usuarios (
+        usuario_id,
+        fk_persona_id,
+        fk_perfil_id,
+        usuario_login,
+        usuario_pass,
+        usuario_estado,
+        usuario_acceso_correcto,
+        usuario_acceso_fallido,
+        usuario_cambio_perfil,
+        fk_usuario_id,
+        usuario_cambiar_pass,
+        usuario_idioma,
+        usuario_webmail_user,
+        usuario_webmail_pass,
+        usuario_registro,
+        usuario_fingreso
+    )
+    SELECT 
+        usuario_id,
+        fk_persona_id,
+        fk_perfil_id,
+        usuario_login,
+        usuario_pass,
+        usuario_estado,
+        usuario_acceso_correcto,
+        usuario_acceso_fallido,
+        usuario_cambio_perfil,
+        fk_usuario_id,
+        usuario_cambiar_pass,
+        usuario_idioma,
+        usuario_webmail_user,
+        usuario_webmail_pass,
+        usuario_registro,
+        usuario_fingreso
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            usuario_id,
+            fk_persona_id,
+            fk_perfil_id,
+            usuario_login,
+            usuario_pass,
+            usuario_estado,
+            usuario_acceso_correcto,
+            usuario_acceso_fallido,
+            usuario_cambio_perfil,
+            fk_usuario_id,
+            usuario_cambiar_pass,
+            usuario_idioma,
+            usuario_webmail_user,
+            usuario_webmail_pass,
+            usuario_registro,
+            usuario_fingreso
+        FROM admin.tb_usuarios
+        $$
+    ) AS t (
+        usuario_id integer,
+        fk_persona_id integer,
+        fk_perfil_id integer,
+        usuario_login text,
+        usuario_pass text,
+        usuario_estado text,
+        usuario_acceso_correcto boolean,
+        usuario_acceso_fallido boolean,
+        usuario_cambio_perfil boolean,
+        fk_usuario_id integer,
+        usuario_cambiar_pass boolean,
+        usuario_idioma text,
+        usuario_webmail_user text,
+        usuario_webmail_pass text,
+        usuario_registro timestamp,
+        usuario_fingreso timestamp
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('admin.tb_usuarios', 'usuario_id'), (SELECT MAX(usuario_id) FROM admin.tb_usuarios));
+
+    INSERT INTO tthh.tb_direcciones (
+        direccion_id,
+        direccion_registro,
+        direccion_estado,
+        fk_usuario_id,
+        direccion_codigo,
+        direccion_nombre,
+        direccion_competencias,
+        direccion_fecha_creacion,
+        direccion_baselegal,
+        direccion_tipo
+    )
+    SELECT 
+        direccion_id,
+        direccion_registro,
+        direccion_estado,
+        fk_usuario_id,
+        direccion_codigo,
+        direccion_nombre,
+        direccion_competencias,
+        direccion_fecha_creacion,
+        direccion_baselegal,
+        direccion_tipo
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            direccion_id,
+            direccion_registro,
+            direccion_estado,
+            fk_usuario_id,
+            direccion_codigo,
+            direccion_nombre,
+            direccion_competencias,
+            direccion_fecha_creacion,
+            direccion_baselegal,
+            direccion_tipo
+        FROM tthh.tb_direcciones
+        $$
+    ) AS t (
+        direccion_id integer,
+        direccion_registro timestamp,
+        direccion_estado text,
+        fk_usuario_id integer,
+        direccion_codigo text,
+        direccion_nombre text,
+        direccion_competencias text,
+        direccion_fecha_creacion date,
+        direccion_baselegal text,
+        direccion_tipo text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('tthh.tb_direcciones', 'direccion_id'), (SELECT MAX(direccion_id) FROM tthh.tb_direcciones));
+
+    INSERT INTO administrativo.tb_vehiculos (
+        vehiculo_id,
+        fk_usuario_id,
+        fk_estacion_id,
+        fk_marca_id,
+        vehiculo_registro,
+        vehiculo_estado,
+        vehiculo_direccion,
+        vehiculo_placa,
+        vehiculo_toneladas,
+        vehiculo_tipo,
+        vehiculo_color1,
+        vehiculo_marca,
+        vehiculo_fingreso,
+        custodio_id,
+        vehiculo_modelo,
+        vehiculo_chasis,
+        vehiculo_motor,
+        vehiculo_combustible,
+        vehiculo_avaluo,
+        vehiculo_anio,
+        vehiculo_pais,
+        vehiculo_corroceria,
+        vehiculo_pasajeros,
+        vehiculo_cilindraje,
+        vehiculo_color2,
+        vehiculo_proposito,
+        vehiculo_anio_matricula,
+        vehiculo_ramv,
+        vehiculo_sigla
+    )
+    SELECT 
+        vehiculo_id,
+        fk_usuario_id,
+        fk_estacion_id,
+        fk_marca_id,
+        vehiculo_registro,
+        vehiculo_estado,
+        vehiculo_direccion,
+        vehiculo_placa,
+        vehiculo_toneladas,
+        vehiculo_tipo,
+        vehiculo_color1,
+        vehiculo_marca,
+        vehiculo_fingreso,
+        custodio_id,
+        vehiculo_modelo,
+        vehiculo_chasis,
+        vehiculo_motor,
+        vehiculo_combustible,
+        vehiculo_avaluo,
+        vehiculo_anio,
+        vehiculo_pais,
+        vehiculo_corroceria,
+        vehiculo_pasajeros,
+        vehiculo_cilindraje,
+        vehiculo_color2,
+        vehiculo_proposito,
+        vehiculo_anio_matricula,
+        vehiculo_ramv,
+        vehiculo_sigla
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            vehiculo_id,
+            fk_usuario_id,
+            1 as fk_estacion_id,
+            1 as fk_marca_id,
+            vehiculo_registro,
+            vehiculo_estado,
+            vehiculo_direccion,
+            vehiculo_placa,
+            vehiculo_toneladas,
+            vehiculo_tipo,
+            vehiculo_color1,
+            vehiculo_marca,
+            vehiculo_fingreso,
+            1 as custodio_id,
+            vehiculo_modelo,
+            vehiculo_chasis,
+            vehiculo_motor,
+            vehiculo_combustible,
+            vehiculo_avaluo,
+            vehiculo_anio,
+            vehiculo_pais,
+            vehiculo_corroceria,
+            vehiculo_pasajeros,
+            vehiculo_cilindraje,
+            vehiculo_color2,
+            vehiculo_proposito,
+            vehiculo_anio_matricula,
+            vehiculo_ramv,
+            (select unidad_nombre from logistica.tb_unidades where resources.tb_vehiculos.vehiculo_id = logistica.tb_unidades.fk_vehiculo_id ) as vehiculo_sigla
+        FROM resources.tb_vehiculos where vehiculo_id in (select fk_vehiculo_id from logistica.tb_unidades)
+        $$
+    ) AS t (
+        vehiculo_id integer,
+        fk_usuario_id integer,
+        fk_estacion_id integer,
+        fk_marca_id integer,
+        vehiculo_registro timestamp,
+        vehiculo_estado text,
+        vehiculo_direccion text,
+        vehiculo_placa text,
+        vehiculo_toneladas numeric(4,2),
+        vehiculo_tipo text,
+        vehiculo_color1 text,
+        vehiculo_marca text,
+        vehiculo_fingreso timestamp,
+        custodio_id integer,
+        vehiculo_modelo text,
+        vehiculo_chasis text,
+        vehiculo_motor text,
+        vehiculo_combustible text,
+        vehiculo_avaluo numeric(10,2),
+        vehiculo_anio integer,
+        vehiculo_pais text,
+        vehiculo_corroceria text,
+        vehiculo_pasajeros integer,
+        vehiculo_cilindraje numeric(6,2),
+        vehiculo_color2 text,
+        vehiculo_proposito text,
+        vehiculo_anio_matricula integer,
+        vehiculo_ramv text,
+        vehiculo_sigla text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('administrativo.tb_vehiculos', 'vehiculo_id'), (SELECT MAX(vehiculo_id) FROM administrativo.tb_vehiculos));
+
+    INSERT INTO tthh.tb_personal (
+        personal_id,
+        personal_registro,
+        personal_estado,
+        fk_usuario_id,
+        fk_persona_id,
+        fk_estacion_id,
+        personal_contrasenia,
+        personal_cambiar_pass,
+        personal_notificar_acceso_exitoso,
+        personal_notificar_acceso_fallido,
+        personal_notificar_cambios_perfil,
+        personal_notificar_permisos,
+        personal_notificar_eventos,
+        personal_correo_institucional,
+        biometrico_id,
+        fk_jornada_id
+    )
+    SELECT 
+        personal_id,
+        personal_registro,
+        personal_estado,
+        fk_usuario_id,
+        fk_persona_id,
+        fk_estacion_id,
+        personal_contrasenia,
+        personal_cambiar_pass,
+        personal_notificar_acceso_exitoso,
+        personal_notificar_acceso_fallido,
+        personal_notificar_cambios_perfil,
+        personal_notificar_permisos,
+        personal_notificar_eventos,
+        personal_correo_institucional,
+        biometrico_id,
+        fk_jornada_id
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            personal_id,
+            personal_registro,
+            personal_estado,
+            fk_usuario_id,
+            fk_persona_id,
+            fk_estacion_id,
+            personal_contrasenia,
+            personal_cambiar_pass,
+            personal_notificar_acceso_exitoso,
+            personal_notificar_acceso_fallido,
+            personal_notificar_cambios_perfil,
+            personal_notificar_permisos,
+            personal_notificar_eventos,
+            personal_correo_institucional,
+            biometrico_id,
+            fk_jornada_id
+        FROM tthh.tb_personal
+        $$
+    ) AS t (
+        personal_id integer,
+        personal_registro timestamp,
+        personal_estado text,
+        fk_usuario_id integer,
+        fk_persona_id integer,
+        fk_estacion_id integer,
+        personal_contrasenia text,
+        personal_cambiar_pass text,
+        personal_notificar_acceso_exitoso boolean,
+        personal_notificar_acceso_fallido boolean,
+        personal_notificar_cambios_perfil boolean,
+        personal_notificar_permisos boolean,
+        personal_notificar_eventos boolean,
+        personal_correo_institucional text,
+        biometrico_id integer,
+        fk_jornada_id integer
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('tthh.tb_personal', 'personal_id'), (SELECT MAX(personal_id) FROM tthh.tb_personal));
+
+    INSERT INTO tthh.tb_puestos (
+        puesto_id,
+        puesto_registro,
+        puesto_estado,
+        fk_usuario_id,
+        puesto_departamento,
+        puesto_nombre,
+        fk_direccion_id,
+        puesto_remuneracion,
+        puesto_direccion,
+        puesto_grado,
+        puesto_modalidad,
+        puesto_fecha_creacion,
+        puesto_baselegal,
+        puesto_partida,
+        fk_grupo_id
+    )
+    SELECT 
+        puesto_id,
+        puesto_registro,
+        puesto_estado,
+        fk_usuario_id,
+        puesto_departamento,
+        puesto_nombre,
+        fk_direccion_id,
+        puesto_remuneracion,
+        puesto_direccion,
+        puesto_grado,
+        puesto_modalidad,
+        puesto_fecha_creacion,
+        puesto_baselegal,
+        puesto_partida,
+        fk_grupo_id
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            puesto_id,
+            puesto_registro,
+            puesto_estado,
+            fk_usuario_id,
+            puesto_departamento,
+            puesto_nombre,
+            fk_direccion_id,
+            puesto_remuneracion,
+            puesto_direccion,
+            puesto_grado,
+            puesto_modalidad,
+            puesto_fecha_creacion,
+            puesto_baselegal,
+            puesto_partida,
+            fk_grupo_id
+        FROM tthh.tb_puestos
+        $$
+    ) AS t (
+        puesto_id integer,
+        puesto_registro timestamp,
+        puesto_estado text,
+        fk_usuario_id integer,
+        puesto_departamento text,
+        puesto_nombre text,
+        fk_direccion_id integer,
+        puesto_remuneracion numeric(10,2),
+        puesto_direccion text,
+        puesto_grado integer,
+        puesto_modalidad text,
+        puesto_fecha_creacion date,
+        puesto_baselegal text,
+        puesto_partida text,
+        fk_grupo_id integer
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('tthh.tb_puestos', 'puesto_id'), (SELECT MAX(puesto_id) FROM tthh.tb_puestos));
+
+    INSERT INTO tthh.tb_personal_puestos (
+        ppersonal_id,
+        ppersonal_registro,
+        ppersonal_estado,
+        fk_usuario_id,
+        fk_personal_id,
+        fk_puesto_id,
+        personal_definicion,
+        personal_contrato,
+        personal_fecha_ingreso,
+        personal_fecha_salida,
+        personal_fecha_registro,
+        personal_motivo_salida,
+        personal_observacion,
+        personal_baselegal,
+        personal_regimen_laboral
+    )
+    SELECT 
+        ppersonal_id,
+        ppersonal_registro,
+        ppersonal_estado,
+        fk_usuario_id,
+        fk_personal_id,
+        fk_puesto_id,
+        personal_definicion,
+        personal_contrato,
+        personal_fecha_ingreso,
+        personal_fecha_salida,
+        personal_fecha_registro,
+        personal_motivo_salida,
+        personal_observacion,
+        personal_baselegal,
+        personal_regimen_laboral
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            ppersonal_id,
+            ppersonal_registro,
+            ppersonal_estado,
+            fk_usuario_id,
+            fk_personal_id,
+            fk_puesto_id,
+            personal_definicion,
+            personal_contrato,
+            personal_fecha_ingreso,
+            personal_fecha_salida,
+            personal_fecha_registro,
+            personal_motivo_salida,
+            personal_observacion,
+            personal_baselegal,
+            personal_regimen_laboral
+        FROM tthh.tb_personal_puestos
+        $$
+    ) AS t (
+        ppersonal_id integer,
+        ppersonal_registro timestamp,
+        ppersonal_estado text,
+        fk_usuario_id integer,
+        fk_personal_id integer,
+        fk_puesto_id integer,
+        personal_definicion text,
+        personal_contrato text,
+        personal_fecha_ingreso date,
+        personal_fecha_salida date,
+        personal_fecha_registro date,
+        personal_motivo_salida text,
+        personal_observacion text,
+        personal_baselegal text,
+        personal_regimen_laboral text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('tthh.tb_personal_puestos', 'ppersonal_id'), (SELECT MAX(ppersonal_id) FROM tthh.tb_personal_puestos));
+
+    INSERT INTO tthh.tb_conductores (
+        conductor_id,
+        conductor_registro,
+        conductor_estado,
+        fk_usuario_id,
+        fk_personal_id,
+        fk_licencia_id,
+        conductor_licencia_emision,
+        conductor_licencia_validez,
+        conductor_pdf
+    )
+    SELECT 
+        conductor_id,
+        conductor_registro,
+        conductor_estado,
+        fk_usuario_id,
+        fk_personal_id,
+        fk_licencia_id,
+        conductor_licencia_emision,
+        conductor_licencia_validez,
+        conductor_pdf
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            conductor_id,
+            conductor_registro,
+            conductor_estado,
+            fk_usuario_id,
+            fk_personal_id,
+            fk_licencia_id,
+            conductor_licencia_emision,
+            conductor_licencia_validez,
+            conductor_pdf
+        FROM tthh.tb_conductores
+        $$
+    ) AS t (
+        conductor_id integer,
+        conductor_registro timestamp,
+        conductor_estado text,
+        fk_usuario_id integer,
+        fk_personal_id integer,
+        fk_licencia_id integer,
+        conductor_licencia_emision date,
+        conductor_licencia_validez date,
+        conductor_pdf text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('tthh.tb_conductores', 'conductor_id'), (SELECT MAX(conductor_id) FROM tthh.tb_conductores));
+
+    INSERT INTO operaciones.tb_pelotones (
+        peloton_id,
+        peloton_registro,
+        peloton_estado,
+        fk_usuario_id,
+        fk_estacion_id,
+        peloton_nombre
+    )
+    SELECT 
+        peloton_id,
+        peloton_registro,
+        peloton_estado,
+        fk_usuario_id,
+        fk_estacion_id,
+        peloton_nombre
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            peloton_id,
+            peloton_registro,
+            peloton_estado,
+            fk_usuario_id,
+            fk_estacion_id,
+            peloton_nombre
+        FROM tthh.tb_pelotones
+        $$
+    ) AS t (
+        peloton_id integer,
+        peloton_registro timestamp,
+        peloton_estado text,
+        fk_usuario_id integer,
+        fk_estacion_id integer,
+        peloton_nombre text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(pg_get_serial_sequence('operaciones.tb_pelotones', 'peloton_id'), (SELECT MAX(peloton_id) FROM operaciones.tb_pelotones));
+
+    INSERT INTO resources.countries (
+        country_id,
+        country_sortname,
+        country_name,
+        country_nombre,
+        country_gentilicio,
+        country_iso3
+    )
+    SELECT 
+        country_id,
+        country_sortname,
+        country_name,
+        country_nombre,
+        country_gentilicio,
+        country_iso3
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            country_id,
+            country_sortname,
+            country_name,
+            country_nombre,
+            country_gentilicio,
+            country_iso3
+        FROM resources.countries
+        $$
+    ) AS t (
+        country_id integer,
+        country_sortname character varying(3),
+        country_name text,
+        country_nombre text,
+        country_gentilicio text,
+        country_iso3 text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(
+        pg_get_serial_sequence('resources.countries', 'country_id'),
+        (SELECT MAX(country_id) FROM resources.countries)
+    );
+
+    INSERT INTO resources.states (
+        state_id,
+        state_name,
+        fk_country_id
+    )
+    SELECT 
+        state_id,
+        state_name,
+        fk_country_id
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            state_id,
+            state_name,
+            fk_country_id
+        FROM resources.states
+        $$
+    ) AS t (
+        state_id integer,
+        state_name text,
+        fk_country_id integer
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(
+        pg_get_serial_sequence('resources.states', 'state_id'),
+        (SELECT MAX(state_id) FROM resources.states)
+    );
+
+    INSERT INTO resources.towns (
+        town_id,
+        town_name,
+        fk_state_id
+    )
+    SELECT 
+        town_id,
+        town_name,
+        fk_state_id
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            town_id,
+            town_name,
+            fk_state_id
+        FROM resources.towns
+        $$
+    ) AS t (
+        town_id integer,
+        town_name text,
+        fk_state_id integer
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(
+        pg_get_serial_sequence('resources.towns', 'town_id'),
+        (SELECT MAX(town_id) FROM resources.towns)
+    );
+
+    INSERT INTO resources.parishes (
+        parish_id,
+        parish_name,
+        fk_town_id
+    )
+    SELECT 
+        parish_id,
+        parish_name,
+        fk_town_id
+    FROM dblink('legacy',
+        $$
+        SELECT 
+            parish_id,
+            parish_name,
+            fk_town_id
+        FROM resources.parishes
+        $$
+    ) AS t (
+        parish_id integer,
+        parish_name text,
+        fk_town_id integer
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(
+        pg_get_serial_sequence('resources.parishes', 'parish_id'),
+        (SELECT MAX(parish_id) FROM resources.parishes)
+    );
+
+    INSERT INTO resources.cie (
+        cie_id,
+        cie_codigo,
+        cie_simbolo,
+        cie_descripcion,
+        cie_sexo,
+        cie_limite_inferior,
+        cie_limite_superior,
+        cie_no_afeccion,
+        cie_observacion
+    )
+    SELECT
+        cie_id,
+        cie_codigo,
+        cie_simbolo,
+        cie_descripcion,
+        cie_sexo,
+        cie_limite_inferior,
+        cie_limite_superior,
+        cie_no_afeccion,
+        cie_observacion
+    FROM dblink('legacy',
+        $$
+        SELECT
+            cie_id,
+            cie_codigo,
+            cie_simbolo,
+            cie_descripcion,
+            cie_sexo,
+            cie_limite_inferior,
+            cie_limite_superior,
+            cie_no_afeccion,
+            cie_observacion
+        FROM resources.cie
+        $$
+    ) AS t (
+        cie_id integer,
+        cie_codigo text,
+        cie_simbolo text,
+        cie_descripcion text,
+        cie_sexo text,
+        cie_limite_inferior text,
+        cie_limite_superior text,
+        cie_no_afeccion text,
+        cie_observacion text
+    )
+    ON CONFLICT DO NOTHING;
+
+    PERFORM setval(
+        pg_get_serial_sequence('resources.cie', 'cie_id'),
+        (SELECT MAX(cie_id) FROM resources.cie)
+    );
+
+    -- Mantenimiento vehicular
+
 
     -- INSTITUCIÓN ------------------------------------------------------------------
     INSERT INTO admin.tb_sistema (
@@ -1644,7 +4473,7 @@ $importacion$;
 
 
 -- ======================================================================================================
--- 12. REGISTRO INICIAL DE LA INSTITUCIÓN (solo si no se importó ni existe)
+-- 12. REGISTRO INICIAL DE LA INSTITUCIÓN Y USUARIO ADMINISTRADOR (solo si no se importaron ni existen)
 -- ======================================================================================================
 INSERT INTO admin.tb_sistema (sistema_nombre, sistema_siglas, sistema_slogan, sistema_ciudad, sistema_direccion,
                               sistema_telefono, sistema_correo, sistema_sitioweb, sistema_facebook, sistema_twitter)
@@ -1656,3 +4485,56 @@ SELECT 'CUERPO DE BOMBEROS SANTO DOMINGO', 'CBSD', 'Juntos hacia el crecimiento 
 UPDATE admin.tb_sistema SET sistema_slogan = COALESCE(sistema_slogan, 'Juntos hacia el crecimiento institucional'),
                             sistema_facebook = COALESCE(sistema_facebook, '/CuerpoDeBomberosSantoDomingo'),
                             sistema_twitter = COALESCE(sistema_twitter, '@BomberosSD');
+-- Base nueva sin usuarios: perfil Administrador y usuario "admin" (la clave del script anterior; se pide cambiarla al entrar)
+INSERT INTO admin.tb_perfiles (perfil_nombre, perfil_descripcion)
+SELECT 'Administrador', 'Administrador del Sistema'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_usuarios)
+   AND NOT EXISTS (SELECT 1 FROM admin.tb_perfiles WHERE upper(trim(perfil_nombre)) = 'ADMINISTRADOR');
+INSERT INTO resources.tb_personas (persona_doc_identidad, persona_nombres, persona_apellidos)
+SELECT '9999999999', 'ADMINISTRADOR', 'ADMINISTRADOR'
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_usuarios)
+   AND NOT EXISTS (SELECT 1 FROM resources.tb_personas WHERE persona_doc_identidad = '9999999999');
+INSERT INTO admin.tb_usuarios (fk_persona_id, fk_perfil_id, usuario_login, usuario_pass, usuario_cambiar_pass)
+SELECT (SELECT persona_id FROM resources.tb_personas WHERE persona_doc_identidad = '9999999999' ORDER BY persona_id LIMIT 1),
+       (SELECT perfil_id FROM admin.tb_perfiles WHERE upper(trim(perfil_nombre)) = 'ADMINISTRADOR' ORDER BY perfil_id LIMIT 1),
+       'admin', '$2y$10$C64q4N9kT3MqHUyzmqjpIe2x8/GGYSgIK2ZjDmthuP2NasZqazLxO', true
+ WHERE NOT EXISTS (SELECT 1 FROM admin.tb_usuarios);
+
+
+-- ======================================================================================================
+-- 13. ACCESO DE LOS ADMINISTRADORES (todos los privilegios; parámetros SIS_ADMINISTRADORES y SIS_PERFILES_ADMINISTRADOR)
+-- ======================================================================================================
+-- =============================================================================
+-- ACCESO DE LOS ADMINISTRADORES - re-ejecutable, va AL FINAL de script-3
+-- Los administradores (parámetro SIS_ADMINISTRADORES: usuario_id o login) y los perfiles de administrador
+-- (parámetro SIS_PERFILES_ADMINISTRADOR) reciben TODOS los privilegios existentes, incluidos los que agreguen
+-- migraciones nuevas. Para cambiar quién es administrador:
+--   UPDATE admin.tb_params SET param_value = '113|mi.usuario' WHERE param_key = 'SIS_ADMINISTRADORES';
+-- y volver a ejecutar esta sección (o script-3 completo).
+-- =============================================================================
+
+-- 1. Perfiles de administrador: todos los privilegios
+INSERT INTO admin.tb_perfil_rol (fk_perfil_id, fk_rol_id)
+SELECT p.perfil_id, r.rol_id
+  FROM admin.tb_perfiles p CROSS JOIN admin.tb_roles r
+ WHERE admin.fn_perfil_es_administrador(p.perfil_id)
+ON CONFLICT DO NOTHING;
+
+-- 2. Usuarios administradores: todos los privilegios como adicionales (no dependen de su perfil ni de su estado)
+INSERT INTO admin.tb_usuario_rol (fk_usuario_id, fk_rol_id)
+SELECT u.usuario_id, r.rol_id
+  FROM admin.tb_usuarios u CROSS JOIN admin.tb_roles r
+ WHERE admin.fn_es_administrador(u.usuario_id)
+   AND NOT EXISTS (SELECT 1 FROM admin.tb_usuario_rol x WHERE x.fk_usuario_id = u.usuario_id AND x.fk_rol_id = r.rol_id);
+
+-- 3. Perfil de administrador activo (un perfil inactivo no da privilegios)
+UPDATE admin.tb_perfiles p SET perfil_estado = 'ACTIVO'
+ WHERE admin.fn_perfil_es_administrador(p.perfil_id) AND perfil_estado IS DISTINCT FROM 'ACTIVO';
+
+-- 4. Resultado: administradores, su estado y cuántos privilegios efectivos tienen (debe ser el total de privilegios)
+SELECT u.usuario_id, u.usuario_login, COALESCE(u.usuario_estado, 'ACTIVO') AS estado, pf.perfil_nombre,
+       (SELECT count(DISTINCT v.rol_id) FROM admin.vw_usuario_privilegios v WHERE v.usuario_id = u.usuario_id) AS privilegios,
+       (SELECT count(*) FROM admin.tb_roles) AS total_privilegios
+  FROM admin.tb_usuarios u LEFT JOIN admin.tb_perfiles pf ON pf.perfil_id = u.fk_perfil_id
+ WHERE admin.fn_es_administrador(u.usuario_id)
+ ORDER BY u.usuario_id;
