@@ -303,7 +303,14 @@ INSERT INTO admin.tb_usuarios (
 SELECT 
     usuario_id,
     fk_persona_id,
-    fk_perfil_id,
+    -- Perfil: el de igual nombre en la base nueva (los ids o nombres repetidos pueden diferir del sistema anterior);
+    -- si no hay, el mismo id; si tampoco, SIN PERFIL (se informa al final para revisarlos).
+    COALESCE(
+        (SELECT np.perfil_id FROM admin.tb_perfiles np
+          WHERE upper(trim(np.perfil_nombre)) = upper(trim(t.perfil_nombre))
+          ORDER BY (np.perfil_id = t.fk_perfil_id) DESC, np.perfil_id LIMIT 1),
+        (SELECT np.perfil_id FROM admin.tb_perfiles np WHERE np.perfil_id = t.fk_perfil_id),
+        (SELECT np.perfil_id FROM admin.tb_perfiles np WHERE upper(trim(np.perfil_nombre)) = 'SIN PERFIL' ORDER BY np.perfil_id LIMIT 1)),
     usuario_login,
     usuario_pass,
     usuario_estado,
@@ -335,8 +342,9 @@ FROM dblink('legacy',
         usuario_webmail_user,
         usuario_webmail_pass,
         usuario_registro,
-        usuario_fingreso
-    FROM admin.tb_usuarios
+        usuario_fingreso,
+        (SELECT p.perfil_nombre FROM admin.tb_perfiles p WHERE p.perfil_id = u.fk_perfil_id) AS perfil_nombre
+    FROM admin.tb_usuarios u
     $$
 ) AS t (
     usuario_id integer,
@@ -354,9 +362,15 @@ FROM dblink('legacy',
     usuario_webmail_user text,
     usuario_webmail_pass text,
     usuario_registro timestamp,
-    usuario_fingreso timestamp
+    usuario_fingreso timestamp,
+    perfil_nombre text
 )
 ON CONFLICT DO NOTHING;
+
+-- Usuarios que quedaron SIN PERFIL por no encontrar su perfil (asignarles uno en Administración > Usuarios)
+RAISE NOTICE 'Usuarios importados sin perfil (revisar en Administración > Usuarios): %',
+    (SELECT count(*) FROM admin.tb_usuarios u JOIN admin.tb_perfiles p ON p.perfil_id = u.fk_perfil_id
+      WHERE upper(trim(p.perfil_nombre)) = 'SIN PERFIL');
 
 PERFORM setval(pg_get_serial_sequence('admin.tb_usuarios', 'usuario_id'), (SELECT MAX(usuario_id) FROM admin.tb_usuarios));
 
