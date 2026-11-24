@@ -115,7 +115,7 @@ final class PartesApiTest extends TestCase
             'header' => 'Authorization: Bearer ' . jwtEmitir(['sub' => $usuario, 'tipo' => 'usuario'], 600, self::SECRETO) . "\r\nContent-Type: application/json",
             'content' => $cuerpo === null ? '' : json_encode($cuerpo),
         ]]);
-        $texto = file_get_contents('http://127.0.0.1:' . self::$puerto . '/servicios/' . $ruta, false, $ctx);
+        $texto = file_get_contents('http://127.0.0.1:' . self::$puerto . (str_starts_with($ruta, 'reportes/') ? '/' : '/servicios/') . $ruta, false, $ctx);
         return [(int) explode(' ', $http_response_header[0])[1], json_decode($texto, true), $texto];
     }
 
@@ -286,6 +286,27 @@ final class PartesApiTest extends TestCase
         $this->assertSame($partes - 1, $e2['resumen']['partes']);
         [$st] = $this->api('PUT', 'operaciones/setParte.php', $edicion);
         $this->assertSame(422, $st);
+    }
+
+    public function testInformeEstadisticoImprimible(): void
+    {
+        $im = imagecreatetruecolor(400, 150);
+        ob_start();
+        imagepng($im);
+        $png = 'data:image/png;base64,' . base64_encode(ob_get_clean());
+        $filtro = ['desde' => '2025-03-01', 'hasta' => '2025-04-30', 'estacion' => 9801];
+        [$st, , $t] = $this->api('POST', 'reportes/operaciones/estadisticaPartes.php', $filtro + ['graficos' => ['mes' => $png, 'hora' => $png]]);
+        $this->assertSame(200, $st, substr($t, 0, 300));
+        $this->assertStringStartsWith('%PDF', $t);
+        [$st, $r] = $this->api('POST', 'reportes/operaciones/estadisticaPartes.php', $filtro + ['graficos' => ['mes' => 'data:image/png;base64,AAAA']]);
+        $this->assertSame(422, $st);
+        $this->assertStringContainsString('mes', $r['msg']);
+        [$st] = $this->api('POST', 'reportes/operaciones/estadisticaPartes.php', ['desde' => '2025-05-01', 'hasta' => '2025-04-01']);
+        $this->assertSame(422, $st, 'fechas invertidas');
+        [$st] = $this->api('POST', 'reportes/operaciones/estadisticaPartes.php', $filtro, 9802);
+        $this->assertSame(403, $st, 'sin acceso al tablero no imprime');
+        [$st] = $this->api('GET', 'reportes/operaciones/estadisticaPartes.php');
+        $this->assertSame(405, $st);
     }
 
     public function testPanelDeSubjefatura(): void

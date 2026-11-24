@@ -176,4 +176,40 @@ final class BitacoraApiTest extends TestCase
         [$st] = $this->api('getBitacoraFlota.php', 9102); // sin el privilegio
         $this->assertSame(403, $st);
     }
+
+    private function informe(string $archivo, array $cuerpo, int $usuario = 9101): array
+    {
+        $token = jwtEmitir(['sub' => $usuario, 'tipo' => 'usuario'], 600, self::SECRETO);
+        $ctx = stream_context_create(['http' => ['method' => 'POST', 'ignore_errors' => true, 'timeout' => 60,
+            'header' => "Authorization: Bearer $token\r\nContent-Type: application/json", 'content' => json_encode($cuerpo)]]);
+        $texto = file_get_contents('http://127.0.0.1:' . self::$puerto . '/reportes/administrativo/' . $archivo, false, $ctx);
+        return [(int) explode(' ', $http_response_header[0])[1], $texto];
+    }
+
+    public function testInformesImprimibles(): void
+    {
+        $im = imagecreatetruecolor(400, 150);
+        ob_start();
+        imagepng($im);
+        $png = 'data:image/png;base64,' . base64_encode(ob_get_clean());
+        $rango = ['desde' => '2026-01-01', 'hasta' => '2026-06-30'];
+        [$st, $t] = $this->informe('bitacoraFlota.php', $rango + ['graficos' => ['gasto' => $png]]);
+        $this->assertSame(200, $st, substr($t, 0, 300));
+        $this->assertStringStartsWith('%PDF', $t);
+        [$st, $t] = $this->informe('bitacoraVehiculo.php', $rango + ['id' => 9101, 'graficos' => ['rendimiento' => $png, 'gasto' => $png]]);
+        $this->assertSame(200, $st, substr($t, 0, 300));
+        $this->assertStringStartsWith('%PDF', $t);
+        [$st] = $this->informe('bitacoraVehiculo.php', $rango + ['id' => 999999]);
+        $this->assertSame(404, $st);
+        [$st] = $this->informe('bitacoraVehiculo.php', $rango);
+        $this->assertSame(422, $st, 'falta el vehículo');
+        [$st] = $this->informe('bitacoraFlota.php', ['desde' => '2026-06-01', 'hasta' => '2026-01-01']);
+        $this->assertSame(422, $st);
+        [$st] = $this->informe('bitacoraFlota.php', ['desde' => '2026-02-30']);
+        $this->assertSame(422, $st, 'fecha inexistente');
+        [$st] = $this->informe('bitacoraFlota.php', ['graficos' => ['gasto' => 'data:image/png;base64,AAAA']]);
+        $this->assertSame(422, $st);
+        [$st] = $this->informe('bitacoraFlota.php', $rango, 9102); // sin el privilegio del tablero
+        $this->assertSame(403, $st);
+    }
 }

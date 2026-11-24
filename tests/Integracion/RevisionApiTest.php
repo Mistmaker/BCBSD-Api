@@ -108,6 +108,28 @@ final class RevisionApiTest extends TestCase
         $this->assertSame(400, $st);
         [$st] = $this->api('GET', 'administrativo/getResumenGerencial.php', 9702); // sin ADM_DASHBOARD
         $this->assertSame(403, $st);
+        $this->assertLessThanOrEqual(8, count($r['alertas']['detalle']), 'el tablero lista hasta 8');
+    }
+
+    public function testInformeResumenGerencial(): void
+    {
+        $informe = function (array $cuerpo, int $sub = 9701): array {
+            $ctx = stream_context_create(['http' => ['method' => 'POST', 'ignore_errors' => true, 'timeout' => 60, 'content' => json_encode($cuerpo),
+                'header' => 'Authorization: Bearer ' . jwtEmitir(['sub' => $sub, 'tipo' => 'usuario'], 600, self::SECRETO) . "\r\nContent-Type: application/json"]]);
+            $texto = file_get_contents('http://127.0.0.1:' . self::$puerto . '/reportes/administrativo/resumenGerencial.php', false, $ctx);
+            return [(int) explode(' ', $http_response_header[0])[1], $texto];
+        };
+        $im = imagecreatetruecolor(400, 150);
+        ob_start();
+        imagepng($im);
+        $png = 'data:image/png;base64,' . base64_encode(ob_get_clean());
+        [$st, $t] = $informe(['mes' => '2026-11', 'graficos' => ['gasto' => $png]]);
+        $this->assertSame(200, $st, substr($t, 0, 300));
+        $this->assertStringStartsWith('%PDF', $t);
+        [$st] = $informe(['mes' => '2026-13']);
+        $this->assertSame(422, $st);
+        [$st] = $informe(['mes' => '2026-11'], 9702); // sin ADM_DASHBOARD
+        $this->assertSame(403, $st);
     }
 
     public function testEliminacionesLogicas(): void

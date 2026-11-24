@@ -113,8 +113,9 @@ function dinero($valor): string
 /**
  * Arma el HTML completo: cabecera (área, documento, código), escudo de fondo, pie institucional y cuerpo.
  * $lineasCabecera: líneas del bloque azul superior izquierdo (la última va en negrita).
+ * $marcaAgua: imagen de fondo de reportes/recursos/img-reports/ (escudo.jpg o escudo-tenue.jpg).
  */
-function reporteHtml(array $inst, array $lineasCabecera, string $cuerpo): string
+function reporteHtml(array $inst, array $lineasCabecera, string $cuerpo, string $marcaAgua = 'escudo.jpg'): string
 {
     $recursos = realpath(__DIR__ . '/../reportes/recursos');
     $estilos = file_get_contents($recursos . '/style.css');
@@ -140,7 +141,8 @@ function reporteHtml(array $inst, array $lineasCabecera, string $cuerpo): string
     $reemplazos = [
         '{{report_info_entity}}' => $cabecera,
         // marca de agua tenue (como en los formatos del sistema anterior)
-        '../reportes/recursos/escudo.png' => $recursos . '/img-reports/escudo.jpg',
+        // escudo-tenue.jpg: para informes con gráficos (deja leer mejor los datos)
+        '../reportes/recursos/escudo.png' => $recursos . '/img-reports/' . basename($marcaAgua),
         '../reportes/recursos/' => $recursos . '/',
         '{{sistema_direccion}}' => e($inst['sistema_direccion']),
         '{{sistema_telefono}}' => e($inst['sistema_telefono']),
