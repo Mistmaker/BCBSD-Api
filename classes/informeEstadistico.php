@@ -13,6 +13,8 @@ const INFORME_MAX_BYTES = 3 * 1024 * 1024;
 const INFORME_MAX_PX = 4000;
 const INFORME_ANCHO_MM = 170;
 const INFORME_ALTO_MAX_MM = 95;
+/** Secciones con más filas que esto no se mantienen en una sola página */
+const INFORME_FILAS_JUNTAS = 18;
 
 /**
  * Valida y guarda en archivos temporales los gráficos recibidos ({clave: 'data:image/png;base64,...'}).
@@ -108,17 +110,66 @@ function informeNumero($v, int $decimales = 0): string
     return $v === null ? '—' : number_format((float) $v, $decimales, ',', '.');
 }
 
+/** '2026-03' -> 'marzo 2026' */
+function informeMes(string $mes): string
+{
+    [$a, $m] = explode('-', $mes);
+    return ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][(int) $m - 1] . " $a";
+}
+
+/** Valor en dólares: '$ 1.234,56'; null -> '—' */
+function informeDinero($v, int $decimales = 2): string
+{
+    return $v === null ? '—' : '$ ' . informeNumero($v, $decimales);
+}
+
+/** 'ACEITES Y LUBRICANTES' -> 'Aceites y lubricantes' */
+function informeEtiqueta(string $s): string
+{
+    $t = mb_strtolower($s);
+    return mb_strtoupper(mb_substr($t, 0, 1)) . mb_substr($t, 1);
+}
+
+/**
+ * Rango de fechas del cuerpo del informe (desde/hasta, Y-m-d). Por defecto los últimos $mesesDefecto meses.
+ * Lanza ValidacionException si una fecha no es válida o el rango está invertido.
+ */
+function informeRango(object $p, int $mesesDefecto = 12): array
+{
+    $leer = function ($v, string $campo): ?string {
+        if ($v === null || $v === '') {
+            return null;
+        }
+        $d = DateTime::createFromFormat('!Y-m-d', (string) $v);
+        if (!$d || $d->format('Y-m-d') !== (string) $v) {
+            throw new ValidacionException("Fecha inválida en \"$campo\"");
+        }
+        return (string) $v;
+    };
+    $hasta = $leer(prop($p, 'hasta'), 'hasta') ?? date('Y-m-d');
+    $desde = $leer(prop($p, 'desde'), 'desde') ?? date('Y-m-d', strtotime("$hasta -$mesesDefecto months +1 day"));
+    if ($desde > $hasta) {
+        throw new ValidacionException('La fecha inicial es posterior a la final');
+    }
+    return [$desde, $hasta];
+}
+
 /**
  * Tabla con encabezados [[título, ancho %, alineación], ...] y filas de texto (se escapan).
  * Una celda puede ser ['b' => 'texto'] para negrita.
  */
-function informeTabla(array $columnas, array $filas, string $vacio = 'Sin datos en el período.'): string
+function informeTabla(array $columnas, array $filas, string $vacio = 'Sin datos en el período.', ?string $tituloSeccion = null): string
 {
-    $h = '<table class="t"><tr>';
+    // Encabezados en <thead>: se repiten si la tabla continúa en otra página (con el título de la sección, si se indica)
+    $h = '<table class="t"><thead>';
+    if ($tituloSeccion !== null) {
+        $h .= '<tr><th colspan="' . count($columnas) . '" class="seccion-th">' . e(mb_strtoupper($tituloSeccion)) . '</th></tr>';
+    }
+    $h .= '<tr>';
     foreach ($columnas as [$titulo, $ancho]) {
         $h .= '<th style="width:' . $ancho . '%;">' . e($titulo) . '</th>';
     }
-    $h .= '</tr>';
+    $h .= '</tr></thead>';
     if (!$filas) {
         return $h . '<tr><td colspan="' . count($columnas) . '" style="text-align:center;color:#555;">' . e($vacio) . '</td></tr></table>';
     }
@@ -164,8 +215,13 @@ function informeSeccion(int $n, string $titulo, ?array $grafico, string $conteni
         [$w, $h] = informeMedidas($grafico['ancho'], $grafico['alto'], $ancho);
         $img = '<div style="text-align:center;margin-bottom:2mm;"><img src="' . e($grafico['ruta']) . '" style="width:' . $w . 'mm;height:' . $h . 'mm;"></div>';
     }
-    return '<nobreak><div class="seccion">' . $n . '. ' . e(mb_strtoupper($titulo)) . '</div>' . $img . $contenido
-        . ($nota !== '' ? '<div class="nota">' . e($nota) . '</div>' : '') . '</nobreak>';
+    $cabecera = '<div class="seccion">' . $n . '. ' . e(mb_strtoupper($titulo)) . '</div>' . $img;
+    $nota = $nota !== '' ? '<div class="nota">' . e($nota) . '</div>' : '';
+    // Una tabla larga no cabe junto al gráfico: solo el título y el gráfico van juntos; la tabla continúa en la página siguiente
+    if (substr_count($contenido, '<tr>') > INFORME_FILAS_JUNTAS) {
+        return '<nobreak>' . $cabecera . '</nobreak>' . $contenido . $nota;
+    }
+    return '<nobreak>' . $cabecera . $contenido . $nota . '</nobreak>';
 }
 
 /**
@@ -190,6 +246,7 @@ function informeDocumento(array $inst, string $area, string $titulo, array $dato
         .seccion{background:#9dc3e6;font-size:9px;font-weight:bold;padding:3px 4px;margin-top:4mm;margin-bottom:2mm;}
         .t td,.t th{padding:2px 4px;font-size:7.5px;}
         .nota{font-size:7px;color:#444;margin-top:1mm;}
+        .seccion-th{background:#9dc3e6;font-size:9px;font-weight:bold;text-align:left;padding:3px 4px;}
     </style>
     <div style="text-align:center;font-size:14px;font-weight:bold;margin-bottom:3mm;">' . e(mb_strtoupper($titulo)) . '</div>
     <table class="t">' . $filas . '</table>' . $secciones

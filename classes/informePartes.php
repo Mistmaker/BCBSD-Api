@@ -86,10 +86,3 @@ function informePartesHtml(Database $db, array $f, array $graficos, array $autor
         . "Horas de operación: desde la primera salida hasta el último fin de operaciones de cada parte. Kilómetros: ingreso menos salida de cada vehículo.\n"
         . 'Se excluyen los partes anulados. Los datos corresponden a lo registrado en el sistema a la fecha y hora de generación.', $autor);
 }
-
-/** '2026-03' -> 'marzo 2026' */
-function informeMes(string $mes): string
-{
-    [$a, $m] = explode('-', $mes);
-    return ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][(int) $m - 1] . " $a";
-}

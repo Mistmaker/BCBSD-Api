@@ -3,6 +3,7 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../classes/informePartes.php';
+require_once __DIR__ . '/../classes/informeBitacora.php';
 
 final class InformeEstadisticoTest extends TestCase
 {
@@ -75,5 +76,35 @@ final class InformeEstadisticoTest extends TestCase
         $this->assertSame(['desde' => '2025-01-01', 'hasta' => '2025-02-01', 'estacion' => 3, 'tipo' => 'AUXILIO'], $f);
         $this->expectException(ValidacionException::class);
         informePartesFiltros((object) ['tipo' => 'OTRO']);
+    }
+
+    public function testRangoYFormatosDeBitacora(): void
+    {
+        $this->assertSame(['2026-01-01', '2026-06-30'], informeRango((object) ['desde' => '2026-01-01', 'hasta' => '2026-06-30']));
+        [$d, $h] = informeRango((object) ['hasta' => '2026-06-30']);
+        $this->assertSame(['2025-07-01', '2026-06-30'], [$d, $h], 'por defecto 12 meses');
+        $this->assertSame('$ 1.234,57', informeDinero(1234.567));
+        $this->assertSame('$ 0,044', informeDinero(0.0436, 3));
+        $this->assertSame('Aceites y lubricantes', informeEtiqueta('ACEITES Y LUBRICANTES'));
+        $v = ['vehiculo_sigla' => 'B-1', 'vehiculo_placa' => 'PEA-1', 'vehiculo_marca' => 'HINO', 'vehiculo_modelo' => 'GH8', 'vehiculo_anio' => 2015];
+        $this->assertSame('B-1 · PEA-1', informeVehiculoCorto($v));
+        $this->assertSame('HINO GH8 2015', informeVehiculoModelo($v));
+        $grave = ['nivel' => 'serious'];
+        $orden = informeOrdenFlota([
+            ['vehiculo_id' => 1, 'alertas' => [], 'costo_total_km' => 0.9],
+            ['vehiculo_id' => 2, 'alertas' => [$grave], 'costo_total_km' => 0.1],
+            ['vehiculo_id' => 3, 'alertas' => [], 'costo_total_km' => null],
+        ]);
+        $this->assertSame([2, 1, 3], array_column($orden, 'vehiculo_id'));
+        $this->expectException(ValidacionException::class);
+        informeRango((object) ['desde' => '2026-13-01']);
+    }
+
+    public function testTablaLargaSeParte(): void
+    {
+        $filas = array_fill(0, 30, ['x']);
+        $s = informeSeccion(1, 'Historial', ['ruta' => '/tmp/g.png', 'ancho' => 1600, 'alto' => 600], informeTabla([['A', 100]], $filas, '', 'Título'));
+        $this->assertStringContainsString('</nobreak><table', $s, 'solo título y gráfico juntos');
+        $this->assertStringContainsString('<thead><tr><th colspan="1" class="seccion-th">TÍTULO</th>', $s);
     }
 }
