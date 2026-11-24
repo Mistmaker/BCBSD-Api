@@ -4,6 +4,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../classes/informePartes.php';
 require_once __DIR__ . '/../classes/informeBitacora.php';
+require_once __DIR__ . '/../classes/informeResumenGerencial.php';
 
 final class InformeEstadisticoTest extends TestCase
 {
@@ -106,5 +107,16 @@ final class InformeEstadisticoTest extends TestCase
         $s = informeSeccion(1, 'Historial', ['ruta' => '/tmp/g.png', 'ancho' => 1600, 'alto' => 600], informeTabla([['A', 100]], $filas, '', 'Título'));
         $this->assertStringContainsString('</nobreak><table', $s, 'solo título y gráfico juntos');
         $this->assertStringContainsString('<thead><tr><th colspan="1" class="seccion-th">TÍTULO</th>', $s);
+    }
+
+    public function testResumenMesYVariacion(): void
+    {
+        $this->assertSame('2026-11', informeMesValido((object) ['mes' => '2026-11']));
+        $this->assertSame(date('Y-m'), informeMesValido((object) []));
+        $this->assertSame(20.0, informeVariacion(1200, 1000));
+        $this->assertNull(informeVariacion(1200, 0));
+        $this->assertSame('CAM-01 · P-2', informeVehiculoTexto(['vehiculo_sigla' => 'CAM-01', 'vehiculo_placa' => 'P-2']));
+        $this->expectException(ValidacionException::class);
+        informeMesValido((object) ['mes' => '2026-13']);
     }
 }
