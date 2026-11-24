@@ -39,7 +39,8 @@ UPDATE admin.tb_submodulos s SET submodulo_orden = v.orden, submodulo_menu = v.m
                ('Operaciones', 'Panel', 10, 'DIRECTO'), ('Operaciones', 'Partes de servicio', 20, 'GRUPO'),
                ('Operaciones', 'Distributivo', 30, 'GRUPO'),
                ('Subjefatura', 'Panel', 10, 'DIRECTO'), ('Subjefatura', 'Atención prehospitalaria', 20, 'GRUPO'),
-               ('Subjefatura', 'Voluntarios', 30, 'GRUPO')) AS v(modulo, nombre, orden, menu)
+               ('Subjefatura', 'Voluntarios', 30, 'GRUPO'),
+               ('Administración', 'Usuarios y perfiles', 10, 'GRUPO'), ('Administración', 'Parámetros', 20, 'GRUPO')) AS v(modulo, nombre, orden, menu)
   JOIN admin.tb_modulos m ON m.modulo_nombre = v.modulo
  WHERE s.fk_modulo_id = m.modulo_id AND s.submodulo_nombre = v.nombre AND s.submodulo_orden = 100;
 
@@ -104,7 +105,9 @@ BEGIN
         ('SBJ_UBV_EVENTOS', 'Subjefatura', 'Voluntarios', 30, 'Eventos', 'Eventos de voluntarios', '{Voluntarios}'),
         -- Administración del sistema
         ('SIS_USUARIOS', 'Administración', 'Usuarios y perfiles', 10, 'Usuarios', NULL, '{Usuarios y perfiles}'),
-        ('SIS_PERFILES', 'Administración', 'Usuarios y perfiles', 20, 'Perfiles', NULL, '{Usuarios y perfiles}');
+        ('SIS_PERFILES', 'Administración', 'Usuarios y perfiles', 20, 'Perfiles', NULL, '{Usuarios y perfiles}'),
+        ('SIS_PARAMETROS', 'Administración', 'Parámetros', 10, 'Parámetros', NULL, '{Parámetros}'),
+        ('SIS_PARAMETRO_EDITAR', 'Administración', 'Parámetros', 11, NULL, NULL, '{Parámetros}');
 
     UPDATE admin.tb_roles r SET fk_submodulo_id = destino.submodulo_id
       FROM tmp_menu t

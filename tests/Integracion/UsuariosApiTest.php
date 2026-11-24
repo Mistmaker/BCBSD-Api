@@ -237,6 +237,7 @@ final class UsuariosApiTest extends TestCase
         [$st, $r] = $this->api('POST', 'auth/setPrivilegios.php', ['usuario_id' => self::ADMIN, 'roles' => [$this->rol('SIS_USUARIOS')]]);
         $this->assertSame(422, $st);
         $this->assertStringContainsString('a sí mismo', $r['msg']);
-        $this->assertSame(5, (int) self::$pdo->query('SELECT count(*) FROM admin.tb_usuario_rol WHERE fk_usuario_id = 9401')->fetchColumn()); // sin cambios
+        $sis = (int) self::$pdo->query("SELECT count(*) FROM admin.tb_roles WHERE rol_codigo LIKE 'SIS\\_%'")->fetchColumn();
+        $this->assertSame($sis, (int) self::$pdo->query('SELECT count(*) FROM admin.tb_usuario_rol WHERE fk_usuario_id = 9401')->fetchColumn()); // sin cambios
     }
 }
